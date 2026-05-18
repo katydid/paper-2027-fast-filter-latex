@@ -1,124 +1,51 @@
-\documentclass[%
-% for A4 paper format use option "a4paper", for US-letter use option "letterpaper"
-a4paper,
-% for british hyphenation rules use option "UKenglish", for american hyphenation rules use option "USenglish"
-UKenglish,
-%for enabling cleveref support, use "cleveref"
-cleveref,
-%for enabling autoref support, use "autoref"
-autoref,
-%for anonymousing the authors (e.g. for double-blind review), add "anonymous"
-% UNDO uncomment: anonymous,
-% anonymous,
-%for enabling thm-restate support, use "thm-restate"
-thm-restate,
-%for section-numbered lemmas etc., use "numberwithinsect"
-%for enabling a two-column layout for the author/affilation part (only applicable for > 6 authors), use "authorcolumns"
-%for producing a PDF according the PDF/A standard, add "pdfa"
-]{lipics-v2021}
+%% TODO Recheck Author guidelines: https://dl.acm.org/journal/pacmpl/author-guidelines
 
-%uncomment to ensure pdflatex processing (mandatatory e.g. to submit to arXiv)
-\pdfoutput=1 
+\documentclass[acmsmall,%
+  screen,%
+  % review,%% TODO make sure review is turned on before submitting, it turns line numbers on
+  % anonymous,%% TODO make sure anonymous is set before submitting and that there are no mentions of our names.
+  nonacm%
+]{acmart}
 
-%uncomment to remove references to LIPIcs series (logo, DOI, ...), e.g. when preparing a pre-final version to be uploaded to arXiv or another public repository
-\hideLIPIcs  
+%% \BibTeX command to typeset BibTeX logo in the docs
+\AtBeginDocument{%
+  \providecommand\BibTeX{{%
+    Bib\TeX}}}
 
-% helpful if your graphic files are in another directory
-\graphicspath{{./graphics/}}
+%% TODO: Get copyright when completing the rights form
+%% Rights management information.  This information is sent to you
+%% when you complete the rights form.  These commands have SAMPLE
+%% values in them; it is your responsibility as an author to replace
+%% the commands and values with those provided to you when you
+%% complete the rights form.
+\setcopyright{acmlicensed}
+\copyrightyear{2018}
+\acmYear{2018}
+\acmDOI{XXXXXXX.XXXXXXX}
+
+%% TODO: Get Submission ID
+%% Submission ID.
+%% Use this when submitting an article to a sponsored event. You'll
+%% receive a unique submission ID from the organizers
+%% of the event, and this ID should be used as the parameter to this command.
+%%\acmSubmissionID{123-A56-BU3}
+
+%% TODO:
+%% Look at the sample-*-biblatex.tex files for templates showcasing
+%% the biblatex styles.
 
 % the mandatory bibstyle
-\bibliographystyle{plainurl}
+\bibliographystyle{ACM-Reference-Format}
+\citestyle{acmauthoryear}
 
-\title{Verified Derivatives for Fast Filtering and Schema Validation of Semi-Structured Data}
-
-% optional, please use if title is longer than one line
-\titlerunning{Verified Filtering of Semi-Structured Data} 
-
-\author{Walter {Schulze}}{Department of Information Science, Stellenbosch University, South Africa \and \url{http://awalterschulze.org}}{mail@awalterschulze.org}{https://orcid.org/0009-0002-4400-1606}
-{%(Optional) author-specific funding acknowledgements
-}%mandatory, please use full name; only 1 author per \author macro; first two parameters are mandatory, other parameters can be empty. Please provide at least the name of the affiliation and the country. The full address is optional. Use additional curly braces to indicate the correct name splitting when the last name consists of multiple name parts.
-
-\author{Brink {van der Merwe}}{Computer Science,
-  Stellenbosch University,
-  South Africa \and \url{http://www.cs.sun.ac.za/~abvdm}}{abvdm@sun.ac.za}{https://orcid.org/0000-0001-5010-9934}
-{%(Optional) author-specific funding acknowledgements
-}% mandatory, please use full name; only 1 author per \author macro; first two parameters are mandatory, other parameters can be empty. Please provide at least the name of the affiliation and the country. The full address is optional. Use additional curly braces to indicate the correct name splitting when the last name consists of multiple name parts.
-
-\author{Paul {Cadman}}{Independent Researcher, UK \and \url{https://paulcadman.dev}}{research@paulcadman.dev}{https://orcid.org/0009-0002-5034-3514}
-{%(Optional) author-specific funding acknowledgements
-}%mandatory, please use full name; only 1 author per \author macro; first two parameters are mandatory, other parameters can be empty. Please provide at least the name of the affiliation and the country. The full address is optional. Use additional curly braces to indicate the correct name splitting when the last name consists of multiple name parts.
-
-% mandatory, First: Use abbreviated first/middle names. Second (only in severe cases): Use first author plus 'et al.'
-\authorrunning{W. Schulze, B. van der Merwe and P. Cadman}
-
-% mandatory, please use full first names. LIPIcs license is "CC-BY";  http://creativecommons.org/licenses/by/3.0/
-\Copyright{Walter Schulze, Brink van der Merwe, and Paul Cadman} 
-
-%mandatory: Please choose ACM 2012 classifications from https://dl.acm.org/ccs/ccs_flat.cfm 
-%\ccsdesc[100]{\textcolor{red}{Replace ccsdesc macro with valid one}} 
-\ccsdesc[500]{Software and its engineering~Software verification}
-\ccsdesc[500]{Applied computing~Document searching}
-\ccsdesc[500]{Theory of computation~Regular languages}
-\ccsdesc[500]{Software and its engineering~Semantics}
-\ccsdesc[100]{Information systems~Extensible Markup Language (XML)}
-
-%mandatory; please add comma-separated list of keywords
-\keywords{regular hedge grammar, high-performance filtering, schema validation, formal verification, Brzozowski derivative, Lean, RelaxNG, JSONSchema, Protocol Buffers.} 
-
-%optional, e.g. invited paper
-% \category{}
-
-%optional, e.g. full version hosted on arXiv, HAL, or other respository/website
-%\relatedversiondetails[linktext={opt. text shown instead of the URL}, cite=DBLP:books/mk/GrayR93]{Classification (e.g. Full Version, Extended Version, Previous Version}{URL to related version} %linktext and cite are optional
-% \relatedversion{}
-
-%optional, e.g. related research data, source code, ... hosted on a repository like zenodo, figshare, GitHub, ...
-%\supplementdetails[linktext={opt. text shown instead of the URL}, cite=DBLP:books/mk/GrayR93, subcategory={Description, Subcategory}, swhid={Software Heritage Identifier}]{General Classification (e.g. Software, Dataset, Model, ...)}{URL to related version} %linktext, cite, and subcategory are optional
-\supplement{Lean proofs, Golang benchmarks and test suite:}
-% \supplementdetails[subcategory={Lean Proofs},swhid={TODO Software Heritage Identifier},cite=leansource]{Software}{http://katydid.org.za/paper-2026-verified-filter/lean}
-\supplementdetails[subcategory={Lean Proofs},cite=leansource]{Software}{https://doi.org/10.5281/zenodo.18503694}
-% \supplementdetails[subcategory={Golang Benchmarks},swhid={TODO Software Heritage Identifier},cite=gosource]{Software}{http://katydid.org.za/paper-2026-verified-filter/go}
-\supplementdetails[subcategory={Golang Benchmarks},cite=gosource]{Software}{https://doi.org/10.5281/zenodo.18503687}
-% \supplementdetails[subcategory={Test Suite},swhid={TODO Software Heritage Identifier},cite=testsuitesource]{Dataset}{http://katydid.org.za/paper-2026-verified-filter/testsuite}
-\supplementdetails[subcategory={Test Suite},cite=testsuitesource]{Dataset}{https://doi.org/10.5281/zenodo.18503658}
-
-% http://katydid.org.za/paper-2026-verified-filter
-
-%optional, to capture a funding statement, which applies to all authors. Please enter author specific funding statements as fifth argument of the \author macro.
-%\funding{(Optional) general funding statement \dots}
-
-% Optional
-%\acknowledgements{We want to thank the company that allowed us to build this validation language as an open source project. We also want to thank the meetups and study groups: Cape Town Functional Programmers, FP AMS (Amsterdam meetup) Category Theory study group and London Type Driven Development meetup (The Little Typer and Coq Art study group) for teaching us Category Theory and Dependent Types.}
-
-\acknowledgements{We thank our industry partner and badger team for the opportunity to develop this filtering algorithm as an open-source project.
-We also thank our teachers, supporters and inspirers, which include the lambda punks of the Cape Town Functional Programmers meetup, category theorists of the FP AMS (Amsterdam) meetup, reasoned schemers of ICFP 2017 and finally the little typers and Coq enthusiasts of the London Type-Driven Development meetup.}
-
-% comment to enable line numbering
-% UNDO comment to make reviewing easier
-\nolinenumbers
-
-%Editor-only macros:: begin (do not touch as author)%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\EventEditors{John Q. Open and Joan R. Access}
-\EventNoEds{2}
-\EventLongTitle{42nd Conference on Very Important Topics (CVIT 2016)}
-\EventShortTitle{CVIT 2016}
-\EventAcronym{CVIT}
-\EventYear{2016}
-\EventDate{December 24--27, 2016}
-\EventLocation{Little Whinging, United Kingdom}
-\EventLogo{}
-\SeriesVolume{42}
-\ArticleNo{23}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%%%% BEGIN: Author aditions to style %%%%%%
+%%%%% BEGIN: Author additions to style %%%%%%
 
 %% Begin Lean code style
 % Lean code: Correctly display unicode characters in lstlisting
 % We copied this from a previously acccepted ITP article: https://arxiv.org/abs/2309.07252
-\usepackage{quiver}
-\usepackage{newunicodechar}
-\usepackage{color}
+\usepackage{listings} % package listings is in the list of accepted packages https://authors.acm.org/proceedings/production-information/accepted-latex-packages
+% 
+\usepackage{color} % package color is in the allowed list of accepted packages https://authors.acm.org/proceedings/production-information/accepted-latex-packages
 \definecolor{keywordcolor}{rgb}{0.7, 0.1, 0.1}   % red
 \definecolor{tacticcolor}{rgb}{0.0, 0.1, 0.6}    % blue
 \definecolor{commentcolor}{rgb}{0.4, 0.4, 0.4}   % grey
@@ -138,15 +65,8 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
 
 %% Begin other additions
 
-% Used for drawing commuting diagram
-\usetikzlibrary{positioning}
-
-% Used for drawing the bar graph
-\usepackage{pgfplots}
-\pgfplotsset{compat=1.18}
-
 %% Reference code via a hyperref
-\usepackage{xspace}
+\usepackage{xspace} % package xspace is in the allowed list of accepted packages https://authors.acm.org/proceedings/production-information/accepted-latex-packages
 \newcommand{\link}[2]{\mbox{\hyperref[#2]{\lstinline{#1}}}\xspace}
 \newcommand{\refcode}[1]{\hyperref[#1]{\lstinline[breaklines=true,literate={\_}{}{0\discretionary{\_}{}{\_}}]{#1}}\xspace}
 
@@ -185,28 +105,53 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
 \newcommand{\Lean}{%
   Lean\xspace%
 }
-% backwards E
-\newcommand{\backwardsE}{\reflectbox{E}}
-% upside-down A
-\newcommand{\upsideDownA}{%
-  \rotatebox[origin=c]{180}{A}%
-}
-% approximate Lean logo
-% \newcommand{\Lean}{%
-%   L\backwardsE\upsideDownA N\xspace%
-% }
-% \newcommand{\Lean}{%
-%   L\kern-0.05em\backwardsE\kern-0.05em\upsideDownA\kern-0.05em N\xspace%
-% }
-% \newcommand{\Lean}{L\ensuremath{\exists\forall}N\xspace}
-
-%% End other additions
 
 %%%%% END: Author aditions to style %%%%%%
 
 \begin{document}
 
-\maketitle
+\title{Verified Derivatives for Fast Filtering and Schema Validation of Semi-Structured Data}
+
+\author{Walter {Schulze}}
+\email{mail@awalterschulze.org}
+\orcid{0009-0002-4400-1606}
+\affiliation{%
+  \institution{Stellenbosch University}
+  \city{Stellenbosch}
+  \country{South Africa}}
+
+\author{Brink {van der Merwe}}
+\email{abvdm@sun.ac.za}
+\orcid{0000-0001-5010-9934}
+\affiliation{%
+  \institution{Stellenbosch University}
+  \city{Stellenbosch}
+  \country{South Africa}}
+
+\author{Paul {Cadman}}
+\email{research@paulcadman.dev}
+\orcid{0009-0002-5034-3514}
+\affiliation{%
+  \institution{Independent Researcher}
+  \city{London}
+  \country{United Kingdom}}
+
+%% TODO Add Christiaan
+\author{Christiaan {Maasdorp}}
+%% TODO Add email for Christiaan \email{}
+%% TODO Add orcid for Christiaan \orcid{}
+\affiliation{%
+  \institution{Stellenbosch University}
+  \city{Stellenbosch}
+  \country{South Africa}}
+
+%%
+%% By default, the full list of authors will be used in the page
+%% headers. Often, this list is too long, and will overlap
+%% other information printed in the page headers. This command allows
+%% the author to define a more concise list
+%% of authors' names for this purpose.
+\renewcommand{\shortauthors}{Schulze et al.}
 
 \begin{abstract}
 We present a high-performance filtering and schema-validation algorithm based on Brzozowski’s derivatives extended to regular hedge grammars for semi-structured data.
@@ -216,6 +161,53 @@ We verify the correctness of our memoized algorithm and several simpler derivati
 This is the first proof of correctness in an interactive theorem prover of a derivative algorithm for regular hedge grammars or any schema language.
 We benchmark our algorithm in Golang, showing it can filter millions of records per second.
 \end{abstract}
+
+%%
+%% The code below is generated by the tool at http://dl.acm.org/ccs.cfm.
+\begin{CCSXML}
+<ccs2012>
+   <concept>
+       <concept_id>10011007.10011006.10011039.10011311</concept_id>
+       <concept_desc>Software and its engineering~Semantics</concept_desc>
+       <concept_significance>500</concept_significance>
+       </concept>
+   <concept>
+       <concept_id>10011007.10010940.10010992.10010998.10010999</concept_id>
+       <concept_desc>Software and its engineering~Software verification</concept_desc>
+       <concept_significance>500</concept_significance>
+       </concept>
+   <concept>
+       <concept_id>10003752.10003766.10003776</concept_id>
+       <concept_desc>Theory of computation~Regular languages</concept_desc>
+       <concept_significance>500</concept_significance>
+       </concept>
+   <concept>
+       <concept_id>10010405.10010497.10010498</concept_id>
+       <concept_desc>Applied computing~Document searching</concept_desc>
+       <concept_significance>500</concept_significance>
+       </concept>
+ </ccs2012>
+\end{CCSXML}
+
+\ccsdesc[500]{Software and its engineering~Semantics}
+\ccsdesc[500]{Software and its engineering~Software verification}
+\ccsdesc[500]{Theory of computation~Regular languages}
+\ccsdesc[500]{Applied computing~Document searching}
+%% End of generated code
+
+%%
+%% Keywords. The author(s) should pick words that accurately describe
+%% the work being presented. Separate the keywords with commas.
+\keywords{regular hedge grammar, high-performance filtering, schema validation, formal verification, Brzozowski derivative, Lean, RelaxNG, JSONSchema, Protocol Buffers.} 
+
+\received{1 July 2026}
+% \received[revised]{12 March 2009}
+% \received[accepted]{5 June 2009}
+
+%%
+%% This command processes the author and affiliation and title
+%% information and builds the first part of the formatted document.
+\maketitle
 
 \section{Introduction}
 
@@ -692,19 +684,11 @@ theorem null_commutes (G: Grammar n φ) (Φ: φ → α → Prop) [DecidableRel �
 This proof follows from induction on the regular expression \lstinline{r}.
 
 \begin{figure}[t]
-\begin {center}
-\begin {tikzpicture}[-latex, auto, node distance =2 cm and 5cm, on grid, semithick, state/.style={rectangle, draw, black, text=black, minimum width=1 cm}]
-\node[state] (R) {\verb+Rule+};
-\node[state] (DR) [below =of R] {derived \verb+Rule+};
-\node[state] (S) [right =of R] {\verb+Lang+};
-\node[state] (DS) [right =of DR] {derived \verb+Lang+ };
-\path (R) edge  node[left] { \lstinline{Grammar.derive} } (DR);
-\path (DR) edge  node[below =0.15 cm] { \lstinline{Rule.denote} } (DS);
-\path (R) edge  node[above =0.15 cm] { \lstinline{Rule.denote} } (S);
-\path (S) edge  node[right] { \lstinline{Lang.derive} } (DS);
-\end{tikzpicture}
+\begin{center}
+\includegraphics[]{graphics/diagram/diagram.pdf}
 \end{center}
 \caption{Commuting Square}
+\Description[Short Summary]{Long Detailed Description} %% TODO Add a better description
 \label{figure_square}
 \end{figure}
 
@@ -785,51 +769,14 @@ We ran the benchmarks using Golang version 1.24 on a 2024 MacBook Pro M4 with 48
 Note, we also ran benchmarks back in 2016 and achieved similar sub microsecond results for similar grammars on older hardware.
 The supplementary material includes more and larger benchmarks, recorded runs and explains how to reproduce the benchmarks.
 
-%% How to plot a graph: https://tex.stackexchange.com/questions/156964/guide-to-draw-charts-basic-pie-bar-from-data
-\pgfplotstableread[row sep=\\,col sep=&]{
-interations & Zero & Mem100 & Mem1000 & Mem10000 & Auto  \\
-complex JSON & 18547 & 1856  &  1100   &   1064    &  979  \\
-complex Proto & 16644 & 1091  &  508   &  342    &  261 \\
-simple Proto & 4391 & 449  & 239   & 221    & 154  \\
-}\mydata
 \begin{figure}[t]
-  \begin{center}
-  \begin{tikzpicture}
-    \begin{axis}[
-      ybar=5pt,
-      bar width=18pt,
-      width=.98\textwidth,
-      height=.6\textwidth,
-      legend style={
-        at={(0.5,1)},
-        anchor=north,
-        legend columns=-1
-      },
-      scaled ticks=false,
-      symbolic x coords={complex JSON, complex Proto, simple Proto},
-      xtick=data,
-      %% These lines add text above the bars:
-      nodes near coords,
-      % nodes near coords align={vertical},
-      %% This adds padding on the left and right, see https://tex.stackexchange.com/questions/206996/spacing-bars-in-ybar
-      enlarge x limits={abs=2.1cm},
-      ymin=0,
-      ymax=20500,
-      ylabel={nanoseconds/validation},
-    ]
-    \addplot[lipicsLightGray,fill] table[x=interations,y=Zero]{\mydata};
-    \addplot[lipicsBulletGray,fill] table[x=interations,y=Mem100]{\mydata};
-    \addplot[lipicsLineGray,fill] table[x=interations,y=Mem1000]{\mydata};
-    \addplot[lipicsGray,fill] table[x=interations,y=Mem10000]{\mydata};
-    \addplot[lipicsYellow,fill] table[x=interations,y=Auto]{\mydata};
-    \legend{0, 100, 1000, 10000, infinity}
-    \end{axis}
-  \end{tikzpicture}
-  \end{center}
-  \caption{Benchmarks}
-  \label{figure_benchmarks}
+\begin{center}
+\includegraphics[]{graphics/bargraph/bargraph.pdf}
+\caption{Benchmarks}
+\Description[Short Summary]{Long Detailed Description} %% TODO Add a better description
+\label{figure_benchmarks}
+\end{center}
 \end{figure}
-
 
 The results of the benchmarks are shown in \autoref{figure_benchmarks}.
 We ran each grammar for multiple iterations.

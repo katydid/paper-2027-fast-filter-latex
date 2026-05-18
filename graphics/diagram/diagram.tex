@@ -1,0 +1,19 @@
+\documentclass[border=2pt]{standalone}
+\usepackage{listings}
+\usepackage{quiver}
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+\begin{document}
+
+\begin {tikzpicture}[-latex, auto, node distance =2 cm and 5cm, on grid, semithick, state/.style={rectangle, draw, black, text=black, minimum width=1 cm}]
+\node[state] (R) {\verb+Rule+};
+\node[state] (DR) [below =of R] {derived \verb+Rule+};
+\node[state] (S) [right =of R] {\verb+Lang+};
+\node[state] (DS) [right =of DR] {derived \verb+Lang+ };
+\path (R) edge  node[left] { \lstinline{Grammar.derive} } (DR);
+\path (DR) edge  node[below =0.15 cm] { \lstinline{Rule.denote} } (DS);
+\path (R) edge  node[above =0.15 cm] { \lstinline{Rule.denote} } (S);
+\path (S) edge  node[right] { \lstinline{Lang.derive} } (DS);
+\end{tikzpicture}
+
+\end{document}
