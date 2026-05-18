@@ -249,6 +249,7 @@ We express this in Lean using a Monad \lstinline{m} for stateful caching:
 class Memoize [DecidableEq α] [Hashable α] {β: α -> Type} (f: (a: α) → β a)
   (m: Type -> Type u) where call: (a: α) -> m { b: β a // b = f a }
 \end{lstlisting}
+Other formalizations \cite{formalmem} additionally have an invariant that input and output values have to be stored, but the \lstinline{Memoize} class allows various caching strategies, including limited space strategies.
 Memoization of a function is \emph{resource-effective} when its lookup hit rate grows with the number of calls to that function. 
 This typically occurs when the variance of the input parameters is small, so repeated calls to the function reuse memoized results.
 The problem addressed by this paper is to find an algorithm for the derivative of a regular hedge grammar that is memoizable in a resource-effective way.
@@ -872,6 +873,24 @@ Applying \lstinline{startTagOpenDeriv} to \lstinline{<head>} yields
 \lstinline{after (optional (symbol ("<div>", 0))) (symbol ("<body>", 0))},
 which still retains the \lstinline{<body>} symbol. In contrast, Katydid propagates only \lstinline{optional (symbol ("<div>", 0))} to the children, leading to more resource-effective memoization.
 Overall, RelaxNG provides an elegant and efficient approach to XML validation, albeit theoretically slightly less efficient than the Katydid algorithm.
+
+Derivative-based validation is not the only automata-theoretic route to schema validation. 
+A classical alternative is to compile the schema to element automata or hedge/tree automata 
+and validate by running the compiled machine over the document. In the XML setting, 
+Murata et al.\ give depth-first validation algorithms for regular tree 
+grammars based on compiled automata, and show that these scans are linear in the 
+document size for fixed schemas while being implementable over either tree-based or event-based 
+APIs. More specifically, Hosoya and Murata 
+proposed a non-derivative automaton-rewriting approach in which attribute transitions are removed and rewritten in a binary tree automaton. Thus, an important point of comparison for Katydid (left as future work) is not only other derivative 
+approaches, but also compiled automata and automaton-rewriting validators over regular tree or 
+hedge languages~\cite{murata2005taxonomy,hosoya2003boolean,hosoya2010foundations,tata}.
+
+From a complexity perspective, this approach by Hosoya and Murata offers a linear-time membership for deterministic 
+compiled automata, polynomial-time uniform membership in the automaton-as-input setting, and 
+good compatibility with event-driven XML parsing. Its main trade-off against derivatives is that 
+it shifts work toward compilation, determinization, or automaton manipulation, whereas derivatives 
+keep the runtime representation closer to the source schema and can exploit laziness and memoization 
+on the actually visited part of the state space~\cite{murata2005taxonomy,tata}.
 
 Visibly Pushdown Automata (VPA)~\cite{alur2004visibly} were also considered, as they have been used successfully for complex XML processing~\cite{mozafari2012high} as well as for fast filtering~\cite{kumar2007visibly}.
 These automata include a stack and a call and return function, which we could apply to regular hedge grammars.
