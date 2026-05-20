@@ -274,7 +274,7 @@ However, this memoization strategy is not fully resource-effective, because the 
 We restructure the symbolic derivative function to make it more amenable to resource-effective memoization.
 The refactored function, \RegexKatydidDerive, is a composition of three functions, two of which are resource-effective to memoize.
 First, the \enter function extracts the relevant symbols from the regular expression.
-Next, we map the predicate over the symbols.
+Next, we map the predicate \lstinline{Φ} over the symbols.
 Finally, the \leave function re-integrates the results back into the regular expression and computes the derivative.
 
 The two functions (\enter and \leave) are resource-effective for memoization, since they do not depend on the input alphabet:
@@ -428,16 +428,16 @@ abbrev Ref (n: Nat) := Fin n
 def lookup (G: Grammar n φ) (ref: Ref n): Regex (φ × Ref n) :=
   Vector.get G.prods ref
 \end{lstlisting}
-The start and production rules are represented as a \Rule, which is the product of the predicate and the reference.
+The start and production rules are represented as a \Rule, which is the product of the predicate \lstinline{φ} and the reference.
 The indices of the \lstinline{Vector} of production rules are used for the non-terminals, which allows us to write a \lstinline{lookup} function that always returns a unique rule.
 Our definition does not allow multiple rules per non-terminal, but this can easily be accommodated using the \lstinline{Regex.or} operator.
 
 These grammars also have useful theoretical properties.
 They are closed under union, intersection and complement. 
 Their decidable properties include: satisfiability and checking whether one grammar is a subset of another, which is used for type checking~\cite{hosoya2003xduce}.
-Each recursion from a lookup only occurs after a predicate, which disallows arbitrary context-free grammars (CFGs) with undecidable properties and keeps the language regular~\cite{hosoya2003xduce}.
+Each recursion from a lookup only occurs after a predicate evaluation, which disallows arbitrary context-free grammars (CFGs) with undecidable properties and keeps the language regular~\cite{hosoya2003xduce}.
 
-The following is an example of a simple predicate type, \lstinline{Pred}, together with its corresponding decidable evaluation function \lstinline{Pred.evalb}:
+The following is an example of a simple inductive predicate type, \lstinline{Pred}, together with its corresponding decidable evaluation function \lstinline{Pred.evalb}:
 \begin{lstlisting}[label=Pred]
 inductive Pred (α: Type) where | any | eq (t: α)
 def Pred.evalb {α: Type} [DecidableEq α] (p: Pred α) (x: α): Bool := match p with
@@ -551,7 +551,7 @@ def Grammar.Katydid.derive (G: Grammar n φ) (Φ: φ → α → Bool)
     Regex.null (List.foldl (Grammar.Katydid.derive G Φ) childr children)
   Regex.Katydid.derive nodePred r -- enter r |> Vector.map nodePred |> leave r
 \end{lstlisting}
-In both cases, if the predicate matches the \lstinline{label}, we compute the derivative of the referenced regular expression and fold it over the children of the \Node.
+In both cases, if the predicate \lstinline{labelPred} matches the \lstinline{label}, we compute the derivative of the referenced regular expression and fold it over the children of the \Node.
 Notice that this folding is the same as the folding done when validating a string, see \RegexValidate.
 Since regular expressions and labels are both predicates, their conjunction provides a natural mechanism for recursive \Hedge validation.
 Also observe that \RegexKatydidDerive takes a partially applied predicate, where the \lstinline{α} has already been applied.
@@ -648,7 +648,7 @@ def Rule.denote (G: Grammar n φ) (Φ: φ → α → Prop)
 \end{lstlisting}
 We base this denotation on the denotation of regular expressions~\cite{elliott2021symbolic} and prove it equivalent to any alterations we made, in the supplementary material, except for the \lstinline{symbol} and \lstinline{interleave} operators, which we had to define ourselves.
 The \lstinline{emptyset} specifies a set that contains nothing, while the \lstinline{emptystr} is a singleton set containing the empty list.
-The \lstinline{symbol} construct contains only languages consisting of a single \Node, where the node’s label satisfies the predicate and its children belong to the language referenced.
+The \lstinline{symbol} construct contains only languages consisting of a single \Node, where the node’s label satisfies the predicate \lstinline{pred} and its children belong to the language referenced.
 The \lstinline{or} expression denotes the union of two languages, whereas the \lstinline{concat} expression contains a \Hedge only if it can be decomposed into a prefix and a suffix, such that the prefix belongs to the first language and the suffix to the second.
 The \lstinline{star} expression includes the empty list and any combination of a prefix from the underlying expression \lstinline{r1} followed by any number of its repetitions.
 The \lstinline{interleave} of two languages only match if the two languages match one of the possible interleaves of the \Hedge:
@@ -871,6 +871,8 @@ We hope that this forms the foundation for further proofs in this area including
 the finiteness of the memoization space required, which has been proven for regular expressions~\cite{symbolicfinite, brzozowski1964derivatives}, but requires extra work to include the \lstinline{interleave} operator;
 the further optimizations from the Golang implementation including the pull-based parser; and
 the conversion algorithms from JSONSchema~\cite{holstege2019application} and RelaxNG to regular hedge grammars to produce fully verified validators of schema languages.
+
+%% TODO: Mention SIMD in future work
 
 %%
 %% Bibliography
