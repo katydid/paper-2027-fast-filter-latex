@@ -7,6 +7,21 @@
   nonacm%
 ]{acmart}
 
+%% Warning: Command \showhyphens has changed.
+%% Once overleaf updates to TexLive 2026, it will be fixed
+%% https://github.com/borisveytsman/acmart/issues/577
+
+%% Warning: Class acmart Warning: \vspace should only be used to provide space above/below surrounding objects on input line 894.
+%% Seems vspace is being called by includegraphics
+%% https://github.com/borisveytsman/acmart/issues/552
+% \let\oldvspace\vspace
+% \renewcommand{\vspace}[1]{%
+%   \typeout{VSPACE CALLED: #1}%
+%   \tracingmacros=1
+%   \oldvspace{#1}%
+%   \tracingmacros=0
+% }
+
 %% \BibTeX command to typeset BibTeX logo in the docs
 \AtBeginDocument{%
   \providecommand\BibTeX{{%
@@ -872,7 +887,9 @@ the finiteness of the memoization space required, which has been proven for regu
 the further optimizations from the Golang implementation including the pull-based parser; and
 the conversion algorithms from JSONSchema~\cite{holstege2019application} and RelaxNG to regular hedge grammars to produce fully verified validators of schema languages.
 
-%% TODO: Mention SIMD in future work
+%% TODO: Mention SIMD in future work \cite{simdjson}
+
+%% TODO: Mention blaze benchmarks \cite{blaze}
 
 %%
 %% Bibliography
