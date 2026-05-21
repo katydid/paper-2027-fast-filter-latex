@@ -121,6 +121,38 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
   Lean\xspace%
 }
 
+%% BEGIN: Define JSON syntax highlighting
+\definecolor{delim}{RGB}{20,105,176}
+\definecolor{numb}{RGB}{106, 109, 32}
+\definecolor{string}{rgb}{0.64,0.08,0.08}
+\lstdefinelanguage{json}{
+    showspaces=false,
+    showtabs=false,
+    breaklines=true,
+    postbreak=\raisebox{0ex}[0ex][0ex]{\ensuremath{\color{gray}\hookrightarrow\space}},
+    breakatwhitespace=true,
+    basicstyle=\ttfamily\small,
+    upquote=true,
+    morestring=[b]",
+    stringstyle=\color{string},
+    literate=
+     *{0}{{{\color{numb}0}}}{1}
+      {1}{{{\color{numb}1}}}{1}
+      {2}{{{\color{numb}2}}}{1}
+      {3}{{{\color{numb}3}}}{1}
+      {4}{{{\color{numb}4}}}{1}
+      {5}{{{\color{numb}5}}}{1}
+      {6}{{{\color{numb}6}}}{1}
+      {7}{{{\color{numb}7}}}{1}
+      {8}{{{\color{numb}8}}}{1}
+      {9}{{{\color{numb}9}}}{1}
+      {\{}{{{\color{delim}{\{}}}}{1}
+      {\}}{{{\color{delim}{\}}}}}{1}
+      {[}{{{\color{delim}{[}}}}{1}
+      {]}{{{\color{delim}{]}}}}{1},
+}
+%% END: Define JSON syntax highlighting
+
 %%%%% END: Author aditions to style %%%%%%
 
 \begin{document}
@@ -231,25 +263,86 @@ The algorithm guarantees that every accepted record conforms to a given schema, 
 
 Our approach is based on Brzozowski derivatives~\cite{brzozowski1964derivatives}, a classical technique for recognizing regular languages.
 We adapt this derivative algorithm to operate on regular hedge grammars, which generalize regular expressions to \emph{hedges}, or informally to tree-shaped data. 
-These grammars form the foundation of schema languages like RelaxNG~\cite{hosoya2010foundations} and enable expressive constraints over ordered and unordered element sequences, nesting, repetition and recursion.
+These grammars form the foundation of schema languages like RelaxNG~\cite{hosoya2010foundations} and JSONSchema~\cite{jsonschemafoundations}.
+They enable expressive constraints over ordered and unordered element sequences, nesting, repetition and recursion.
 
-A \emph{hedge} is an ordered list of unranked trees~\cite{tata} used to model semi-structured data formats. In Lean, we define a \Hedge inductively as follows:
-\begin{lstlisting}[label=Hedge]
-inductive Hedge.Node (α: Type) where
-  | mk (label: α) (children: List (Hedge.Node α))
-abbrev Hedge α := List (Hedge.Node α)
+%% TODO: Move and rewrite this paragraph to rename the JSONSchema algorithm
+% Currently, there are two algorithms (excluding the one introduced in this paper) that process hedges using derivatives, one for RelaxNG~\cite{relaxng2001simple} and another applied to JSONSchema~\cite{holstege2019application}.
+% Both of these algorithms have shortcomings in what can be memoized which we resolve with our new Katydid algorithm\footnote{A Katydid is a leaf insect that camouflages (requires filtering) itself in trees (data structures)}. We formally verify that the implementation of the Katydid and JSONSchema algorithms are equivalent to the semantics of a regular hedge grammar.
+
+%% TODO: Move this paragraph
+% The motivation for this work arose in the context of a proprietary distributed database that stored denormalized Protocol Buffers, where schema-based filtering needed to be performed at scale.
+% To meet production-level performance requirements we implemented the algorithm in Golang~\cite{golang} with a strong emphasis on memoization and avoiding heap allocations.
+% The benchmarks of this implementation demonstrate its ability to filter data at high speeds, while we maintain formal correctness guarantees with a reimplementation of the key part of the algorithm in Lean.
+
+To demonstrate how Brzozowski's derivative algorithm can be applied to JSONSchema we take an example of a schema describing a blog post~\cite{jsonschemablogpostexample} and shrink it down:
+\begin{lstlisting}[language=json]
+{ "type":"object", "additionalProperties":false, "required": ["content", "author"],
+  "properties": {
+    "content": { "type":"string" },
+    "author": { "$ref":"#/definitions/user-profile" } },
+  "definitions": { "user-profile": {
+    "type": "object", "additionalProperties":false, "required": ["username"], 
+    "properties": {
+      "username": { "type":"string" },
+      "email": { "type":"string", "format":"email" } } } } }
+\end{lstlisting}
+It expects content and an author which is described with a username and an optional email, for example \lstinline[language=json]|{"content": "Dragons", "author": {"username": "Khaleesi"}}|
+
+The Brozowski derivative algorithm for regular expressions, expects a regular expression and a list of characters as input.
+We can transform the JSON object into a list of fields \lstinline[language=json]|[{"content": "Dragons"}, {"author": {"username": "Khaleesi"}}]| and then validate whether it matches the schema using Brozowski derivatives modified for schemas.
+We do this by taking the derivative of the schema given the first element, which results in the schema that is left to match, exactly as the derivative of a regular expression is the expression that is left to match after matching a single character.
+Then we continue apply the derivative on the result for each element and finally we check whether the resulting schema matches the empty object, exactly as we would check whether the final regular expression matches the empty string.
+The derivative of the schema, given the first element \lstinline[language=json]|{"content": "Dragons"}| is:
+\begin{lstlisting}[language=json]
+{ "type": "object", "additionalProperties": false, "required": ["author"], 
+  "properties": { "author": { "$ref":"#/definitions/user-profile" } } ... }
 \end{lstlisting}
 
-Currently, there are two algorithms (excluding the one introduced in this paper) that process hedges using derivatives, one for RelaxNG~\cite{relaxng2001simple} and another applied to JSONSchema~\cite{holstege2019application}.
-Both of these algorithms have shortcomings in what can be memoized which we resolve with our new Katydid algorithm\footnote{A Katydid is a leaf insect that camouflages (requires filtering) itself in trees (data structures)}. We formally verify that the implementation of the Katydid and JSONSchema algorithms are equivalent to the semantics of a regular hedge grammar.
-
-The motivation for this work arose in the context of a proprietary distributed database that stored denormalized Protocol Buffers, where schema-based filtering needed to be performed at scale.
-To meet production-level performance requirements we implemented the algorithm in Golang~\cite{golang} with a strong emphasis on memoization and avoiding heap allocations.
-The benchmarks of this implementation demonstrate its ability to filter data at high speeds, while we maintain formal correctness guarantees with a reimplementation of the key part of the algorithm in Lean.
+We wish to use memoization to improve the performance, as is done for regular expressions.
+In the case of regular expressions, the input alphabet of characters is small and has low variance, which results in lots of hits in the memoization table.
+Unfortunately the input alphabet of JSON values is large, which is demonstrated in the example above, each blog post will have different content, which result in zero hits in the memoization table.
+We refactor the derivative function into a composition of three steps.
+In the case of JSONSchema, the first step (the \enter function) extracts a list of properties that we need to match.
+The second step checks whether the input field name matches the properties and recurses down, until a list of booleans is returned that indicates whether the properties matched.
+Finally, the \leave function re-integrates the results back into the schema and computes the derivative.
+The \enter and \leave functions are memoized, since they only depend on the schema and a list of booleans and do not depend on the input alphabet.
+Given the resulting schema where we still need to match the author and the input \lstinline[language=json]|[{"author": {"username": "Khaleesi"}}]| we can complete the validation using this new algorithm.
+We can start by applying \enter to get the following properties to match \lstinline[language=json]|[{"author": { "$ref": "#/definitions/user-profile" }}]|.
+In second step we check which properties matches the \lstinline[language=json]|"author"| field name and lookup any references, which results in the following list:
+\begin{lstlisting}[language=json]
+[{ "type": "object", "additionalProperties": false, "required": ["username"],
+   "properties": { "username": {"type":"string"},
+                   "email": {"type":"string", "format":"email"}}}]
+\end{lstlisting}
+We recurse down and apply the \enter function again:
+\begin{lstlisting}[language=json]
+[{"username": {"type": "string"}}, {"email": {"type":"string", "format":"email"}}]
+\end{lstlisting}
+We apply second step using with the \lstinline[language=json]|"username"| field name and get the following schemas to evaluate on the children:
+\begin{lstlisting}[language=json]
+[{"type": "string"}, {"not": {}}]
+\end{lstlisting}
+We matched the \lstinline[language=json]|"username"| field, but not the \lstinline[language=json]|"email"| field, so we pass down the second element as the schema that matches nothing \lstinline[language=json]|{"not": {}}|.
+We are at the bottom, so we evaluate the string \lstinline[language=json]|"Khaleesi"| against the schemas, which results in \lstinline[language=json]|[true, false]|.
+Now we can apply the final step, the \leave function, as we recurse back up: reintegrate the results and take the derivative, which results in:
+\begin{lstlisting}[language=json]
+[{ "type": "object", "additionalProperties": false, "required": [],
+   "properties": { "email": {"type":"string", "format":"email"}}}]
+\end{lstlisting}
+Now have no more input, but we are not at the top of the stack, so we check the nullability of each schema in the list, which results in \lstinline[language=json]|[true]|, since the schema has no more required fields, the email was optional.
+Again we can apply the \leave function given the parent schema and the nullability results:
+\begin{lstlisting}[language=json]
+{ "type": "object", "additionalProperties": false, "required": [], 
+  "properties": {}, "definitions": { ... } }
+\end{lstlisting}
+We check whether the final schema matches the empty object, which it does, which means our schema has validated the input.
+There are technical details we brushed over for the purpose of creating an intuition of the algorithm, that we will clear up in future sections.
 
 \subsection{Problem Statement}
 
-We wish to use memoization to improve the performance of derivative-based filtering over regular hedge grammars. To characterize when memoization helps in this setting, we make the following definitions:
+We wish to use memoization to improve the performance of derivative-based filtering over regular hedge grammars.
+To characterize when memoization helps in this setting, we make the following definitions:
 A function is \emph{memoizable} if its input parameters can be hashed and have decidable equality. 
 We express this in Lean using a Monad \lstinline{m} for stateful caching:
 \begin{lstlisting}[label=Memoize]
@@ -275,7 +368,7 @@ We achieve this by using a symbolic derivative~\cite{stanford2021symbolic} over 
 def Regex.derive (Φ: σ → α → Bool) (r: Regex σ) (a: α): Regex σ
 theorem gen_derive: Regex.Char.derive r a = Regex.derive (fun s a => s == a) r a
 \end{lstlisting}
-In \RegexCharDerive, the symbol \lstinline{σ} is of the same type as the alphabet \lstinline{α}, but in the general case, the symbol can represent an inductive predicate type of various predicates, where \lstinline{Φ} is the evaluation function.
+In \RegexCharDerive, the symbol \lstinline{σ} is of the same type as the alphabet \lstinline{α}, but in the general case, the symbol can represent an inductive predicate type of various predicates (for example checking that a string is of format email), where \lstinline{Φ} is the evaluation function.
 
 The uncurried symbolic \RegexDerive function is memoizable for a given \lstinline{Φ} and the memoization is resource-effective if the variance on the input parameters is small.
 When using \RegexDerive for regular hedge grammars the input alphabet is of type \Node. 
@@ -304,7 +397,7 @@ We name the functions \enter and \leave to reflect that they correspond to enter
 The predicate must be defined to handle the recursive nature of the regular hedge grammar and \Node in a way that utilizes these memoized functions.
 
 We define \GrammarKatydidDerive, the derivative function for regular hedge grammars, using \RegexKatydidDerive with a predicate, \lstinline{nodePred}, as a recursive closure to handle the recursive structure of the \Node and \Grammar:
-\begin{lstlisting}[label=def Grammar.Katydid.derive]
+\begin{lstlisting}
 def Grammar.Katydid.derive (G: Grammar n φ) (Φ: φ → α → Bool)
   (r: Regex (φ × Ref n)) (node: Node α): Regex (φ × Ref n) :=
   let nodePred := fun ((labelPred, ref): (φ × Ref n)) =>
@@ -415,6 +508,14 @@ With the foundations of regular expressions in place, we now return to regular h
 
 \emph{Regular hedge grammars} constitute the theoretical framework most applicable to XML~\cite{hosoya2010foundations} and other serialization formats.
 Any XML, JSON or Protocol Buffers data can be viewed as a \Hedge and schema languages, such as RelaxNG, DTD~\cite{dtd}, XMLSchema~\cite{xmlschema} and JSONSchema~\cite{jsonschemafoundations} can all be translated to \emph{regular hedge grammars}~\cite{murata2005taxonomy} barring the JSONSchema \lstinline{uniqueItems} operator, which is not regular~\cite{holstege2019application}.
+
+%% Moved here from previous version of the Introduction
+A \emph{hedge} is an ordered list of unranked trees~\cite{tata} used to model semi-structured data formats. In Lean, we define a \Hedge inductively as follows:
+\begin{lstlisting}[label=Hedge]
+inductive Hedge.Node (α: Type) where
+  | mk (label: α) (children: List (Hedge.Node α))
+abbrev Hedge α := List (Hedge.Node α)
+\end{lstlisting}
 
 We borrow our definition of \emph{regular hedge grammars} from \cite{murata2005taxonomy}, which in turn extends the definition of regular tree grammars from \cite{tata}.
 \begin{definition}
@@ -557,7 +658,7 @@ def Grammar.JSONSchema.derive (G: Grammar n φ) (Φ: φ → α → Bool)
 \end{lstlisting}
 This approach mirrors a derivative algorithm previously applied to JSONSchema~\cite{holstege2019application}, which we refer to as the JSONSchema algorithm for simplicity.
 Unfortunately, this approach is not resource-effective to memoize, which motivates the introduction of the Katydid algorithm; again, it requires special handling of the \lstinline{symbol} case, but does so within the \lstinline{nodePred} predicate:
-\begin{lstlisting}
+\begin{lstlisting}[label=def Grammar.Katydid.derive]
 def Grammar.Katydid.derive (G: Grammar n φ) (Φ: φ → α → Bool)
   (r: Regex (φ × Ref n)) (node: Node α): Regex (φ × Ref n) :=
   let nodePred := fun ((labelPred, ref): (φ × Ref n)) =>
