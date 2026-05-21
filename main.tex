@@ -256,9 +256,9 @@ We express this in Lean using a Monad \lstinline{m} for stateful caching:
 class Memoize [DecidableEq α] [Hashable α] {β: α -> Type} (f: (a: α) → β a)
   (m: Type -> Type u) where call: (a: α) -> m { b: β a // b = f a }
 \end{lstlisting}
-Other formalizations \cite{formalmem} additionally have an invariant that input and output values have to be stored, but the \lstinline{Memoize} class allows various caching strategies, including limited space strategies.
+Other formalizations~\cite{formalmem} additionally have an invariant that input and output values have to be stored, but the \lstinline{Memoize} class allows various caching strategies, including limited space strategies.
 Memoization of a function is \emph{resource-effective} when its lookup hit rate grows with the number of calls to that function. 
-This typically occurs when the variance of the input parameters is small, so repeated calls to the function reuse memoized results.
+This occurs when the variance of the input parameters is small, so repeated calls to the function reuse memoized results.
 The problem addressed by this paper is to find an algorithm for the derivative of a regular hedge grammar that is memoizable in a resource-effective way.
 
 Let us first review memoization for the ordinary regular expression derivative~\cite{brzozowski1964derivatives}:
@@ -278,7 +278,7 @@ theorem gen_derive: Regex.Char.derive r a = Regex.derive (fun s a => s == a) r a
 In \RegexCharDerive, the symbol \lstinline{σ} is of the same type as the alphabet \lstinline{α}, but in the general case, the symbol can represent an inductive predicate type of various predicates, where \lstinline{Φ} is the evaluation function.
 
 The uncurried symbolic \RegexDerive function is memoizable for a given \lstinline{Φ} and the memoization is resource-effective if the variance on the input parameters is small.
-When using \RegexDerive for regular hedge grammars the input alphabet is \Node. 
+When using \RegexDerive for regular hedge grammars the input alphabet is of type \Node. 
 In this case, the memoization of \RegexDerive is not resource-effective, because elements of \Node are trees that can have unbounded depth.
 
 Of the current algorithms, JSONSchema explicitly notes that it does not have resource-effective memoization~\cite{holstege2019application}, while the RelaxNG~\cite{relaxng2001simple} algorithm decomposes the derivative function into smaller components that can be memoized, exploiting the limited variation in XML element nodes.
@@ -383,7 +383,7 @@ def Regex.null: (r: Regex σ) → Bool
   | or r1 r2 => (null r1 || null r2) | concat r1 r2 => (null r1 && null r2)
   | star _ => true | interleave r1 r2 => (null r1 && null r2)
 \end{lstlisting}
-We define \RegexPointDerive, a slight variation of the original \RegexDerive function that is easier to memoize, since it does not depend on a list element, and which we will use as a building block of the \leave function later:
+We define \RegexPointDerive, a variation of the original \RegexDerive function that is easier to memoize, since it does not depend on a list element, and which we will use as a building block of the \leave function later:
 \begin{lstlisting}[label=def Regex.Point.derive]
 def Regex.Point.derive: (r: Regex (σ × Bool)) → Regex σ
   | emptyset => emptyset | emptystr => emptyset
@@ -566,7 +566,7 @@ def Grammar.Katydid.derive (G: Grammar n φ) (Φ: φ → α → Bool)
     Regex.null (List.foldl (Grammar.Katydid.derive G Φ) childr children)
   Regex.Katydid.derive nodePred r -- enter r |> Vector.map nodePred |> leave r
 \end{lstlisting}
-In both cases, if the predicate \lstinline{labelPred} matches the \lstinline{label}, we compute the derivative of the referenced regular expression and fold it over the children of the \Node.
+In both cases, if \lstinline{labelPred} matches the \lstinline{label}, we compute the derivative of the referenced regular expression and fold it over the children of the \Node.
 Notice that this folding is the same as the folding done when validating a string, see \RegexValidate.
 Since regular expressions and labels are both predicates, their conjunction provides a natural mechanism for recursive \Hedge validation.
 Also observe that \RegexKatydidDerive takes a partially applied predicate, where the \lstinline{α} has already been applied.
@@ -624,7 +624,7 @@ To understand this theorem, we first explain how denotation defines the semantic
 \subsection{Semantics}
 
 The denotation of a \Regex or \Grammar defines its meaning or semantics via the Language, \Lang.
-A \Regex semantics is defined as the set of strings it matches, while a \Grammar is defined as the set of hedges it matches, both of which can be represented as \Lang with a different generic parameter:
+The semantics of a \Regex is defined as the set of strings it matches, while a \Grammar is defined as the set of hedges it matches, both of which can be represented as \Lang with a different generic parameter:
 \begin{lstlisting}[label=def Lang]
 def Lang (α: Type): Type := List α → Prop
 \end{lstlisting}
@@ -663,7 +663,7 @@ def Rule.denote (G: Grammar n φ) (Φ: φ → α → Prop)
 \end{lstlisting}
 We base this denotation on the denotation of regular expressions~\cite{elliott2021symbolic} and prove it equivalent to any alterations we made, in the supplementary material, except for the \lstinline{symbol} and \lstinline{interleave} operators, which we had to define ourselves.
 The \lstinline{emptyset} specifies a set that contains nothing, while the \lstinline{emptystr} is a singleton set containing the empty list.
-The \lstinline{symbol} construct contains only languages consisting of a single \Node, where the node’s label satisfies the predicate \lstinline{pred} and its children belong to the language referenced.
+The \lstinline{symbol} construct describes only languages consisting of a single \Node, where the node’s label satisfies the predicate \lstinline{pred} and its children belong to the referenced language.
 The \lstinline{or} expression denotes the union of two languages, whereas the \lstinline{concat} expression contains a \Hedge only if it can be decomposed into a prefix and a suffix, such that the prefix belongs to the first language and the suffix to the second.
 The \lstinline{star} expression includes the empty list and any combination of a prefix from the underlying expression \lstinline{r1} followed by any number of its repetitions.
 The \lstinline{interleave} of two languages only match if the two languages match one of the possible interleaves of the \Hedge:
