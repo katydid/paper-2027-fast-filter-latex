@@ -101,7 +101,7 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
 \newcommand{\extract}{\link{extract}{def extract}}
 \newcommand{\replace}{\link{replace}{def replace}}
 \newcommand{\RegexDerive}{\link{Regex.derive}{def Regex.derive}}
-\newcommand{\JSONSchemaRuleDerive}{\link{Grammar.JSONSchema.derive}{def Grammar.JSONSchema.derive}}
+\newcommand{\JSONmembersRuleDerive}{\link{Grammar.JSONmembers.derive}{def Grammar.JSONmembers.derive}}
 \newcommand{\RegexPointDerive}{\link{Regex.Point.derive}{def Regex.Point.derive}}
 \newcommand{\decideRel}{\link{decideRel}{def decideRel}}
 \newcommand{\RuleDenote}{\link{Rule.denote}{def Rule.denote}}
@@ -558,7 +558,7 @@ The uncurried symbolic \RegexDerive function is memoizable for a given \lstinlin
 When using \RegexDerive for regular hedge grammars the input alphabet is of type \Node. 
 In this case, the memoization of \RegexDerive is not resource-effective, because elements of \Node are trees that can have unbounded depth.
 
-Of the current algorithms, JSONSchema explicitly notes that it does not have resource-effective memoization~\cite{holstege2019application}, while the RelaxNG~\cite{relaxng2001simple} algorithm decomposes the derivative function into smaller components that can be memoized, exploiting the limited variation in XML element nodes.
+Of the current algorithms, JSONmembers explicitly notes that it does not have resource-effective memoization~\cite{holstege2019application}, while the RelaxNG~\cite{relaxng2001simple} algorithm decomposes the derivative function into smaller components that can be memoized, exploiting the limited variation in XML element nodes.
 However, this memoization strategy is not fully resource-effective, because the text nodes have a large and highly variable string alphabet.
 To address the challenge of this high variability, they only memoize element nodes and not text nodes.
 
@@ -667,8 +667,8 @@ With the \RegexKatydidDerive algorithm defined, let us move on to its role in re
 
 The derivative of a regular hedge grammar can be defined analogously to that of a regular expression, with special handling required for the \lstinline{symbol} case:
 
-\begin{lstlisting}[label=def Grammar.JSONSchema.derive]
-def Grammar.JSONSchema.derive (G: Grammar n φ) (Φ: φ → α → Bool)
+\begin{lstlisting}[label=def Grammar.JSONmembers.derive]
+def Grammar.JSONmembers.derive (G: Grammar n φ) (Φ: φ → α → Bool)
   (r: Regex (φ × Ref n)) (node: Node α): Regex (φ × Ref n) := match r with
   | Regex.symbol (pred, ref) => let ⟨label, children⟩ := node
     Regex.onlyif (Φ pred label
@@ -677,7 +677,7 @@ def Grammar.JSONSchema.derive (G: Grammar n φ) (Φ: φ → α → Bool)
   ...
   termination_by (node, r)
 \end{lstlisting}
-This approach mirrors a derivative algorithm previously applied to JSONSchema~\cite{holstege2019application}, which we refer to as the JSONSchema algorithm for simplicity.
+This approach mirrors a derivative algorithm previously applied to JSONSchema~\cite{holstege2019application}, which we refer to as the JSONmembers algorithm for simplicity.
 Unfortunately, this approach is not resource-effective to memoize, which motivates the introduction of the Katydid algorithm; again, it requires special handling of the \lstinline{symbol} case, but does so within the \lstinline{nodePred} predicate:
 \begin{lstlisting}[label=def Grammar.Katydid.derive]
 def Grammar.Katydid.derive (G: Grammar n φ) (Φ: φ → α → Bool)
@@ -842,10 +842,10 @@ Note that we use \decideRel to convert a decidable relation that returns a prope
 def decideRel (p : α → β → Prop) [DecidableRel p]: α → β → Bool :=
   fun a b => decide (p a b)
 \end{lstlisting}
-We prove that the derivative and denotation squares commute for both the JSONSchema and Katydid algorithms, which implies that validation and filtering proofs follow for each algorithm, including the memoized Katydid algorithm, \refcode{theorem memoize_mem_filter}.
+We prove that the derivative and denotation squares commute for both the JSONmembers and Katydid algorithms, which implies that validation and filtering proofs follow for each algorithm, including the memoized Katydid algorithm, \refcode{theorem memoize_mem_filter}.
 
-We first verify \TheoremDeriveCommutes for \JSONSchemaRuleDerive.
-The proof begins with functional induction on \JSONSchemaRuleDerive, producing an inductive hypothesis applicable to the symbol case. All cases are trivial except for the symbol case, where we additionally perform induction on the children and apply the functional inductive hypothesis.
+We first verify \TheoremDeriveCommutes for \JSONmembersRuleDerive.
+The proof begins with functional induction on \JSONmembersRuleDerive, producing an inductive hypothesis applicable to the symbol case. All cases are trivial except for the symbol case, where we additionally perform induction on the children and apply the functional inductive hypothesis.
 
 Next, we prove \TheoremDeriveCommutes for \GrammarKatydidDerive.
 For each operator except \lstinline{symbol}, we complete the proof by induction on the regular expression, undoing the partial application of the \Node, permuting the parameters, and applying \refcode{theorem Regex.Katydid.derive_is_Regex_derive}, which establishes the equivalence of \RegexKatydidDerive and \RegexDerive:
@@ -856,8 +856,8 @@ theorem Regex.Katydid.derive_is_Regex_derive (Φ: σ → α → Bool) (r: Regex 
 This is proven by \refcode{theorem extract_replace_is_map} and \refcode{theorem regex_derive_is_point_derive}.
 
 The symbol case needs extra work.
-As in the proof of \TheoremDeriveCommutes for \JSONSchemaRuleDerive, we also need to do two inductions, one for the \Grammar and one for the \Hedge.
-Unlike the JSONSchema algorithm's proof, we cannot apply functional induction to a recursive closure, and therefore lack an inductive hypothesis in the \lstinline{symbol} case.
+As in the proof of \TheoremDeriveCommutes for \JSONmembersRuleDerive, we also need to do two inductions, one for the \Grammar and one for the \Hedge.
+Unlike the JSONmembers algorithm's proof, we cannot apply functional induction to a recursive closure, and therefore lack an inductive hypothesis in the \lstinline{symbol} case.
 The proof proceeds by applying induction on the children, followed by applying well-founded induction using recursive calls to \TheoremDeriveCommutes.
 
 \subsection{Reflections on the Proof}
@@ -972,7 +972,7 @@ These automata include a stack and a call and return function, which we could ap
 We can construct a VPA lazily by memoizing derivatives.
 This memoization would also be slightly less resource-effective, because of the large input alphabet and variance in the label of the text nodes, same as RelaxNG, but state space would be finite.
 
-Derivatives have been applied to JSONSchema~\cite{holstege2019application} validation using an algorithm similar to \JSONSchemaRuleDerive.
+Derivatives have been applied to JSONSchema~\cite{holstege2019application} validation using an algorithm similar to \JSONmembersRuleDerive.
 They convert JSONSchema to a grammar similar to a regular hedge grammar extended with additional operators, including \lstinline{interleave}, \lstinline{xor} and \lstinline{ifthenelse}.
 The \lstinline{uniqueItems} operator of JSONSchema is not supported, since it is not regular.
 They test different caching approaches, but with the large \Node alphabet, they identify the approach as unpromising.
