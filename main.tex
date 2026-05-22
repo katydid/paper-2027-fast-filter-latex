@@ -262,18 +262,9 @@ We present a verified filtering algorithm for semi-structured data formats such 
 The algorithm guarantees that every accepted record conforms to a given schema, and this property is formally verified in  Lean~\cite{lean4}.
 
 Our approach is based on Brzozowski derivatives~\cite{brzozowski1964derivatives}, a classical technique for recognizing regular languages.
-We adapt this derivative algorithm to operate on regular hedge grammars, which generalize regular expressions to \emph{hedges}, or informally to tree-shaped data. 
-These grammars form the foundation of schema languages like RelaxNG~\cite{hosoya2010foundations} and JSONSchema~\cite{jsonschemafoundations}.
+We adapt this derivative algorithm to operate on regular hedge grammars, which generalize regular expressions to \emph{hedges}, or informally, to tree-shaped data. 
+These grammars form the foundation of schema languages such as RelaxNG~\cite{hosoya2010foundations} and JSONSchema~\cite{jsonschemafoundations}.
 They enable expressive constraints over ordered and unordered element sequences, nesting, repetition and recursion.
-
-%% TODO: Move and rewrite this paragraph to rename the JSONSchema algorithm
-% Currently, there are two algorithms (excluding the one introduced in this paper) that process hedges using derivatives, one for RelaxNG~\cite{relaxng2001simple} and another applied to JSONSchema~\cite{holstege2019application}.
-% Both of these algorithms have shortcomings in what can be memoized which we resolve with our new Katydid algorithm\footnote{A Katydid is a leaf insect that camouflages (requires filtering) itself in trees (data structures)}. We formally verify that the implementation of the Katydid and JSONSchema algorithms are equivalent to the semantics of a regular hedge grammar.
-
-%% TODO: Move this paragraph
-% The motivation for this work arose in the context of a proprietary distributed database that stored denormalized Protocol Buffers, where schema-based filtering needed to be performed at scale.
-% To meet production-level performance requirements we implemented the algorithm in Golang~\cite{golang} with a strong emphasis on memoization and avoiding heap allocations.
-% The benchmarks of this implementation demonstrate its ability to filter data at high speeds, while we maintain formal correctness guarantees with a reimplementation of the key part of the algorithm in Lean.
 
 To demonstrate how Brzozowski's derivative algorithm can be applied to JSONSchema we take an example of a schema describing a blog post~\cite{jsonschemablogpostexample} and shrink it down:
 \begin{lstlisting}[language=json]
@@ -290,7 +281,7 @@ To demonstrate how Brzozowski's derivative algorithm can be applied to JSONSchem
 It expects content and an author which is described with a username and an optional email, for example \lstinline[language=json]|{"content": "Dragons", "author": {"username": "Khaleesi"}}|
 
 The Brozowski derivative algorithm for regular expressions, expects a regular expression and a list of characters as input.
-We can transform the JSON object into a list of fields \lstinline[language=json]|[{"content": "Dragons"}, {"author": {"username": "Khaleesi"}}]| and then validate whether it matches the schema using Brozowski derivatives modified for schemas.
+We can transform the JSON object into a list of fields \lstinline[language=json]|[{"content": "Dragons"}, {"author": {"username": "Khaleesi"}}]| and then validate whether it matches the schema using Brozowski derivatives modified for schemas, as was discussed by ~\citet{holstege2019application}.
 We do this by taking the derivative of the schema given the first element, which results in the schema that is left to match, exactly as the derivative of a regular expression is the expression that is left to match after matching a single character.
 Then we continue apply the derivative on the result for each element and finally we check whether the resulting schema matches the empty object, exactly as we would check whether the final regular expression matches the empty string.
 The derivative of the schema, given the first element \lstinline[language=json]|{"content": "Dragons"}| is:
@@ -298,120 +289,67 @@ The derivative of the schema, given the first element \lstinline[language=json]|
 { "type": "object", "additionalProperties": false, "required": ["author"], 
   "properties": { "author": { "$ref":"#/definitions/user-profile" } } ... }
 \end{lstlisting}
+We can see that we have matched the content field and only the author field is still required.
 
 We wish to use memoization to improve the performance, as is done for regular expressions.
 In the case of regular expressions, the input alphabet of characters is small and has low variance, which results in lots of hits in the memoization table.
-Unfortunately the input alphabet of JSON values is large, which is demonstrated in the example above, each blog post will have different content, which result in zero hits in the memoization table.
-We refactor the derivative function into a composition of three steps.
-In the case of JSONSchema, the first step (the \enter function) extracts a list of properties that we need to match.
-The second step checks whether the input field name matches the properties and recurses down, until a list of booleans is returned that indicates whether the properties matched.
-Finally, the \leave function re-integrates the results back into the schema and computes the derivative.
+Unfortunately the input alphabet of JSON values is large and unbounded, which is demonstrated in the example above, each blog post will have different content, which will result in zero hits in the memoization table.
+We refactor the derivative function into a composition of three steps: \enter, apply predicates and \leave.
+In the case of JSONSchema, the first step (the \enter function) extracts a list of properties that we need to match, this includes the field name or predicate and accompanying child schema.
+The second step checks whether the input field name matches the field name or predicate collected by \enter and recurses down, until a list of booleans is returned that indicates whether the field name and child schema matched.
+Finally, the \leave function re-integrates the results (list of booleans) back into the schema and computes the derivative.
 The \enter and \leave functions are memoized, since they only depend on the schema and a list of booleans and do not depend on the input alphabet.
-Given the resulting schema where we still need to match the author and the input \lstinline[language=json]|[{"author": {"username": "Khaleesi"}}]| we can complete the validation using this new algorithm.
-We can start by applying \enter to get the following properties to match \lstinline[language=json]|[{"author": { "$ref": "#/definitions/user-profile" }}]|.
-In second step we check which properties matches the \lstinline[language=json]|"author"| field name and lookup any references, which results in the following list:
+Given the resulting schema where we still need to match the author and the input \lstinline[language=json]|[{"author": {"username": "Khaleesi"}}]| we can complete the validation using our new Katydid\footnote{A Katydid is a leaf insect that camouflages (requires filtering) itself in trees (data structures)} algorithm.
+We can start by applying \enter to extract the properties \lstinline[language=json]|[{"author": { "$ref": "#/definitions/user-profile" }}]|.
+In second step we check which properties matches the \lstinline[language=json]|"author"| field name and lookup any references, which gives us the following singleton list:
 \begin{lstlisting}[language=json]
 [{ "type": "object", "additionalProperties": false, "required": ["username"],
    "properties": { "username": {"type":"string"},
                    "email": {"type":"string", "format":"email"}}}]
 \end{lstlisting}
-We recurse down and apply the \enter function again:
+We recurse down and apply the \enter function again, giving us the following two properties:
 \begin{lstlisting}[language=json]
 [{"username": {"type": "string"}}, {"email": {"type":"string", "format":"email"}}]
 \end{lstlisting}
-We apply second step using with the \lstinline[language=json]|"username"| field name and get the following schemas to evaluate on the children:
+We apply second step, apply the predicates, using with the \lstinline[language=json]|"username"| field name and get the following schemas to evaluate on the children:
 \begin{lstlisting}[language=json]
 [{"type": "string"}, {"not": {}}]
 \end{lstlisting}
 We matched the \lstinline[language=json]|"username"| field, but not the \lstinline[language=json]|"email"| field, so we pass down the second element as the schema that matches nothing \lstinline[language=json]|{"not": {}}|.
-We are at the bottom, so we evaluate the string \lstinline[language=json]|"Khaleesi"| against the schemas, which results in \lstinline[language=json]|[true, false]|.
-Now we can apply the final step, the \leave function, as we recurse back up: reintegrate the results and take the derivative, which results in:
+We are at the bottom of the input, so we evaluate the string \lstinline[language=json]|"Khaleesi"| against the predicates, which results in the list \lstinline[language=json]|[true, false]|.
+Now we can apply the final step, the \leave function, reintegrate the results and take the derivative.
+We apply the derivative, with the knowledge that the username property matched and the email property did not:
 \begin{lstlisting}[language=json]
 [{ "type": "object", "additionalProperties": false, "required": [],
    "properties": { "email": {"type":"string", "format":"email"}}}]
 \end{lstlisting}
-Now have no more input, but we are not at the top of the stack, so we check the nullability of each schema in the list, which results in \lstinline[language=json]|[true]|, since the schema has no more required fields, the email was optional.
+We have no more input, and as we recurse back up, we need to turn this schema into a boolean, so that \leave can again reintegrate the results.
+We check the nullability of each schema in the list, which results in \lstinline[language=json]|[true]|, since the schema has no more required fields and the email was optional.
 Again we can apply the \leave function given the parent schema and the nullability results:
 \begin{lstlisting}[language=json]
 { "type": "object", "additionalProperties": false, "required": [], 
   "properties": {}, "definitions": { ... } }
 \end{lstlisting}
-We check whether the final schema matches the empty object, which it does, which means our schema has validated the input.
-There are technical details we brushed over for the purpose of creating an intuition of the algorithm, that we will clear up in future sections.
+We check whether the final schema matches the empty object, which it does, which means the input is valid given this schema.
+Note: there are technical details we brushed over for the purpose of creating an intuition of the algorithm, that we will clear up in future sections.
 
-\subsection{Problem Statement}
+%% Rewrote this in the following paragraph:
+% Currently, there are two algorithms (excluding the one introduced in this paper) that process hedges using derivatives, one for RelaxNG~\cite{relaxng2001simple} and another applied to JSONSchema~\cite{holstege2019application}.
+% Both of these algorithms have shortcomings in what can be memoized which we resolve with our new Katydid algorithm\footnote{A Katydid is a leaf insect that camouflages (requires filtering) itself in trees (data structures)}. 
+We have discussed two algorithms that process schemas using derivatives: ~\citet{holstege2019application}'s algorithm and our new Katydid algorithm, which is the focus of this paper.
+The final derivative algorithm that exists is for an XML schema language RelaxNG~\cite{relaxng2001simple} and is the original inspiration for this work.
+It converts the schema into a Balanced Context Free Grammar (BCFG), on the fly, as it applies derivatives.
+It is an efficient memoization algorithm, that only uses the shema and input field names (element names in XML) in the memoization table.
+The element names have a large alphabet, but low variance, so it results in lots of hits of the memoization table.
+The big improvement we make over RelaxNG is that we can create a fully memoized table before seeing any input and this table will take up finite space, because we model a schema as a regular hedge grammar and not a BCFG.
+We also formally verify that the implementation of ~\citet{holstege2019application} and Katydid's algorithms are equivalent to the semantics of a regular hedge grammar.
 
-We wish to use memoization to improve the performance of derivative-based filtering over regular hedge grammars.
-To characterize when memoization helps in this setting, we make the following definitions:
-A function is \emph{memoizable} if its input parameters can be hashed and have decidable equality. 
-We express this in Lean using a Monad \lstinline{m} for stateful caching:
-\begin{lstlisting}[label=Memoize]
-class Memoize [DecidableEq α] [Hashable α] {β: α -> Type} (f: (a: α) → β a)
-  (m: Type -> Type u) where call: (a: α) -> m { b: β a // b = f a }
-\end{lstlisting}
-Other formalizations~\cite{formalmem} additionally have an invariant that input and output values have to be stored, but the \lstinline{Memoize} class allows various caching strategies, including limited space strategies.
-Memoization of a function is \emph{resource-effective} when its lookup hit rate grows with the number of calls to that function. 
-This occurs when the variance of the input parameters is small, so repeated calls to the function reuse memoized results.
-The problem addressed by this paper is to find an algorithm for the derivative of a regular hedge grammar that is memoizable in a resource-effective way.
+%% This paragraph was just moved and I did not rewrite anything here.
+The motivation for this work arose in the context of a proprietary distributed database that stored denormalized Protocol Buffers, where schema-based filtering needed to be performed at scale.
+To meet production-level performance requirements we implemented the algorithm in Golang~\cite{golang} with a strong emphasis on memoization and avoiding heap allocations.
+The benchmarks of this implementation demonstrate its ability to filter data at high speeds, while we maintain formal correctness guarantees with a reimplementation of the key part of the algorithm in Lean.
 
-Let us first review memoization for the ordinary regular expression derivative~\cite{brzozowski1964derivatives}:
-\begin{lstlisting}[label=def Regex.Char.derive]
-def Regex.Char.derive (r: Regex Char) (a: Char): Regex Char
-\end{lstlisting}
-Memoization of this function is resource-effective, because the variance of the input parameters is small and the number of different regular expressions is bounded by smart constructors that simplify regular expressions on construction~\cite{reexamined}.
-String validation can be performed by lazily constructing a deterministic finite automaton (DFA) using memoization: the initial regular expression acts as the start state, transitions are given by the derivative function, and every distinct regular expression produced by the derivative function becomes a new state. 
-As more strings are processed, the lazily constructed fragment of the DFA incrementally expands, allowing it to filter subsequent strings more efficiently~\cite{reexamined}.
 
-To define the derivative of a regular hedge grammar, we need a more general version of the regular expression derivative function that is capable of supporting a \Node input alphabet. 
-We achieve this by using a symbolic derivative~\cite{stanford2021symbolic} over a generic input alphabet (\lstinline{α}), a decidable predicate (\lstinline{Φ: σ → α → Bool}) and a separate generic parameter for the regular expression (\lstinline{σ}):
-\begin{lstlisting}
-def Regex.derive (Φ: σ → α → Bool) (r: Regex σ) (a: α): Regex σ
-theorem gen_derive: Regex.Char.derive r a = Regex.derive (fun s a => s == a) r a
-\end{lstlisting}
-In \RegexCharDerive, the symbol \lstinline{σ} is of the same type as the alphabet \lstinline{α}, but in the general case, the symbol can represent an inductive predicate type of various predicates (for example checking that a string is of format email), where \lstinline{Φ} is the evaluation function.
-
-The uncurried symbolic \RegexDerive function is memoizable for a given \lstinline{Φ} and the memoization is resource-effective if the variance on the input parameters is small.
-When using \RegexDerive for regular hedge grammars the input alphabet is of type \Node. 
-In this case, the memoization of \RegexDerive is not resource-effective, because elements of \Node are trees that can have unbounded depth.
-
-Of the current algorithms, JSONSchema explicitly notes that it does not have resource-effective memoization~\cite{holstege2019application}, while the RelaxNG~\cite{relaxng2001simple} algorithm decomposes the derivative function into smaller components that can be memoized, exploiting the limited variation in XML element nodes.
-However, this memoization strategy is not fully resource-effective, because the text nodes have a large string alphabet that is highly variable.
-
-\subsection{Our Solution}
-
-We restructure the symbolic derivative function to make it more amenable to resource-effective memoization.
-The refactored function, \RegexKatydidDerive, is a composition of three functions, two of which are resource-effective to memoize.
-First, the \enter function extracts the relevant symbols from the regular expression.
-Next, we map the predicate \lstinline{Φ} over the symbols.
-Finally, the \leave function re-integrates the results back into the regular expression and computes the derivative.
-
-The two functions (\enter and \leave) are resource-effective for memoization, since they do not depend on the input alphabet:
-\begin{lstlisting}
-def enter (r: Regex σ): Vector σ (symcount r)
-def leave (r: Regex σ) (bools: Vector Bool (symcount r)): Regex σ
-def Regex.Katydid.derive (Φ: σ → Bool) (r: Regex σ): Regex σ :=
-  enter r |> Vector.map Φ |> leave r
-\end{lstlisting}
-Note that \symcount returns the number of symbols in a regular expression and the predicate \lstinline{Φ: σ → Bool} is similar to the predicate in \RegexDerive with the alphabet (\lstinline{α}) partially applied.
-We name the functions \enter and \leave to reflect that they correspond to entering and leaving a \Node.
-The predicate must be defined to handle the recursive nature of the regular hedge grammar and \Node in a way that utilizes these memoized functions.
-
-We define \GrammarKatydidDerive, the derivative function for regular hedge grammars, using \RegexKatydidDerive with a predicate, \lstinline{nodePred}, as a recursive closure to handle the recursive structure of the \Node and \Grammar:
-\begin{lstlisting}
-def Grammar.Katydid.derive (G: Grammar n φ) (Φ: φ → α → Bool)
-  (r: Regex (φ × Ref n)) (node: Node α): Regex (φ × Ref n) :=
-  let nodePred := fun ((labelPred, ref): (φ × Ref n)) =>
-    let ⟨label, children⟩ := node
-    let childr := if Φ labelPred label then G.lookup ref else Regex.emptyset
-    Regex.null (List.foldl (Grammar.Katydid.derive G Φ) childr children)
-  Regex.Katydid.derive nodePred r -- enter r |> Vector.map nodePred |> leave r
-\end{lstlisting}
-A \Grammar is a \Rule, where \lstinline{φ} is a predicate type and \Reference denotes a reference used to look up another \Rule.
-The predicate, \lstinline{labelPred}, is evaluated with the predicate evaluation function: \lstinline{Φ: φ → α → Bool}, where \lstinline{α} is the type of the \HedgeNodeLabel.
-
-The \GrammarKatydidDerive function forms the key of our Golang implementation, which has been used to filter millions of Protocol Buffers per second.
-We verify its correctness by proving, in Lean, that the implementation faithfully matches the semantics of a regular hedge grammar.
-We also implement and verify a memoized variant of this algorithm that supports filtering; however, we first present the non-memoized version, as it forms the foundation of the memoized algorithm.
 
 \subsection{Outline}
 
@@ -448,7 +386,7 @@ These extra operators and helper functions are used by both RelaxNG and JSONSche
 
 \subsection{Derivative of a Regular Expression}
 
-Filtering through a list of strings requires validation and validating a string, represented as \lstinline{List α}, against a regular expression proceeds by successively taking derivatives with respect to each element and then checking whether the resulting expression matches the empty string~\cite{brzozowski1964derivatives, reexamined}:
+Filtering through a list of strings requires validating these strings (which are represented as a \lstinline{List α}) against a regular expression. This is achieved by successively taking derivatives with respect to each symbol in a string, and at the end, checking whether the resulting expression matches the empty string~\cite{brzozowski1964derivatives, reexamined}:
 \begin{lstlisting}[label=def Regex.validate]
 def Regex.validate (Φ: σ → α → Bool) (r: Regex σ) (xs: List α): Bool :=
   null (List.foldl (derive Φ) r xs)
@@ -476,7 +414,8 @@ def Regex.null: (r: Regex σ) → Bool
   | or r1 r2 => (null r1 || null r2) | concat r1 r2 => (null r1 && null r2)
   | star _ => true | interleave r1 r2 => (null r1 && null r2)
 \end{lstlisting}
-We define \RegexPointDerive, a variation of the original \RegexDerive function that is easier to memoize, since it does not depend on a list element, and which we will use as a building block of the \leave function later:
+We define $\RegexPointDerive$, a variation of the original $\RegexDerive$ function designed for more efficient memoization. By removing the dependency on specific list elements, it serves as a streamlined building block for the subsequent $\leave$ function:
+%We define \RegexPointDerive, a variation of the original \RegexDerive function that is easier to memoize, since it does not depend on a list element, and which we will use as a building block of the \leave function later:
 \begin{lstlisting}[label=def Regex.Point.derive]
 def Regex.Point.derive: (r: Regex (σ × Bool)) → Regex σ
   | emptyset => emptyset | emptystr => emptyset
@@ -490,7 +429,8 @@ def Regex.Point.derive: (r: Regex (σ × Bool)) → Regex σ
       (interleave (derive r1) (first r2))
       (interleave (derive r2) (first r1))
 \end{lstlisting}
-In place of the original symbols of the regular expression, there is a tuple of the original symbol and the result of evaluating the predicate, which we can view as a point on the graph of the predicate function.
+Instead of the original symbols, each position now contains a tuple comprising the symbol and its predicate evaluation result. This pair can be interpreted as a point on the graph of the predicate function.
+%In place of the original symbols of the regular expression, there is a tuple of the original symbol and the result of evaluating the predicate, which we can view as a point on the graph of the predicate function.
 In the \lstinline{symbol} case, the result is checked, but in all other cases the original derivative algorithm is applied by either calling derive or retrieving the original regular expression with the \lstinline{first} function, which maps over the regular expression as a Functor:
 \begin{lstlisting}
 def Regex.Point.first (r: Regex (α × β)): Regex α := Regex.map r (fun (s,_) => s)
@@ -574,6 +514,80 @@ def example_grammar_doc: Grammar 3 (Pred String) :=
 \end{lstlisting}
 It validates the XML snippet \lstinline{<doc><p><pcdata/></p><p><br/></p></doc>}.
 We now proceed to describe the \RegexKatydidDerive function, the key to \GrammarKatydidDerive.
+
+%% Moved here from the introduction
+\subsection{Memoization}
+
+We wish to use memoization to improve the performance of derivative-based filtering over regular hedge grammars.
+To characterize when memoization helps in this setting, we make the following definitions:
+A function is \emph{memoizable} if its input parameters can be hashed and have decidable equality. 
+We express this in Lean using a Monad \lstinline{m} for stateful caching:
+\begin{lstlisting}[label=Memoize]
+class Memoize [DecidableEq α] [Hashable α] {β: α -> Type} (f: (a: α) → β a)
+  (m: Type -> Type u) where call: (a: α) -> m { b: β a // b = f a }
+\end{lstlisting}
+Other formalizations~\cite{formalmem} additionally have an invariant that input and output values have to be stored, but the \lstinline{Memoize} class allows various caching strategies, including limited space strategies.
+Memoization of a function is \emph{resource-effective} when its lookup hit rate grows with the number of calls to that function. 
+This occurs when the variance of the input parameters is small, so repeated calls to the function reuse memoized results.
+The problem addressed by this paper is to find an algorithm for the derivative of a regular hedge grammar that is memoizable in a resource-effective way.
+
+Let us first review memoization for the ordinary regular expression derivative~\cite{brzozowski1964derivatives}:
+\begin{lstlisting}[label=def Regex.Char.derive]
+def Regex.Char.derive (r: Regex Char) (a: Char): Regex Char
+\end{lstlisting}
+Memoization of this function is resource-effective, because the variance of the input parameters is small and the number of different regular expressions is bounded by smart constructors that simplify regular expressions on construction~\cite{reexamined}.
+String validation can be performed by lazily constructing a deterministic finite automaton (DFA) using memoization: the initial regular expression acts as the start state, transitions are given by the derivative function, and every distinct regular expression produced by the derivative function becomes a new state. 
+As more strings are processed, the lazily constructed fragment of the DFA incrementally expands, allowing it to filter subsequent strings more efficiently~\cite{reexamined}.
+
+To define the derivative of a regular hedge grammar, we need a more general version of the regular expression derivative function that is capable of supporting a \Node input alphabet. 
+We achieve this by using a symbolic derivative~\cite{stanford2021symbolic} over a generic input alphabet (\lstinline{α}), a decidable predicate (\lstinline{Φ: σ → α → Bool}) and a separate generic parameter for the regular expression (\lstinline{σ}):
+\begin{lstlisting}
+def Regex.derive (Φ: σ → α → Bool) (r: Regex σ) (a: α): Regex σ
+theorem gen_derive: Regex.Char.derive r a = Regex.derive (fun s a => s == a) r a
+\end{lstlisting}
+In \RegexCharDerive, the symbol \lstinline{σ} is of the same type as the alphabet \lstinline{α}, but in the general case, the symbol can represent an inductive predicate type over various predicates (and might for example be used to check that a string is of specified email format), where \lstinline{Φ} is the evaluation function.
+
+The uncurried symbolic \RegexDerive function is memoizable for a given \lstinline{Φ} and the memoization is resource-effective if the variance on the input parameters is small.
+When using \RegexDerive for regular hedge grammars the input alphabet is of type \Node. 
+In this case, the memoization of \RegexDerive is not resource-effective, because elements of \Node are trees that can have unbounded depth.
+
+Of the current algorithms, JSONSchema explicitly notes that it does not have resource-effective memoization~\cite{holstege2019application}, while the RelaxNG~\cite{relaxng2001simple} algorithm decomposes the derivative function into smaller components that can be memoized, exploiting the limited variation in XML element nodes.
+However, this memoization strategy is not fully resource-effective, because the text nodes have a large string alphabet that is highly variable.
+To avoid this high variability, they only memoize element nodes and not text nodes.
+
+We restructure the symbolic derivative function to make it more amenable to resource-effective memoization.
+The refactored function, \RegexKatydidDerive, is a composition of three functions, two of which are resource-effective to memoize.
+First, the \enter function extracts the relevant symbols from the regular expression.
+Next, we map the predicate \lstinline{Φ} over the symbols.
+Finally, the \leave function re-integrates the results back into the regular expression and computes the derivative.
+
+The two functions (\enter and \leave) are resource-effective for memoization, since they do not depend on the input alphabet:
+\begin{lstlisting}
+def enter (r: Regex σ): Vector σ (symcount r)
+def leave (r: Regex σ) (bools: Vector Bool (symcount r)): Regex σ
+def Regex.Katydid.derive (Φ: σ → Bool) (r: Regex σ): Regex σ :=
+  enter r |> Vector.map Φ |> leave r
+\end{lstlisting}
+Note that \symcount returns the number of symbols in a regular expression and the predicate \lstinline{Φ: σ → Bool} is similar to the predicate in \RegexDerive with the alphabet (\lstinline{α}) partially applied.
+We name the functions \enter and \leave to reflect that they correspond to entering and leaving a \Node.
+The predicate must be defined to handle the recursive nature of the regular hedge grammar and \Node in a way that utilizes these memoized functions.
+
+We define \GrammarKatydidDerive, the derivative function for regular hedge grammars, using \RegexKatydidDerive with a predicate, \lstinline{nodePred}, as a recursive closure to handle the recursive structure of the \Node and \Grammar:
+\begin{lstlisting}
+def Grammar.Katydid.derive (G: Grammar n φ) (Φ: φ → α → Bool)
+  (r: Regex (φ × Ref n)) (node: Node α): Regex (φ × Ref n) :=
+  let nodePred := fun ((labelPred, ref): (φ × Ref n)) =>
+    let ⟨label, children⟩ := node
+    let childr := if Φ labelPred label then G.lookup ref else Regex.emptyset
+    Regex.null (List.foldl (Grammar.Katydid.derive G Φ) childr children)
+  Regex.Katydid.derive nodePred r -- enter r |> Vector.map nodePred |> leave r
+\end{lstlisting}
+A \Grammar is a \Rule, where \lstinline{φ} is a predicate type and \Reference denotes a reference used to look up another \Rule.
+The predicate, \lstinline{labelPred}, is evaluated with the predicate evaluation function: \lstinline{Φ: φ → α → Bool}, where \lstinline{α} is the type of the \HedgeNodeLabel.
+
+The \GrammarKatydidDerive function forms the key of our Golang implementation, which has been used to filter millions of Protocol Buffers per second.
+We verify its correctness by proving, in Lean, that the implementation faithfully matches the semantics of a regular hedge grammar.
+We also implement and verify a memoized variant of this algorithm that supports filtering; however, we first present the non-memoized version, as it forms the foundation of the memoized algorithm.
 
 \subsection{Enter and Leave}
 \label{section_enter_and_leave}
@@ -883,7 +897,7 @@ The \lstinline{simple} grammar filters for conferences within the Category of Co
 For each grammar, we randomly populated data structures and serialized them as Protocol Buffers and JSON.
 We ran the benchmarks using Golang version 1.24 on a 2024 MacBook Pro M4 with 48 GB of memory.
 Note, we also ran benchmarks back in 2016 and achieved similar sub microsecond results for similar grammars on older hardware.
-The supplementary material includes more and larger benchmarks, recorded runs and explains how to reproduce the benchmarks.
+The supplementary material includes more extensive and larger benchmarks, recorded runs, and explains how to reproduce the benchmarks.
 
 \begin{figure}[t]
 \begin{center}
@@ -912,7 +926,8 @@ The semantics, complexity and expressive power of JSONSchema have been formalize
 Modern extensions of JSONSchema that use dynamic scope require a validation algorithm that is PSPACE-complete~\cite{modernjsonschema}, which makes these operators also not convertible to a regular hedge grammar.
 
 We found our original inspiration for using derivatives to filter semi-structured data from RelaxNG~\cite{relaxng2001simple}, which converts their regular hedge grammar to a \emph{Balanced Context Free Grammar} (BCFG) on the fly, while taking the derivative.
-A BCFG is a Context Free Grammar (CFG), where each rule starts and ends with a matching terminal, which is similar to open and close tags of XML.
+A BCFG is a Context-Free Grammar (CFG) where every production rule is enclosed by matching terminals. These terminals function like XML opening and closing tags, ensuring each rule is explicitly delimited.
+%A BCFG is a Context Free Grammar (CFG), where each rule starts and ends with a matching terminal, which is similar to open and close tags of XML.
 This avoids the left-recursion issues that arise when applying derivatives to CFGs~\cite{might2011parsing} and enables the use of a simple derivative algorithm based on regular expressions with reference lookups.
 RelaxNG also includes additional operators, such as \emph{interleave}, to model semi-structured XML content, in particular the unordered nature of attributes.
 They also rely on memoization for efficiency by decomposing the derivative function into multiple, smaller functions: \lstinline{startTagOpenDeriv}, \lstinline{attsDeriv}, \lstinline{startTagCloseDeriv}, \lstinline{endTagDeriv} and \lstinline{textDeriv}.
