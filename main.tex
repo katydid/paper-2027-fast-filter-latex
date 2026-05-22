@@ -153,6 +153,8 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
 }
 %% END: Define JSON syntax highlighting
 
+\hyphenation{name/JSON}
+
 %%%%% END: Author aditions to style %%%%%%
 
 \begin{document}
@@ -265,6 +267,9 @@ Our approach is based on Brzozowski derivatives~\cite{brzozowski1964derivatives}
 We adapt this derivative algorithm to operate on regular hedge grammars, which generalize regular expressions to \emph{hedges}, or informally, to tree-shaped data. 
 These grammars form the foundation of schema languages such as RelaxNG~\cite{hosoya2010foundations} and JSONSchema~\cite{jsonschemafoundations}.
 They enable expressive constraints over ordered and unordered element sequences, nesting, repetition and recursion.
+Next we give a simple JSONSchema example to illustrate our approach.
+
+\subsection{JSONSchema Example}
 
 To demonstrate how Brzozowski's derivative algorithm can be applied to JSONSchema we take an example of a schema describing a blog post~\cite{jsonschemablogpostexample} and shrink it down:
 \begin{lstlisting}[language=json]
@@ -278,18 +283,20 @@ To demonstrate how Brzozowski's derivative algorithm can be applied to JSONSchem
       "username": { "type":"string" },
       "email": { "type":"string", "format":"email" } } } } }
 \end{lstlisting}
-It expects content and an author which is described with a username and an optional email, for example \lstinline[language=json]|{"content": "Dragons", "author": {"username": "Khaleesi"}}|
+It expects content and an author, described with a username and an optional email, for example: \lstinline[language=json]|{"content": "Dragons", "author": {"username": "Khaleesi"}}|
 
 The Brozowski derivative algorithm for regular expressions, expects a regular expression and a list of characters as input.
-We can transform the JSON object into a list of fields \lstinline[language=json]|[{"content": "Dragons"}, {"author": {"username": "Khaleesi"}}]| and then validate whether it matches the schema using Brozowski derivatives modified for schemas, as was discussed by ~\citet{holstege2019application}.
-We do this by taking the derivative of the schema given the first element, which results in the schema that is left to match, exactly as the derivative of a regular expression is the expression that is left to match after matching a single character.
-Then we continue apply the derivative on the result for each element and finally we check whether the resulting schema matches the empty object, exactly as we would check whether the final regular expression matches the empty string.
-The derivative of the schema, given the first element \lstinline[language=json]|{"content": "Dragons"}| is:
+The JSONmembers algorithm\footnote{The JSONmembers algorithm is a term coined by us for the algorithm created by ~\citet{holstege2019application}.} transforms the JSON object into a list of members (field name/JSON value pairs): \lstinline[language=json]|[{"content": "Dragons"}, {"author": {"username": "Khaleesi"}}]|.
+Next the algorithm takes the derivative of the schema given the first member.
+This results in the schema that is left to match, similar to how the derivative of a regular expression is the expression that is left to match after matching a single character.
+Then the algorithm continues to apply the derivative on the result for each member. 
+Finally, we check whether the resulting schema matches the empty object, similar to how the resulting regular expression is checked whether it matches the empty string.
+The derivative of the schema, given the first member \lstinline[language=json]|{"content": "Dragons"}| is:
 \begin{lstlisting}[language=json]
 { "type": "object", "additionalProperties": false, "required": ["author"], 
   "properties": { "author": { "$ref":"#/definitions/user-profile" } } ... }
 \end{lstlisting}
-We can see that we have matched the content field and only the author field is still required.
+We see that we have matched the content property and only the author property is still required.
 
 We wish to use memoization to improve the performance, as is done for regular expressions.
 In the case of regular expressions, the input alphabet of characters is small and has low variance, which results in lots of hits in the memoization table.
@@ -333,6 +340,8 @@ Again we can apply the \leave function given the parent schema and the nullabili
 We check whether the final schema matches the empty object, which it does, which means the input is valid given this schema.
 Note: there are technical details we brushed over for the purpose of creating an intuition of the algorithm, that we will clear up in future sections.
 
+\subsection{Motivation and Contributions}
+
 %% Rewrote this in the following paragraph:
 % Currently, there are two algorithms (excluding the one introduced in this paper) that process hedges using derivatives, one for RelaxNG~\cite{relaxng2001simple} and another applied to JSONSchema~\cite{holstege2019application}.
 % Both of these algorithms have shortcomings in what can be memoized which we resolve with our new Katydid algorithm\footnote{A Katydid is a leaf insect that camouflages (requires filtering) itself in trees (data structures)}. 
@@ -348,8 +357,6 @@ We also formally verify that the implementation of ~\citet{holstege2019applicati
 The motivation for this work arose in the context of a proprietary distributed database that stored denormalized Protocol Buffers, where schema-based filtering needed to be performed at scale.
 To meet production-level performance requirements we implemented the algorithm in Golang~\cite{golang} with a strong emphasis on memoization and avoiding heap allocations.
 The benchmarks of this implementation demonstrate its ability to filter data at high speeds, while we maintain formal correctness guarantees with a reimplementation of the key part of the algorithm in Lean.
-
-
 
 \subsection{Outline}
 
@@ -386,7 +393,7 @@ These extra operators and helper functions are used by both RelaxNG and JSONSche
 
 \subsection{Derivative of a Regular Expression}
 
-Filtering through a list of strings requires validating these strings (which are represented as a \lstinline{List α}) against a regular expression. This is achieved by successively taking derivatives with respect to each symbol in a string, and at the end, checking whether the resulting expression matches the empty string~\cite{brzozowski1964derivatives, reexamined}:
+Filtering through a list of strings (which are represented as a \lstinline{List (List α)}) requires validating these strings against a regular expression. This is achieved by successively taking derivatives with respect to each symbol in a string, and at the end, checking whether the resulting expression matches the empty string~\cite{brzozowski1964derivatives, reexamined}:
 \begin{lstlisting}[label=def Regex.validate]
 def Regex.validate (Φ: σ → α → Bool) (r: Regex σ) (xs: List α): Bool :=
   null (List.foldl (derive Φ) r xs)
@@ -449,7 +456,6 @@ With the foundations of regular expressions in place, we now return to regular h
 \emph{Regular hedge grammars} constitute the theoretical framework most applicable to XML~\cite{hosoya2010foundations} and other serialization formats.
 Any XML, JSON or Protocol Buffers data can be viewed as a \Hedge and schema languages, such as RelaxNG, DTD~\cite{dtd}, XMLSchema~\cite{xmlschema} and JSONSchema~\cite{jsonschemafoundations} can all be translated to \emph{regular hedge grammars}~\cite{murata2005taxonomy} barring the JSONSchema \lstinline{uniqueItems} operator, which is not regular~\cite{holstege2019application}.
 
-%% Moved here from previous version of the Introduction
 A \emph{hedge} is an ordered list of unranked trees~\cite{tata} used to model semi-structured data formats. In Lean, we define a \Hedge inductively as follows:
 \begin{lstlisting}[label=Hedge]
 inductive Hedge.Node (α: Type) where
@@ -491,7 +497,8 @@ Our definition does not allow multiple rules per non-terminal, but this can easi
 These grammars also have useful theoretical properties.
 They are closed under union, intersection and complement. 
 Their decidable properties include: satisfiability and checking whether one grammar is a subset of another, which is used for type checking~\cite{hosoya2003xduce}.
-Each recursion from a lookup only occurs after a predicate evaluation, which disallows arbitrary context-free grammars (CFGs) with undecidable properties and keeps the language regular~\cite{hosoya2003xduce}.
+Each recursion from a lookup only occurs after an evaluation of a predicate \lstinline{φ}.
+This disallows arbitrary context-free grammars (CFGs) with undecidable properties~\cite{hosoya2003xduce}.
 
 The following is an example of a simple inductive predicate type, \lstinline{Pred}, together with its corresponding decidable evaluation function \lstinline{Pred.evalb}:
 \begin{lstlisting}[label=Pred]
@@ -516,7 +523,7 @@ It validates the XML snippet \lstinline{<doc><p><pcdata/></p><p><br/></p></doc>}
 We now proceed to describe the \RegexKatydidDerive function, the key to \GrammarKatydidDerive.
 
 %% Moved here from the introduction
-\subsection{Memoization}
+\subsection{Our Memoization Solution}
 
 We wish to use memoization to improve the performance of derivative-based filtering over regular hedge grammars.
 To characterize when memoization helps in this setting, we make the following definitions:
@@ -552,8 +559,8 @@ When using \RegexDerive for regular hedge grammars the input alphabet is of type
 In this case, the memoization of \RegexDerive is not resource-effective, because elements of \Node are trees that can have unbounded depth.
 
 Of the current algorithms, JSONSchema explicitly notes that it does not have resource-effective memoization~\cite{holstege2019application}, while the RelaxNG~\cite{relaxng2001simple} algorithm decomposes the derivative function into smaller components that can be memoized, exploiting the limited variation in XML element nodes.
-However, this memoization strategy is not fully resource-effective, because the text nodes have a large string alphabet that is highly variable.
-To avoid this high variability, they only memoize element nodes and not text nodes.
+However, this memoization strategy is not fully resource-effective, because the text nodes have a large and highly variable string alphabet.
+To address the challenge of this high variability, they only memoize element nodes and not text nodes.
 
 We restructure the symbolic derivative function to make it more amenable to resource-effective memoization.
 The refactored function, \RegexKatydidDerive, is a composition of three functions, two of which are resource-effective to memoize.
@@ -931,7 +938,7 @@ A BCFG is a Context-Free Grammar (CFG) where every production rule is enclosed b
 This avoids the left-recursion issues that arise when applying derivatives to CFGs~\cite{might2011parsing} and enables the use of a simple derivative algorithm based on regular expressions with reference lookups.
 RelaxNG also includes additional operators, such as \emph{interleave}, to model semi-structured XML content, in particular the unordered nature of attributes.
 They also rely on memoization for efficiency by decomposing the derivative function into multiple, smaller functions: \lstinline{startTagOpenDeriv}, \lstinline{attsDeriv}, \lstinline{startTagCloseDeriv}, \lstinline{endTagDeriv} and \lstinline{textDeriv}.
-Except for \lstinline{textDeriv}, all functions are resource-effective to memoize; memoizing \lstinline{textDeriv} is impractical due to the large text-node alphabet and the high variability of its input parameters.
+Except for \lstinline{textDeriv}, all functions are resource-effective to memoize; memoizing \lstinline{textDeriv} is impractical due to the large and highly variable text-node alphabet.
 This shortcoming is avoided by the Katydid algorithm, which never relies on the input alphabet for memoization, while still remaining applicable to leaf nodes.
 The remaining memoized functions operate on element tags and attribute names, which may come from large alphabets, but whose actual values exhibit low variability, making memoization resource-effective.
 An on-the-fly conversion from a regular hedge grammar to a BCFG incurs the overhead of introducing closing tags to ensure grammatical balance, which RelaxNG implements with its \lstinline{after} expression.
@@ -953,21 +960,11 @@ which still retains the \lstinline{<body>} symbol. In contrast, Katydid propagat
 Overall, RelaxNG provides an elegant and efficient approach to XML validation, albeit theoretically slightly less efficient than the Katydid algorithm.
 
 Derivative-based validation is not the only automata-theoretic route to schema validation. 
-A classical alternative is to compile the schema to element automata or hedge/tree automata 
-and validate by running the compiled machine over the document. In the XML setting, 
-Murata et al.\ give depth-first validation algorithms for regular tree 
-grammars based on compiled automata, and show that these scans are linear in the 
-document size for fixed schemas while being implementable over either tree-based or event-based 
-APIs. More specifically, Hosoya and Murata 
-proposed a non-derivative automaton-rewriting approach in which attribute transitions are removed and rewritten in a binary tree automaton. Thus, an important point of comparison for Katydid (left as future work) is not only other derivative 
-approaches, but also compiled automata and automaton-rewriting validators over regular tree or 
-hedge languages~\cite{murata2005taxonomy,hosoya2003boolean,hosoya2010foundations,tata}.
-
-From a complexity perspective, this approach by Hosoya and Murata offers a linear-time membership for deterministic 
-compiled automata, polynomial-time uniform membership in the automaton-as-input setting, and 
-good compatibility with event-driven XML parsing. Its main trade-off against derivatives is that 
-it shifts work toward compilation, determinization, or automaton manipulation, whereas derivatives 
-keep the runtime representation closer to the source schema and can exploit laziness and memoization 
+A classical alternative is to compile the schema to element automata or hedge/tree automata and validate by running the compiled machine over the document. 
+In the XML setting, \citet{murata2005taxonomy} give depth-first validation algorithms for regular tree grammars based on compiled automata, and show that these scans are linear in the document size for fixed schemas while being implementable over either tree-based or event-based APIs.
+More specifically, \citet{hosoya2003boolean} proposed a non-derivative automaton-rewriting approach in which attribute transitions are removed and rewritten in a binary tree automaton. 
+From a complexity perspective, this approach by \citet{hosoya2003boolean} offers a linear-time membership for deterministic compiled automata, polynomial-time uniform membership in the automaton-as-input setting, and good compatibility with event-driven XML parsing. 
+Its main trade-off against derivatives is that it shifts work toward compilation, determinization, or automaton manipulation, whereas derivatives keep the runtime representation closer to the source schema and can exploit laziness and memoization 
 on the actually visited part of the state space~\cite{murata2005taxonomy,tata}.
 
 Visibly Pushdown Automata (VPA)~\cite{alur2004visibly} were also considered, as they have been used successfully for complex XML processing~\cite{mozafari2012high} as well as for fast filtering~\cite{kumar2007visibly}.
