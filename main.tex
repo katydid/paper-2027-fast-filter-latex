@@ -268,11 +268,11 @@ Our approach is based on Brzozowski derivatives~\cite{brzozowski1964derivatives}
 We adapt this derivative algorithm to operate on regular hedge grammars, which generalize regular expressions to \emph{hedges}, or informally, to tree-shaped data. 
 These grammars form the foundation of schema languages such as RelaxNG~\cite{hosoya2010foundations} and JSONSchema~\cite{jsonschemafoundations}.
 They enable expressive constraints over ordered and unordered element sequences, nesting, repetition and recursion.
-We start with a simple JSONSchema example to illustrate our approach.
+We start with a simple JSONSchema example to illustrate and motivate our approach.
 
 \subsection{JSONSchema Example}
 
-To demonstrate how Brzozowski's derivative algorithm can be applied to JSONSchema we take an example of a schema describing a blog post~\cite{jsonschemablogpostexample} and shrink it down:
+To illustrate the application of Brzozowski's derivative algorithm to JSONSchema, we consider a simplified version of a blog post schema~\cite{jsonschemablogpostexample}:
 \begin{lstlisting}[language=json]
 { "type":"object", "additionalProperties":false, "required": ["content", "author"],
   "properties": {
@@ -284,15 +284,14 @@ To demonstrate how Brzozowski's derivative algorithm can be applied to JSONSchem
       "username": { "type":"string" },
       "email": { "type":"string", "format":"email" } } } } }
 \end{lstlisting}
-It expects content and an author, described with a username and an optional email, for example: \lstinline[language=json]|{"content": "Dragons", "author": {"username": "Khaleesi"}}|
+The schema requires a content field and an author object, the latter of which comprises a username and an optional email address; for example: \lstinline[language=json]|{"content": "Dragons", "author": {"username": "Khaleesi"}}|
 
-The Brozowski derivative algorithm for regular expressions, expects a regular expression and a list of characters as input.
-The JSONmembers algorithm\footnote{The JSONmembers algorithm is a term coined by us for the algorithm created by ~\citet{holstege2019application}.} transforms the JSON object into a list of members (field name/JSON value pairs): \lstinline[language=json]|[{"content": "Dragons"}, {"author": {"username": "Khaleesi"}}]|.
-Next the algorithm takes the derivative of the schema given the first member.
-This results in the schema that is left to match, similar to how the derivative of a regular expression is the expression that is left to match after matching a single character.
-Then the algorithm continues to apply the derivative on the result for each member. 
-Finally, we check whether the resulting schema matches the empty object, similar to how the resulting regular expression is checked whether it matches the empty string.
-The derivative of the schema, given the first member \lstinline[language=json]|{"content": "Dragons"}| is:
+Brzozowski’s derivative algorithm for regular expressions takes a regular expression and a sequence of characters as input.
+To facilitate the derivation, we utilize the ``JSONmembers'' algorithm—a term we adopt for the procedure introduced by~\citet{holstege2019application}—which flattens the JSON object into a sequence of key-value pairs: \lstinline[language=json]|[{"content": "Dragons"}, {"author": {"username": "Khaleesi"}}]|.
+Subsequently, the algorithm computes the derivative of the schema with respect to the first member.
+This operation yields a residual schema, analogous to how the derivative of a regular expression represents the remaining language after a single character is matched.
+The algorithm proceeds recursively, computing the derivative for each subsequent member of the input. Finally, we determine if the resulting schema accepts the empty object, analogous to checking whether a derived regular expression is nullable (i.e., matches the empty string).
+Computing the derivative of the schema with respect to the first member, \lstinline[language=json]|{"content": "Dragons"}|, yields:
 \begin{lstlisting}[language=json]
 { "type": "object", "additionalProperties": false, "required": ["author"], 
   "properties": { "author": { "$ref":"#/definitions/user-profile" } } ... }
@@ -945,11 +944,10 @@ Overall, RelaxNG provides an elegant and efficient approach to XML validation, a
 
 Derivative-based validation is not the only automata-theoretic route to schema validation. 
 A classical alternative is to compile the schema to element automata or hedge/tree automata and validate by running the compiled machine over the document. 
-In the XML setting, \citet{murata2005taxonomy} give depth-first validation algorithms for regular tree grammars based on compiled automata, and show that these scans are linear in the document size for fixed schemas while being implementable over either tree-based or event-based APIs.
-More specifically, \citet{hosoya2003boolean} proposed a non-derivative automaton-rewriting approach in which attribute transitions are removed and rewritten in a binary tree automaton. 
-From a complexity perspective, this approach by \citet{hosoya2003boolean} offers a linear-time membership for deterministic compiled automata, polynomial-time uniform membership in the automaton-as-input setting, and good compatibility with event-driven XML parsing. 
-Its main trade-off against derivatives is that it shifts work toward compilation, determinization, or automaton manipulation, whereas derivatives keep the runtime representation closer to the source schema and can exploit laziness and memoization 
-on the actually visited part of the state space~\cite{murata2005taxonomy,tata}.
+In the XML setting, \citet{murata2005taxonomy} give depth-first validation algorithms for regular tree grammars based on compiled automata, and show that these scans are linear in the document size for fixed schemas while being implementable over either tree-based or event-based APIs. 
+More specifically,~\citet{hosoya2002validation} presented a validation algorithm utilizing ``attribute-element automata'' that explicitly incorporate both element and attribute transitions. 
+From a complexity perspective, this approach by~\citet{hosoya2002validation} offers a linear-time membership for deterministic compiled automata, polynomial-time uniform membership in the automaton-as-input setting, and good compatibility with event-driven XML parsing. 
+Its main trade-off against derivatives is that it shifts work toward compilation, determinization, or automaton manipulation, whereas derivatives keep the runtime representation closer to the source schema and can exploit laziness and memoization on the actually visited part of the state space.
 
 Visibly Pushdown Automata (VPA)~\cite{alur2004visibly} were also considered, as they have been used successfully for complex XML processing~\cite{mozafari2012high} as well as for fast filtering~\cite{kumar2007visibly}.
 These automata include a stack and a call and return function, which we could apply to regular hedge grammars.
