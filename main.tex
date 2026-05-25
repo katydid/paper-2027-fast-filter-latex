@@ -83,6 +83,7 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
 %% Reference code via a hyperref
 \usepackage{xspace} % package xspace is in the allowed list of accepted packages https://authors.acm.org/proceedings/production-information/accepted-latex-packages
 \newcommand{\link}[2]{\mbox{\hyperref[#2]{\lstinline{#1}}}\xspace}
+\newcommand{\jsonlink}[2]{\mbox{\hyperref[#2]{\lstinline[language=json]{#1}}}\xspace}
 \newcommand{\refcode}[1]{\hyperref[#1]{\lstinline[breaklines=true,literate={\_}{}{0\discretionary{\_}{}{\_}}]{#1}}\xspace}
 
 %% Names
@@ -116,6 +117,7 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
 \newcommand{\GrammarMemoizeFilter}{\link{Grammar.Memoize.filter}{def Grammar.Memoize.filter}}
 \newcommand{\MemoizeKatydid}{\link{MemoizeKatydid}{MemoizeKatydid}}
 \newcommand{\AnyEqPred}{\link{Pred}{AnyEqPred}}
+\newcommand{\Token}{\link{Token}{Token}}
 
 %% Lean Logo
 \newcommand{\Lean}{%
@@ -275,8 +277,9 @@ We start with a simple JSONSchema example to illustrate and motivate our approac
 \subsection{JSONSchema Example}
 
 To illustrate the application of Brzozowski's derivative algorithm to JSONSchema, we consider a simplified version of a blog post schema~\cite{jsonschemablogpostexample}:
-\begin{lstlisting}[language=json]
-{ "type":"object", "additionalProperties":false, "required": ["content", "author"],
+\begin{lstlisting}[language=json,label=jsonschema_blogpost]
+{ "title": "small a jsonschema for blogpost",
+  "type":"object", "additionalProperties":false, "required": ["content", "author"],
   "properties": {
     "content": { "type":"string" },
     "author": { "$ref":"#/definitions/user-profile" } },
@@ -462,7 +465,7 @@ Any XML, JSON or Protocol Buffers data can be viewed as a \Hedge and schema lang
 A \emph{hedge} is an ordered list of unranked trees~\cite{tata} used to model semi-structured data formats. In Lean, we define a \Hedge inductively as follows:
 \begin{lstlisting}[label=Hedge]
 inductive Hedge.Node (α: Type) where
-  | mk (label: α) (children: List (Hedge.Node α))
+  | node (label: α) (children: List (Hedge.Node α))
 abbrev Hedge α := List (Hedge.Node α)
 \end{lstlisting}
 
@@ -866,18 +869,76 @@ This gave us the hypothesis we needed to prove termination.
 
 We encountered a similar termination issue when propagating memoization soundness, which required redefining \lstinline{List.foldlM} to both propagate soundness and track that each child is an element of the children list.
 
+\section{Golang implementation}
+
+The Katydid memoization technique was originally implemented in Golang in 2016 to filter through petabytes of serialized Protocol Buffers in a proprietary distributed database.
+In the previous section, we verified the memoization technique function for regular hedge grammars.
+In this section, we continue to use Lean as pseudo-code to explain the Go implementation.
+The Golang implementation includes several extensions and optimizations beyond this verified function.
+The extensions include a comprehensive predicate library, which is outside the scope of this paper.
+The optimizations include smart constructors that are used to simplify regular expressions and expressions include precalculated hashes for comparison and a precalculated flag about whether they are nullable.
+
+The big addition is that instead of parsing the serialized data into a hedge data structure in memory, we rather use a pull-based parser, which only parses what is necessary and does not allocate memory on the heap.
+The parser is an online parser and therefore performs no backtracking, requiring the order of \Hedge traversal to be refactored.
+The predicate and memoized functions (\enter and \leave) are adjusted to operate on a Vector of \Rule rather than a single \Rule, to accommodate the revised traversal order.
+We include several implementations of this pull-based parser interface: JSON, Protocol Buffers and one for reflected Go structures, as an option for handling deserialized JSON in the JSONSchema benchmarks.
+
+We include two implementations of the Katydid algorithm: \emph{mem} and \emph{auto}.
+The \emph{mem} version of the algorithm, memoizes as the regular hedge grammar is exercised. 
+The \emph{auto} version of the algorithm prepopulates the memoization tables with all possibilities.
+The auto version adds one more optimization where it finds all constant strings in the predicates and creates another table from these strings to the child expressions, see \link{childr}{def Grammar.Katydid.derive}.
+
+\subsection{Supporting JSONSchema}
+
+We benchmark our algorithm against other JSONSchema libraries.
+For this purpose we implement a translation algorithm from JSONSchema to regular hedge grammars.
+Translation is possible, except for a few non-regular operators: uniqueItems and newer dynamic operators. %% TODO Walter: be specific about which dynamic operators.
+\citet{holstege2019application} explains how JSONSchema can be converted to a \emph{tagged-type regular expressions}, which is closely enough related to regular hedge grammars, that we could apply most of the same translation techniques.
+
+The following JSON: \lstinline[language=json]|{"a": ["b", "c"]}| is represented as the following \Hedge, abstracted away behind a performant pull-based parser: 
+\begin{lstlisting}
+[node (tag "object") [
+   node (string "a") [
+     node (tag "array") [
+       node (int64 0) [node (string "b") []], node (int64 1) [node (string "c") []]]]]]
+\end{lstlisting}
+The objects and arrays are tagged with labels to help us support JSONSchema's \lstinline[language=json]|{"type": "object"}| and \lstinline[language=json]|{"type": "array"}|, the arrays are indexed, which makes them handle similar to objects with field names and finally the \Hedge is parameterized over the \Token type:
+\begin{lstlisting}[label=Token]
+inductive Token where
+  | null | bool (value: Bool) | string (value: String) | tag (value: String)
+  | int64 (value: Int64) | float64 (value: Float64Bits) | decimal (value: String) | ...
+\end{lstlisting}
+This includes several representations of numbers for optimization purposes, as well as to generically support other serialization formats.
+
+We can translate the \jsonlink{"small jsonschema for a blogpost"}{jsonschema_blogpost} to a regular hedge grammar:
+\begin{lstlisting}
+def example_tagged_grammar_blogpost : Grammar 7 JSONSchema.Pred := Grammar.mk
+  (start := (symbol (Pred.tagEq "object", 4)))
+  (prods := #v[emptystr, starAny, symbol (Pred.string, 0), symbol (Pred.email, 0),
+               (interleave (symbol (Pred.strEq "content", 2))
+                           (symbol (Pred.strEq "author", 5))),
+               (symbol (Pred.tagEq "object", 6)),
+               (interleave (symbol (Pred.strEq "username", 2))
+                          (optional (symbol (Pred.strEq "email", 3))))])
+\end{lstlisting}
+%% TODO Walter: Check this is actually what the schema is translated to ^^
+
+Most operators translate seamlessly, for example \lstinline[language=json]|"anyOf"|, \lstinline[language=json]|"allOf"| and \lstinline[language=json]|"not"|, while others
+posed a challenge, for example \lstinline[language=json]|"dependentRequired"|, overlapping \lstinline[language=json]|"patternProperties"| and \lstinline[language=json]|"additionalProperties"|.
+For example, if the \lstinline[language=json]|"additionalProperties"| field is not set, it defaults to true, which means other fields are allowed, so we need to add an extra constraint, that match any fields that were not already defined:
+\begin{lstlisting}
+star (symbol (Pred.not (Pred.or (Pred.strEq "content") (Pred.strEq "author"))), 1))
+\end{lstlisting}
+%% TODO Walter: Check this is actually what the schema is translated to ^^
+
+We tested our translation against the JSONSchema testsuite for \verb+draft4+ and the newest \verb+version 2020-12+, where we pass all tests (1386 out of 2000) except those that include features that are not regular: uniqueItems, dynamicAnchor, remoteRef.
+%% TODO Walter: Make sure this is the complete list ^^ of unsupported features.
+%% TODO Walter: Put in the actual numbers and how many tests we skipped because of unsupported features.
+
 \section{Benchmarks}
 \label{section_benchmarks}
-The Katydid memoization technique was originally implemented in Golang in 2016 to filter through petabytes of serialized Protocol Buffers in a proprietary distributed database.
-In the previous section, we validated the core algorithmic idea of the memoized derivative function for regular hedge grammars.
-The Golang implementation includes several extensions and optimizations beyond the verified core.
-These include a comprehensive predicate library, which is outside the scope of this paper.
-The optimizations on top of the memoization strategy include:
 
-\begin{itemize}
-    \item Smart constructors that are used to simplify regular expressions.
-    \item Instead of parsing the serialized data into a data structure in memory, we rather use a pull-based parser, which only parses what is necessary and does not allocate memory on the heap. The parser is an online parser and therefore performs no backtracking, requiring the order of \Hedge traversal to be refactored. The predicate and memoized functions (\enter and \leave) are adjusted to operate on a Vector of \Rule rather than a single \Rule, to accommodate the revised traversal order.
-\end{itemize}
+\subsection{Benchmarks of Regular Hedge Grammars}
 
 We conducted benchmarks over several iterations to evaluate how memoization improves filter efficiency with repeated execution.
 Two regular hedge grammars (\lstinline{simple} and \lstinline{complex}) were chosen to filter a list of conferences:
@@ -916,6 +977,28 @@ We observe that the longer the same grammar is memoized, the faster the algorith
 Once the functions are fully memoized over all possible cases, the benchmarks indicate zero heap allocations.
 Notice that the JSON benchmarks are slower than the Protocol Buffer benchmarks for the same \lstinline{complex} grammar.
 This shift occurs because Protocol Buffers offer superior parsing speeds; our profiling confirms that parsing has become the primary CPU bottleneck.
+
+\subsection{Benchmarks of JSONSchema}
+
+The JSONSchema benchmark was built on top of the benchmark suite created by \citet{blaze}.
+The original included the following libraries: (TODO Walter: add list of libraries), to which we have added other third-party libraries: RapidJSON (C++), Google (Golang), json-schema-spec (Golang), (TODO Walter: add proper list) and renamed (TODO Walter) to (TODO Walter), to avoid confusion, since there are now multiple Golang implementations of JSONSchema.
+We also added several extra schemas to benchmark against from the official JSONSchema example schemas~\cite{jsonschemablogpostexample} and others from (TODO Walter: add name).
+We also modified the benchmarks to not just benchmark against valid input, but also mixed input that is half valid and half invalid.
+For the newly added schemas, we created a random generator that can generates valid JSON that conforms to schema and also valid JSON that does not conform to the schema, allowing us to generate mixed data sets.
+We also added a measurement for parse time.
+Finally we added our libraries: 
+\begin{itemize}
+\item katydid-mem-parse (memoizes and parses JSON online, as it validates)
+\item katydid-auto-parse (prepopulates memoization table and parses JSON online, as it validates)
+\item katydid-mem-reflect (memoizes and parses JSON before into the Go reflection based parser)
+\item katydid-auto-reflect (prepopulates memoization table and parses JSON before into the Go reflection based parser)
+\end{itemize}
+
+TODO Walter: explain measurements
+
+TODO Walter: add table of benchmark results
+
+TODO Walter: add conclusion of results
 
 \section{Related Work}
 \label{section_related}
@@ -994,7 +1077,7 @@ the conversion algorithms from JSONSchema~\cite{holstege2019application} and Rel
 
 %% TODO: Mention SIMD in future work \cite{simdjson}
 
-%% TODO: Mention blaze benchmarks \cite{blaze}
+%% TODO: Mention fully implementing the Golang implementation in Lean including JSON parser, so that we can benchmark the two against each other and validate the Golang implementation, using the Lean implementation as a source of truth.
 
 %%
 %% Bibliography
