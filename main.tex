@@ -276,7 +276,7 @@ We start with a simple JSONSchema example to illustrate and motivate our approac
 
 \subsection{JSONSchema Example}
 
-To illustrate the application of Brzozowski's derivative algorithm to JSONSchema, we consider a simplified version of a blog post schema~\cite{jsonschemablogpostexample}:
+To illustrate the application of Brzozowski's derivative algorithm to JSONSchema, we consider a simplified version of a blog post schema~\cite{jsonschemaexamples}:
 \begin{lstlisting}[language=json,label=jsonschema_blogpost]
 { "title": "small a jsonschema for blogpost",
   "type":"object", "additionalProperties":false, "required": ["content", "author"],
@@ -366,7 +366,8 @@ We verify the correctness by proving, in Lean, that the implementation of the JS
 
 The remainder of the paper is structured as follows. 
 \Cref{section_algorithm} continues the explanation of the Katydid algorithm. \Cref{section_verification} presents formal verifications. 
-In \cref{section_benchmarks}, we describe the Golang implementation and provide benchmark results. \Cref{section_related} covers related work and \cref{section_future} outlines the directions for future research.
+In \cref{section_go}, we describe the Go implementation and in \cref{section_benchmarks}, we provide benchmark results against other JSONSchema implementations.
+\Cref{section_related} covers related work and \cref{section_future} outlines the directions for future research.
 
 Definitions and proofs are presented in the syntax of the Lean theorem prover~\cite{lean4} and are available in the supplementary material~\footnote{No part of the Lean code (including the formal proofs) or the Golang code was created with the aid of GenAI (LLMs).}.
 Lean tutorials are available online~\cite{learnlean}. 
@@ -870,6 +871,7 @@ This gave us the hypothesis we needed to prove termination.
 We encountered a similar termination issue when propagating memoization soundness, which required redefining \lstinline{List.foldlM} to both propagate soundness and track that each child is an element of the children list.
 
 \section{Golang implementation}
+\label{section_go}
 
 The Katydid memoization technique was originally implemented in Golang in 2016 to filter through petabytes of serialized Protocol Buffers in a proprietary distributed database.
 In the previous section, we verified the memoization technique function for regular hedge grammars.
@@ -887,6 +889,46 @@ We include two implementations of the Katydid algorithm: \emph{mem} and \emph{au
 The \emph{mem} version of the algorithm, memoizes as the regular hedge grammar is exercised. 
 The \emph{auto} version of the algorithm prepopulates the memoization tables with all possibilities.
 The auto version adds one more optimization where it finds all constant strings in the predicates and creates another table from these strings to the child expressions, see \link{childr}{def Grammar.Katydid.derive}.
+
+\subsection{Resource-Effectiveness of Memoization}
+
+We conducted benchmarks over several iterations to evaluate how memoization improves filter efficiency with repeated execution.
+Two regular hedge grammars (\lstinline{simple} and \lstinline{complex}) were chosen to filter a list of conferences:
+\begin{lstlisting}
+def simple: Grammar 2 (Pred String) :=
+  mk (field ("Category", 1)) #v[emptystr, eq ("Computer Science", 0)]
+def complex: Grammar 7 (Pred String) :=
+  mk (interleave (eq ("Due", 1)) (interleave (eq ("Loc", 5)) starAny)) #v[emptystr,
+    or (field ("Year", 2)) (and (field ("Year", 3)) (field ("Month", 4))),
+    eq ("2026", 0), eq ("2025", 0), symbol (Pred.ge "10", 0),
+    field ("Cont", 6), eq ("EU", 0),
+  ]
+def eq (v: α × Fin n) := symbol (Pred.eq v.1, v.2)
+def field (v: α × Fin n) := contains (symbol (Pred.eq v.1, v.2))
+\end{lstlisting}
+The \lstinline{simple} grammar filters for conferences within the Category of Computer Science, while the \lstinline{complex} grammar filters for conferences that have submission deadlines in 2026 or after October 2025 and are also located on the continent of Europe.
+For each grammar, we randomly populated data structures and serialized them as Protocol Buffers and JSON.
+We ran the benchmarks using Golang version 1.24 on a 2024 MacBook Pro M4 with 48 GB of memory.
+Note, we also ran benchmarks back in 2016 and achieved similar sub microsecond results for similar grammars on older hardware.
+The supplementary material includes more extensive and larger benchmarks, recorded runs, and explains how to reproduce the benchmarks.
+
+\begin{figure}[t]
+\begin{center}
+\includegraphics[]{graphics/bargraph/bargraph.pdf}
+\caption{Benchmarks}
+\Description[Short Summary]{Long Detailed Description} %% TODO Add a better description
+\label{figure_benchmarks}
+\end{center}
+\end{figure}
+
+The results of the benchmarks are shown in \cref{figure_benchmarks}.
+We ran each grammar for multiple iterations.
+Zero iterations correspond to no memoization, while infinitely many iterations correspond to fully memoized \enter and \leave functions, with all possible cases precomputed. 
+For the other iterations, we recorded the average running time, while memoizing for that number of iterations.
+We observe that the longer the same grammar is memoized, the faster the algorithm becomes.
+Once the functions are fully memoized over all possible cases, the benchmarks indicate zero heap allocations.
+Notice that the JSON benchmarks are slower than the Protocol Buffer benchmarks for the same \lstinline{complex} grammar.
+This shift occurs because Protocol Buffers offer superior parsing speeds; our profiling confirms that parsing has become the primary CPU bottleneck.
 
 \subsection{Supporting JSONSchema}
 
@@ -938,63 +980,112 @@ We tested our translation against the JSONSchema testsuite for \verb+draft4+ and
 \section{Benchmarks}
 \label{section_benchmarks}
 
-\subsection{Benchmarks of Regular Hedge Grammars}
-
-We conducted benchmarks over several iterations to evaluate how memoization improves filter efficiency with repeated execution.
-Two regular hedge grammars (\lstinline{simple} and \lstinline{complex}) were chosen to filter a list of conferences:
-\begin{lstlisting}
-def simple: Grammar 2 (Pred String) :=
-  mk (field ("Category", 1)) #v[emptystr, eq ("Computer Science", 0)]
-def complex: Grammar 7 (Pred String) :=
-  mk (interleave (eq ("Due", 1)) (interleave (eq ("Loc", 5)) starAny)) #v[emptystr,
-    or (field ("Year", 2)) (and (field ("Year", 3)) (field ("Month", 4))),
-    eq ("2026", 0), eq ("2025", 0), symbol (Pred.ge "10", 0),
-    field ("Cont", 6), eq ("EU", 0),
-  ]
-def eq (v: α × Fin n) := symbol (Pred.eq v.1, v.2)
-def field (v: α × Fin n) := contains (symbol (Pred.eq v.1, v.2))
-\end{lstlisting}
-The \lstinline{simple} grammar filters for conferences within the Category of Computer Science, while the \lstinline{complex} grammar filters for conferences that have submission deadlines in 2026 or after October 2025 and are also located on the continent of Europe.
-For each grammar, we randomly populated data structures and serialized them as Protocol Buffers and JSON.
-We ran the benchmarks using Golang version 1.24 on a 2024 MacBook Pro M4 with 48 GB of memory.
-Note, we also ran benchmarks back in 2016 and achieved similar sub microsecond results for similar grammars on older hardware.
-The supplementary material includes more extensive and larger benchmarks, recorded runs, and explains how to reproduce the benchmarks.
-
-\begin{figure}[t]
-\begin{center}
-\includegraphics[]{graphics/bargraph/bargraph.pdf}
-\caption{Benchmarks}
-\Description[Short Summary]{Long Detailed Description} %% TODO Add a better description
-\label{figure_benchmarks}
-\end{center}
-\end{figure}
-
-The results of the benchmarks are shown in \cref{figure_benchmarks}.
-We ran each grammar for multiple iterations.
-Zero iterations correspond to no memoization, while infinitely many iterations correspond to fully memoized \enter and \leave functions, with all possible cases precomputed. 
-For the other iterations, we recorded the average running time, while memoizing for that number of iterations.
-We observe that the longer the same grammar is memoized, the faster the algorithm becomes.
-Once the functions are fully memoized over all possible cases, the benchmarks indicate zero heap allocations.
-Notice that the JSON benchmarks are slower than the Protocol Buffer benchmarks for the same \lstinline{complex} grammar.
-This shift occurs because Protocol Buffers offer superior parsing speeds; our profiling confirms that parsing has become the primary CPU bottleneck.
-
-\subsection{Benchmarks of JSONSchema}
-
 The JSONSchema benchmark was built on top of the benchmark suite created by \citet{blaze}.
-The original included the following libraries: (TODO Walter: add list of libraries), to which we have added other third-party libraries: RapidJSON (C++), Google (Golang), json-schema-spec (Golang), (TODO Walter: add proper list) and renamed (TODO Walter) to (TODO Walter), to avoid confusion, since there are now multiple Golang implementations of JSONSchema.
-We also added several extra schemas to benchmark against from the official JSONSchema example schemas~\cite{jsonschemablogpostexample} and others from (TODO Walter: add name).
-We also modified the benchmarks to not just benchmark against valid input, but also mixed input that is half valid and half invalid.
-For the newly added schemas, we created a random generator that can generates valid JSON that conforms to schema and also valid JSON that does not conform to the schema, allowing us to generate mixed data sets.
-We also added a measurement for parse time.
-Finally we added our libraries: 
-\begin{itemize}
-\item katydid-mem-parse (memoizes and parses JSON online, as it validates)
-\item katydid-auto-parse (prepopulates memoization table and parses JSON online, as it validates)
-\item katydid-mem-reflect (memoizes and parses JSON before into the Go reflection based parser)
-\item katydid-auto-reflect (prepopulates memoization table and parses JSON before into the Go reflection based parser)
-\end{itemize}
+In the following paragraphs we discuss the: implementations, schemas and measurements.
 
-TODO Walter: explain measurements
+The original benchmark suite included the following implementations: 
+ajv~\cite{jsonschema_impl_ajv} (Javascript),
+ajv-bun~\cite{jsonschema_impl_ajv} (Javascript executed on the BUN~\cite{javascript_engine_bun} engine),
+blaze~\cite{blaze} (C++),
+boon~\cite{jsonschema_impl_boon} (Rust),
+corvus~\cite{jsonschema_impl_corvus} (generated C\#),
+go-santhosh-tekuri~\cite{jsonschema_impl_go-santhosh-tekuri} (Golang),
+hyperjump~\cite{jsonschema_impl_hyperjump} (Javascript),
+jsdotnet~\cite{jsonschema_impl_jsdotnet} (C\#),
+json\_schemer~\cite{jsonschema_impl_json_schemer} (Ruby),
+jsoncons~\cite{jsonschema_impl_jsoncons} (C++),
+jsu-c~\cite{jsonschema_impl_jsu} (generated C),
+jsu-java~\cite{jsonschema_impl_jsu} (generated Java),
+jsu-js~\cite{jsonschema_impl_jsu} (generated Javascript),
+jsu-pl~\cite{jsonschema_impl_jsu} (generated Perl),
+jsu-py~\cite{jsonschema_impl_jsu} (generated Python),
+JSV~\cite{jsonschema_impl_JSV} (Elixir),
+kmp~\cite{jsonschema_impl_kmp} (Kotlin),
+networknt~\cite{jsonschema_impl_networknt} (Java)
+opis~\cite{jsonschema_impl_opis} (PHP),
+py-jsonschema~\cite{jsonschema_impl_py-jsonschema} (Python),
+schemasafe~\cite{jsonschema_impl_schemasafe} (Javascript).
+We added the following third-party libraries:
+rapidjson~\cite{jsonschema_impl_rapidjson} (C++),
+go-google~\cite{jsonschema_impl_go-google} (Golang),
+go-json-schema-spec~\cite{jsonschema_impl_go-json-schema-spec} (Golang),
+go-kaptinlin~\cite{jsonschema_impl_go-kaptinlin} (Golang).
+This includes other Golang libraries to compare our Golang implementation against and a C++ library that does event-based parsing to compare our pull-based parser against.
+We also add four versions of our implementation of katydid: go-katydid-mem-json (memoizes and parses JSON online, as it validates), go-katydid-auto-json (prepopulates memoization table and parses JSON online, as it validates), go-katydid-mem-reflect (memoizes and parses JSON before into the Go reflection based parser), go-katydid-auto-reflect (prepopulates memoization table and parses JSON before into the Go reflection based parser).
+Each implementation comes with a Docker setup, making it portable to run on a variety of machines.
+
+\citet{blaze} then collected schemas from the JSON Schema Store~\cite{schemastore} and then crawled GitHub for valid JSON documents for each of these schemas:
+ansible-meta,
+aws-cdk,
+babelrc,
+clang-format,
+cmake-presets,
+code-climate,
+cql2,
+cspell,
+cypress,
+deno,
+dependabot,
+draft-04,
+fabric-mod,
+geojson,
+gitpod-configuration,
+helm-chart-lock,
+importmap,
+jasmine,
+jsconfig,
+jshintrc,
+krakend,
+lazygit,
+lerna,
+nest-cli,
+omnisharp,
+openapi,
+pre-commit-hooks,
+pulumi,
+semantic-release,
+stale,
+stylecop,
+tmuxinator,
+ui5,
+ui5-manifest,
+unreal-engine-uproject,
+vercel,
+yamllint.
+We add schemas from the official JSONSchema examples~\cite{jsonschemaexamples}:
+address,
+blogpost,
+calendar,
+devicetype,
+health-record,
+job-posting,
+movie,
+userprofile.
+We also add schemas from ajv's benchmarks:
+cosmicrealms~\cite{jsonschema_impl_ajv},
+complex~\cite{jsonschema_jsck},
+medium~\cite{jsonschema_jsck},
+advanced~\cite{jsonschema_zschema},
+basic~\cite{jsonschema_zschema}.
+Finally, we also add the JSONSchema for the conference example discussed before.
+For the extra schemas we collected, we created a random generator that generates valid JSON documents against these schemas or optionally invalid JSON documents that have at least one error according to the schema.
+Some of these schemas include uses of the uniqueItems feature, for which we create alternatives, where we remove the use of this feature, so that we can benchmark against the rest of the schema.
+
+\citet{blaze} measured compile time of the schema, the validation duration when the cache has not been exercised (referred to as cold) and the validation duration when the cache has been warmed up (referred to as warm).
+We add a measurement for parse time to highlight that the time spent parsing the JSON is part of validation time, especially when filtering through lots of documents that will not match.
+
+We ran the benchmarks on a 2024 MacBook Pro M4 with 48 GB of memory and ran each benchmark three times, taking the average time.
+%% TODO Walter: Actually run it tree times.
+
+For the sake of brevity and the large amount of implementations, we choose to only discuss the fastest implementations: ajv-bun, jsu-c, blaze, boon, go-santhosh-tekuri, katydid.
+We choose to only highlight ajv-bun and ignore ajv, since it is the fastest ajv implementation.
+We also choose to only highlight jsu-c out of all the jsu implementations.
+Out of all the competing Golang implementations, go-santhosh-tekuri was the fastest (outside of katydid, which was always faster).
+
+
+
+TODO: Figure out what is the best way to display benchmark results
+
 
 TODO Walter: add table of benchmark results
 
