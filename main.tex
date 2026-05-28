@@ -255,7 +255,7 @@ Our algorithm inherits the expressiveness of regular hedge grammars to support a
 High performance is achieved by refactoring the derivative algorithm to make it more amenable to memoization of hedges and elimination of heap allocations.
 We verify the correctness of our memoization technique for regular hedge grammars in Lean.
 This is the first proof of correctness in an interactive theorem prover of a derivative algorithm for regular hedge grammars or any schema language.
-We benchmark our an implementation of the memoization technique in Golang, against several other JSONSchema implementations, showing it can filter millions of records per second.
+We benchmark an implementation of our memoization technique in Golang, against several other JSONSchema implementations, showing it can filter millions of records per second.
 \end{abstract}
 
 %%
@@ -266,7 +266,7 @@ We benchmark our an implementation of the memoization technique in Golang, again
 \section{Introduction}
 
 We present a verified filtering algorithm for semi-structured data formats such as XML, JSON and Protocol Buffers~\cite{protobuf}, designed for high-throughput use cases involving millions of records per second.
-The memoization technique is formally verified in  Lean~\cite{lean4}.
+The memoization technique is formally verified in Lean~\cite{lean4}.
 
 Our approach is based on Brzozowski derivatives~\cite{brzozowski1964derivatives}, a classical technique for recognizing regular languages.
 We adapt this derivative algorithm to operate on regular hedge grammars, which generalize regular expressions to \emph{hedges}, or informally, to tree-shaped data. 
@@ -278,7 +278,7 @@ We start with a simple JSONSchema example to illustrate and motivate our approac
 
 To illustrate the application of Brzozowski's derivative algorithm to JSONSchema, we consider a simplified version of a blog post schema~\cite{jsonschemaexamples}:
 \begin{lstlisting}[language=json,label=jsonschema_blogpost]
-{ "title": "small a jsonschema for blogpost",
+{ "title": "small jsonschema for a blogpost",
   "type":"object", "additionalProperties":false, "required": ["content", "author"],
   "properties": {
     "content": { "type":"string" },
@@ -366,8 +366,8 @@ We verify the correctness by proving, in Lean, that the implementation of the JS
 
 The remainder of the paper is structured as follows. 
 \Cref{section_algorithm} continues the explanation of the Katydid algorithm. \Cref{section_verification} presents formal verifications. 
-In \cref{section_go}, we describe the Go implementation and in \cref{section_benchmarks}, we provide benchmark results against other JSONSchema implementations.
-\Cref{section_related} covers related work and \cref{section_future} outlines the directions for future research.
+In \Cref{section_go}, we describe the Go implementation and in \Cref{section_benchmarks}, we provide benchmark results against other JSONSchema implementations.
+\Cref{section_related} covers related work and \Cref{section_future} outlines the directions for future research.
 
 Definitions and proofs are presented in the syntax of the Lean theorem prover~\cite{lean4} and are available in the supplementary material~\footnote{No part of the Lean code (including the formal proofs) or the Golang code was created with the aid of GenAI (LLMs).}.
 Lean tutorials are available online~\cite{learnlean}. 
@@ -514,7 +514,7 @@ def Pred.evalb {α: Type} [DecidableEq α] (p: Pred α) (x: α): Bool := match p
   | Pred.eq y => x = y
   | Pred.any => true
 \end{lstlisting}
-In practice the predicate type includes complex nested functions such as Unicode normalization, case folding and checking JSONSchema formats, for example email.
+In practice the predicate type includes complex nested functions such as Unicode normalization, case folding and validating JSONSchema formats, such as email, ipv4, date, etc.
 
 The following example illustrates a regular hedge grammar:
 \begin{lstlisting}[label=def example_grammar_doc]
@@ -559,7 +559,7 @@ We achieve this by using a symbolic derivative~\cite{stanford2021symbolic} over 
 def Regex.derive (Φ: σ → α → Bool) (r: Regex σ) (a: α): Regex σ
 theorem gen_derive: Regex.Char.derive r a = Regex.derive (fun s a => s == a) r a
 \end{lstlisting}
-In \RegexCharDerive, the symbol \lstinline{σ} is of the same type as the alphabet \lstinline{α}, but in the general case, the symbol can represent an inductive predicate type, such as the example \AnyEqPred in the previous section, where \lstinline{Φ} is the evaluation function \link{Pred.evalb}{AnyEqPred}.
+In \RegexCharDerive, the symbol \lstinline{σ} is of the same type as the alphabet \lstinline{α}, but in the general case, the symbol can represent an inductive predicate type, as given in the example \AnyEqPred earlier, where \lstinline{Φ} is the evaluation function \link{Pred.evalb}{AnyEqPred}.
 
 The uncurried symbolic \RegexDerive function is memoizable for a given \lstinline{Φ} and the memoization is resource-effective if the variance on the input parameters is small.
 When using \RegexDerive for regular hedge grammars the input alphabet is of type \Node. 
@@ -568,7 +568,8 @@ In this case, the memoization of \RegexDerive is not resource-effective, because
 Of the current algorithms, JSONmembers explicitly notes that it does not have resource-effective memoization~\cite{holstege2019application}, while the RelaxNG~\cite{relaxng2001simple} algorithm decomposes the derivative function into smaller components that can be memoized, exploiting the limited variation in XML element nodes.
 However, this memoization strategy is not fully resource-effective, because the text nodes have a large and highly variable string alphabet.
 To address the challenge of this high variability, they only memoize element nodes and not text nodes.
-Also the memoization technique is not finite and can keep growing given inputs with different element names or deeper recursion.
+Also, the memoization technique is unbounded in the number of entries to be memoized.
+The table grows on inputs with new element names or deeper recursion.
 
 We restructure the symbolic derivative function to make it more amenable to resource-effective memoization.
 The refactored function, \RegexKatydidDerive, is a composition of three functions, two of which are resource-effective to memoize.
@@ -671,7 +672,7 @@ def Grammar.JSONmembers.derive (G: Grammar n φ) (Φ: φ → α → Bool)
 This approach mirrors a derivative algorithm previously applied to JSONSchema~\cite{holstege2019application}, which we refer to as the JSONmembers algorithm for simplicity.
 
 Unfortunately, this approach is not resource-effective to memoize, which motivates the introduction of the Katydid algorithm; again, it requires special handling of the \lstinline{symbol} case, but does so within the \lstinline{nodePred} predicate.
-We also implement and verify a memoized variant of this algorithm that supports filtering; however, we first present the non-memoized version, as it forms the foundation of the memoized algorithm:
+We also implement and verify a memoized variant of this algorithm that supports filtering; however, we first present the non-memoized version, as it forms the foundation of our memoized algorithm:
 \begin{lstlisting}[label=def Grammar.Katydid.derive]
 def Grammar.Katydid.derive (G: Grammar n φ) (Φ: φ → α → Bool)
   (r: Regex (φ × Ref n)) (node: Node α): Regex (φ × Ref n) :=
@@ -695,7 +696,7 @@ def filter (G: Grammar n φ) (Φ: φ → α → Bool) (hedges: List (Hedge α)) 
   List.filter (validate G Φ) hedges
 \end{lstlisting}
 
-\subsection{Memoizing the Katydid algorithm}
+\subsection{Adding Memoization}
 
 We define memoize versions of the derivative, validate and filter functions, for both regular expressions and regular hedge grammars.
 Here is a filter type signature as an example:
@@ -823,7 +824,7 @@ This proof follows from induction on the regular expression \lstinline{r}.
 \label{figure_square}
 \end{figure}
 
-Second, the derivative algorithm satisfies the commuting square shown in \cref{figure_square}.
+Second, the derivative algorithm satisfies the commuting square shown in \Cref{figure_square}.
 This is proven using the following theorem:
 \begin{lstlisting}[label=theorem derive_commutes]
 theorem derive_commutes (G: Grammar n φ) Φ [DecidableRel Φ]
@@ -874,15 +875,16 @@ We encountered a similar termination issue when propagating memoization soundnes
 \label{section_go}
 
 The Katydid memoization technique was originally implemented in Golang in 2016 to filter through petabytes of serialized Protocol Buffers in a proprietary distributed database.
-In the previous section, we verified the memoization technique function for regular hedge grammars.
+In the previous section, we verified the memoization technique for regular hedge grammars.
 In this section, we continue to use Lean as pseudo-code to explain the Go implementation.
-The Golang implementation includes several extensions and optimizations beyond this verified function.
-The extensions include a comprehensive predicate library, which is outside the scope of this paper.
-The optimizations include smart constructors that are used to simplify regular expressions and expressions include precalculated hashes for comparison and a precalculated flag about whether they are nullable.
+The Golang implementation includes several extensions and optimizations beyond the verified technique.
+The extensions include a comprehensive predicate library.
+The optimizations include smart constructors that simplify regular expressions and compute nullability and hashes for comparisons. 
 
-The big addition is that instead of parsing the serialized data into a hedge data structure in memory, we rather use a pull-based parser, which only parses what is necessary and does not allocate memory on the heap.
+A significant addition is that instead of parsing the serialized data into a \Hedge data structure in memory, we use a pull-based parser, which only parses what is required and avoids allocating memory on the heap.
 The parser is an online parser and therefore performs no backtracking, requiring the order of \Hedge traversal to be refactored.
 The predicate and memoized functions (\enter and \leave) are adjusted to operate on a Vector of \Rule rather than a single \Rule, to accommodate the revised traversal order.
+%% TODO Walter: Add the two other implementations for the other parsers.
 We include several implementations of this pull-based parser interface: JSON, Protocol Buffers and one for reflected Go structures, as an option for handling deserialized JSON in the JSONSchema benchmarks.
 
 We include two implementations of the Katydid algorithm: \emph{mem} and \emph{auto}.
@@ -890,7 +892,7 @@ The \emph{mem} version of the algorithm, memoizes as the regular hedge grammar i
 The \emph{auto} version of the algorithm prepopulates the memoization tables with all possibilities.
 The auto version adds one more optimization where it finds all constant strings in the predicates and creates another table from these strings to the child expressions, see \link{childr}{def Grammar.Katydid.derive}.
 
-\subsection{Resource-Effectiveness of Memoization}
+\subsection{Resource-Effectiveness of our Golang implementation}
 
 We conducted benchmarks over several iterations to evaluate how memoization improves filter efficiency with repeated execution.
 Two regular hedge grammars (\lstinline{simple} and \lstinline{complex}) were chosen to filter a list of conferences:
@@ -921,7 +923,7 @@ The supplementary material includes more extensive and larger benchmarks, record
 \end{center}
 \end{figure}
 
-The results of the benchmarks are shown in \cref{figure_benchmarks}.
+The results of the benchmarks are shown in \Cref{figure_benchmarks}.
 We ran each grammar for multiple iterations.
 Zero iterations correspond to no memoization, while infinitely many iterations correspond to fully memoized \enter and \leave functions, with all possible cases precomputed. 
 For the other iterations, we recorded the average running time, while memoizing for that number of iterations.
@@ -934,7 +936,8 @@ This shift occurs because Protocol Buffers offer superior parsing speeds; our pr
 
 We benchmark our algorithm against other JSONSchema libraries.
 For this purpose we implement a translation algorithm from JSONSchema to regular hedge grammars.
-Translation is possible, except for a few non-regular operators: uniqueItems and newer dynamic operators. %% TODO Walter: be specific about which dynamic operators.
+Translation is possible, except for a few non-regular operators: \lstinline{uniqueItems} and newer dynamic operators.
+%% TODO Walter: be specific about which dynamic operators.
 \citet{holstege2019application} explains how JSONSchema can be converted to a \emph{tagged-type regular expressions}, which is closely enough related to regular hedge grammars, that we could apply most of the same translation techniques.
 
 The following JSON: \lstinline[language=json]|{"a": ["b", "c"]}| is represented as the following \Hedge, abstracted away behind a performant pull-based parser: 
@@ -973,7 +976,7 @@ star (symbol (Pred.not (Pred.or (Pred.strEq "content") (Pred.strEq "author"))), 
 \end{lstlisting}
 %% TODO Walter: Check this is actually what the schema is translated to ^^
 
-We tested our translation against the JSONSchema testsuite for \verb+draft4+ and the newest \verb+version 2020-12+, where we pass all tests (1386 out of 2000) except those that include features that are not regular: uniqueItems, dynamicAnchor, remoteRef.
+We tested our translation against the JSONSchema testsuite for \verb+draft4+ and the newest \verb+version 2020-12+, where we pass all tests (1386 out of 2000) except those that include features that are not regular: \lstinline{uniqueItems}, dynamicAnchor, remoteRef.
 %% TODO Walter: Make sure this is the complete list ^^ of unsupported features.
 %% TODO Walter: Put in the actual numbers and how many tests we skipped because of unsupported features.
 
@@ -1009,14 +1012,11 @@ rapidjson~\cite{jsonschema_impl_rapidjson} (C++),
 go-google~\cite{jsonschema_impl_go-google} (Golang),
 go-json-schema-spec~\cite{jsonschema_impl_go-json-schema-spec} (Golang),
 go-kaptinlin~\cite{jsonschema_impl_go-kaptinlin} (Golang).
-%This includes other Golang libraries to compare our Golang implementation against and a C++ library that does event-based parsing to compare our pull-based parser against.
-%We also add four versions of our implementation of katydid: go-katydid-mem-json (memoizes and parses JSON online, as it validates), go-katydid-auto-json (prepopulates memoization table and parses JSON online, as it validates), go-katydid-mem-reflect (memoizes and parses JSON before into the Go reflection based parser), go-katydid-auto-reflect (prepopulates memoization table and parses JSON before into the Go reflection based parser).
-%Each implementation comes with a Docker setup, making it portable to run on a variety of machines.
 The benchmark suite includes alternative Go libraries as well as an event-based C++ parser to serve as baselines for our pull-based implementation.
 We also evaluate four variants of our Katydid framework, differentiated by their memoization strategy (on-the-fly vs. prepopulated) and parsing target (online JSON vs. Go reflection): go-katydid-mem-json, go-katydid-auto-json, go-katydid-mem-reflect, and go-katydid-auto-reflect.
 To guarantee cross-platform portability and reproducibility, each configuration is packaged with a dedicated Docker setup.
 
-
+%% TODO Walter: create a table
 \citet{blaze} then collected schemas from the JSON Schema Store~\cite{schemastore} and then crawled GitHub for valid JSON documents for each of these schemas:
 ansible-meta,
 aws-cdk,
@@ -1072,7 +1072,7 @@ advanced~\cite{jsonschema_zschema},
 basic~\cite{jsonschema_zschema}.
 Finally, we include the JSON schema for the conference example previously introduced.
 To evaluate the extended schema collection, we developed a random generator capable of producing both valid instances and non-conforming documents containing at least one schema violation.
-For schemas utilizing the uniqueItems constraint, we derived variants that omit this feature; this allows for isolated benchmarking of the remaining schema logic. 
+For schemas utilizing the \lstinline{uniqueItems} constraint, we derived variants that omit this feature; this allows for isolated benchmarking of the remaining schema logic. 
 
 While \citet{blaze} accounts for schema compilation time and validation performance in both ``cold'' (unprimed) and ``warm'' (primed) states, we introduce a distinct measurement for parsing time.
 This addition underscores that parsing is an integral component of the total validation overhead—a factor that becomes particularly significant when filtering through large volumes of non-matching documents.
@@ -1093,6 +1093,8 @@ TODO Walter: add conclusion of results.
 
 TODO: Explain why blaze is sometimes faster.
 
+TODO: Explain that jsu-c is generated
+
 \section{Related Work}
 \label{section_related}
 
@@ -1103,7 +1105,8 @@ The semantics, complexity and expressive power of JSONSchema have been formalize
 Modern extensions of JSONSchema that use dynamic scope require a validation algorithm that is PSPACE-complete~\cite{modernjsonschema}, which makes these operators also not convertible to a regular hedge grammar.
 
 We found our original inspiration for using derivatives to filter semi-structured data from RelaxNG~\cite{relaxng2001simple}, which converts their regular hedge grammar to a \emph{Balanced Context Free Grammar} (BCFG) on the fly, while taking the derivative.
-A BCFG is a Context-Free Grammar (CFG) where every production rule is enclosed by matching terminals. These terminals function like XML opening and closing tags, ensuring each rule is explicitly delimited.
+A BCFG is a Context-Free Grammar (CFG) where every production rule is enclosed by matching terminals.
+These terminals function like XML opening and closing tags, ensuring each rule is explicitly delimited.
 This avoids the left-recursion issues that arise when applying derivatives to CFGs~\cite{might2011parsing} and enables the use of a simple derivative algorithm based on regular expressions with reference lookups.
 RelaxNG also includes additional operators, such as \emph{interleave}, to model semi-structured XML content, in particular the unordered nature of attributes.
 They also rely on memoization for efficiency by decomposing the derivative function into multiple, smaller functions: \lstinline{startTagOpenDeriv}, \lstinline{attsDeriv}, \lstinline{startTagCloseDeriv}, \lstinline{endTagDeriv} and \lstinline{textDeriv}.
@@ -1118,7 +1121,7 @@ after (g.lookup 0) emptystr -- <div><div></div></div></div>
 after (g.lookup 0) (after emptystr emptystr) -- <div></div></div></div>
 after (g.lookup 0) (after emptystr (after emptystr emptystr)) -- </div></div></div>
 \end{lstlisting}
-This makes it impossible to always build a fully memoized version of the functions up front, since the state space is technically infinite.
+This makes it impossible to always build a fully memoized version of the functions up front, since the state space is technically unbounded.
 In practice, recursion depths are shallow, so after validating one or two documents, memoization becomes resource-effective, whereas the Katydid algorithm becomes resource-effective after the first recursive step.
 Another drawback is that the expression keeps more context than is necessary.
 For example, consider the grammar
@@ -1130,15 +1133,15 @@ Overall, RelaxNG provides an elegant and efficient approach to XML validation, a
 
 Derivative-based validation is not the only automata-theoretic route to schema validation. 
 A classical alternative is to compile the schema to element automata or hedge/tree automata and validate by running the compiled machine over the document. 
-In the XML setting, \citet{murata2005taxonomy} give depth-first validation algorithms for regular tree grammars based on compiled automata, and show that these scans are linear in the document size for fixed schemas while being implementable over either tree-based or event-based APIs. 
-More specifically,~\citet{hosoya2002validation} presented a validation algorithm utilizing ``attribute-element automata'' that explicitly incorporate both element and attribute transitions. 
+In the XML setting, \citet{murata2005taxonomy} gives depth-first validation algorithms for regular tree grammars based on compiled automata, and shows that these scans are linear in the document size for fixed schemas while being implementable over either tree-based or event-based APIs. 
+More specifically,~\citet{hosoya2002validation} presented a validation algorithm utilizing attribute-element automata that explicitly incorporate both element and attribute transitions. 
 From a complexity perspective, this approach by~\citet{hosoya2002validation} offers a linear-time membership for deterministic compiled automata, polynomial-time uniform membership in the automaton-as-input setting, and good compatibility with event-driven XML parsing. 
-Its main trade-off against derivatives is that it shifts work toward compilation, determinization, or automaton manipulation, whereas derivatives keep the runtime representation closer to the source schema and can exploit laziness and memoization on the actually visited part of the state space.
+Its main trade-off against derivatives is that it shifts work toward compilation, determinization, and automaton manipulation, whereas derivatives keep the runtime representation closer to the source schema and can exploit laziness and memoization on the actually visited part of the state space.
 
 Visibly Pushdown Automata (VPA)~\cite{alur2004visibly} were also considered, as they have been used successfully for complex XML processing~\cite{mozafari2012high} as well as for fast filtering~\cite{kumar2007visibly}.
 These automata include a stack and a call and return function, which we could apply to regular hedge grammars.
 We can construct a VPA lazily by memoizing derivatives.
-This memoization would also be slightly less resource-effective, because of the large input alphabet and variance in the label of the text nodes, same as RelaxNG, but state space would be finite.
+This memoization would also be slightly less resource-effective, because of the large input alphabet and variance in the label of the text nodes, same as RelaxNG, but the state space would be bounded.
 
 Derivatives have been applied to JSONSchema~\cite{holstege2019application} validation using an algorithm similar to \JSONmembersRuleDerive.
 They convert JSONSchema to a grammar similar to a regular hedge grammar extended with additional operators, including \lstinline{interleave}, \lstinline{xor} and \lstinline{ifthenelse}.
