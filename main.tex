@@ -980,8 +980,7 @@ We tested our translation against the JSONSchema testsuite for \verb+draft4+ and
 \section{Benchmarks}
 \label{section_benchmarks}
 
-The JSONSchema benchmark was built on top of the benchmark suite created by \citet{blaze}.
-In the following paragraphs we discuss the: implementations, schemas and measurements.
+Our JSONSchema benchmark extends the suite developed by \citet{blaze}. In the following sections, we detail the underlying implementations, schemas, and measurement methodologies.
 
 The original benchmark suite included the following implementations: 
 ajv~\cite{jsonschema_impl_ajv} (Javascript),
@@ -1010,9 +1009,13 @@ rapidjson~\cite{jsonschema_impl_rapidjson} (C++),
 go-google~\cite{jsonschema_impl_go-google} (Golang),
 go-json-schema-spec~\cite{jsonschema_impl_go-json-schema-spec} (Golang),
 go-kaptinlin~\cite{jsonschema_impl_go-kaptinlin} (Golang).
-This includes other Golang libraries to compare our Golang implementation against and a C++ library that does event-based parsing to compare our pull-based parser against.
-We also add four versions of our implementation of katydid: go-katydid-mem-json (memoizes and parses JSON online, as it validates), go-katydid-auto-json (prepopulates memoization table and parses JSON online, as it validates), go-katydid-mem-reflect (memoizes and parses JSON before into the Go reflection based parser), go-katydid-auto-reflect (prepopulates memoization table and parses JSON before into the Go reflection based parser).
-Each implementation comes with a Docker setup, making it portable to run on a variety of machines.
+%This includes other Golang libraries to compare our Golang implementation against and a C++ library that does event-based parsing to compare our pull-based parser against.
+%We also add four versions of our implementation of katydid: go-katydid-mem-json (memoizes and parses JSON online, as it validates), go-katydid-auto-json (prepopulates memoization table and parses JSON online, as it validates), go-katydid-mem-reflect (memoizes and parses JSON before into the Go reflection based parser), go-katydid-auto-reflect (prepopulates memoization table and parses JSON before into the Go reflection based parser).
+%Each implementation comes with a Docker setup, making it portable to run on a variety of machines.
+The benchmark suite includes alternative Go libraries as well as an event-based C++ parser to serve as baselines for our pull-based implementation.
+We also evaluate four variants of our Katydid framework, differentiated by their memoization strategy (on-the-fly vs. prepopulated) and parsing target (online JSON vs. Go reflection): go-katydid-mem-json, go-katydid-auto-json, go-katydid-mem-reflect, and go-katydid-auto-reflect.
+To guarantee cross-platform portability and reproducibility, each configuration is packaged with a dedicated Docker setup.
+
 
 \citet{blaze} then collected schemas from the JSON Schema Store~\cite{schemastore} and then crawled GitHub for valid JSON documents for each of these schemas:
 ansible-meta,
@@ -1067,29 +1070,28 @@ complex~\cite{jsonschema_jsck},
 medium~\cite{jsonschema_jsck},
 advanced~\cite{jsonschema_zschema},
 basic~\cite{jsonschema_zschema}.
-Finally, we also add the JSONSchema for the conference example discussed before.
-For the extra schemas we collected, we created a random generator that generates valid JSON documents against these schemas or optionally invalid JSON documents that have at least one error according to the schema.
-Some of these schemas include uses of the uniqueItems feature, for which we create alternatives, where we remove the use of this feature, so that we can benchmark against the rest of the schema.
+Finally, we include the JSON schema for the conference example previously introduced.
+To evaluate the extended schema collection, we developed a random generator capable of producing both valid instances and non-conforming documents containing at least one schema violation.
+For schemas utilizing the uniqueItems constraint, we derived variants that omit this feature; this allows for isolated benchmarking of the remaining schema logic. 
 
-\citet{blaze} measured compile time of the schema, the validation duration when the cache has not been exercised (referred to as cold) and the validation duration when the cache has been warmed up (referred to as warm).
-We add a measurement for parse time to highlight that the time spent parsing the JSON is part of validation time, especially when filtering through lots of documents that will not match.
+While \citet{blaze} accounts for schema compilation time and validation performance in both ``cold'' (unprimed) and ``warm'' (primed) states, we introduce a distinct measurement for parsing time.
+This addition underscores that parsing is an integral component of the total validation overhead—a factor that becomes particularly significant when filtering through large volumes of non-matching documents.
 
-We ran the benchmarks on a 2024 MacBook Pro M4 with 48 GB of memory and ran each benchmark three times, taking the average time.
+Benchmarks were conducted on a 2024 MacBook Pro equipped with an M4 processor and 48 GB of memory.
+To ensure statistical stability, each benchmark was executed three times, with results reported as the average execution time.
 %% TODO Walter: Actually run it tree times.
 
-For the sake of brevity and the large amount of implementations, we choose to only discuss the fastest implementations: ajv-bun, jsu-c, blaze, boon, go-santhosh-tekuri, katydid.
-We choose to only highlight ajv-bun and ignore ajv, since it is the fastest ajv implementation.
-We also choose to only highlight jsu-c out of all the jsu implementations.
-Out of all the competing Golang implementations, go-santhosh-tekuri was the fastest (outside of katydid, which was always faster).
+For brevity, we restrict our discussion to the fastest implementations: ajv-bun, jsu-c, blaze, boon, go-santhosh-tekuri, and katydid.
+To avoid redundancy, we highlight only the optimal variants from the ajv and jsu families.
+While go-santhosh-tekuri was the most efficient external Go library, katydid demonstrated superior performance across all Go-centric evaluations.
 
 
 
-TODO: Figure out what is the best way to display benchmark results
+TODO: Figure out what is the best way to display benchmark results.
 
+TODO Walter: add conclusion of results.
 
-TODO Walter: add table of benchmark results
-
-TODO Walter: add conclusion of results
+TODO: Explain why blaze is sometimes faster.
 
 \section{Related Work}
 \label{section_related}
