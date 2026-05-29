@@ -195,7 +195,6 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
   \city{London}
   \country{United Kingdom}}
 
-%% TODO Add Christiaan
 \author{Christiaan {Maasdorp}}
 \email{chm2@sun.ac.za}
 \orcid{0000-0002-9248-4756}
@@ -1167,8 +1166,28 @@ To ensure statistical stability, each benchmark was executed three times, with r
 \subsection{Results}
 
 \begin{table}
-\label{table_jsonschema_results}
-\caption{results}
+\caption{results per implementation}
+\label{table_jsonschema_per_implementation}
+% BEGIN Generated tabular
+\begin{tabular}{l|llll}
+impl & warm avg/doc & warm mean/doc & cold avg/doc & cold mean/doc \\
+\hline
+ajv-bun & 5117 & 465 & 18568 & 3129 \\
+blaze & 2909 & 234 & 3102 & 512 \\
+boon & 7269 & 1382 & 8651 & 1538 \\
+go-katydid-auto-json & 23047 & 4540 & 23175 & 4719 \\
+go-katydid-auto-reflect & 293 & 283 & 379 & 329 \\
+go-katydid-mem-json & 31640 & 7470 & 47183 & 8689 \\
+go-katydid-mem-reflect & 423 & 276 & 442 & 337 \\
+go-santhosh-tekuri & 40897 & 4788 & 40740 & 5386 \\
+jsu-c & 1992 & 224 & 2159 & 280 \\
+\end{tabular}
+% END Generated tabular
+\end{table}
+
+\begin{table}
+\label{table_jsonschema_per_schema_and_implementation}
+\caption{results per schema and implementation}
 
 % BEGIN Generated tabular
 \begin{tabular}{lll|llll}
