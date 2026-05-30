@@ -977,18 +977,18 @@ def example_tagged_grammar_blogpost : Grammar 7 JSONSchema.Pred := Grammar.mk
 \end{lstlisting}
 %% TODO Walter: Check this is actually what the schema is translated to ^^
 
-Most operators translate seamlessly; in particular, \lstinline[language=json]|"anyOf"|, \lstinline[language=json]|"allOf"| and \lstinline[language=json]|"not"|. Others
-posed a challenge: \lstinline[language=json]|"dependentRequired"|, overlapping \lstinline[language=json]|"patternProperties"| and \lstinline[language=json]|"additionalProperties"|.
-For example, if the \lstinline[language=json]|"additionalProperties"| field is not set, it defaults to true, which means other fields are allowed. Therefore, we need to add an extra constraint that matches any fields that were not already defined:
+Most operators translate seamlessly; in particular, \lstinline[language=json]|"anyOf"|, \lstinline[language=json]|"allOf"| and \lstinline[language=json]|"not"|.
+Others posed a challenge: \lstinline[language=json]|"dependentRequired"|, overlapping \lstinline[language=json]|"patternProperties"| and \lstinline[language=json]|"additionalProperties"|.
+For example, if the \lstinline[language=json]|"additionalProperties"| field is not set, it defaults to true, which means other fields are allowed.
+Therefore, we need to add an extra constraint that matches any fields that were not already defined:
 \begin{lstlisting}
 star (symbol (Pred.not (Pred.or (Pred.strEq "content") (Pred.strEq "author"))), 1))
 \end{lstlisting}
 %% TODO Walter: Check this is actually what the schema is translated to ^^
 
-We evaluated our translation against the \JSONSchema test suites for both \verb+draft4+ and the latest \verb+version 2020-12+ version. Out of 2,000 total test cases, our implementation successfully passed 1,386. The remaining failures were strictly isolated to test cases involving non-regular features: \lstinline{uniqueItems}, \lstinline{dynamicAnchor}, and \lstinline{remoteRef}.
-
-
-%We tested our translation against the \JSONSchema test suite for \verb+draft4+ and the newest \verb+version 2020-12+, where we passed all tests (1386 out of 2000) except for those that include features that are not regular: \lstinline{uniqueItems}, dynamicAnchor, remoteRef.
+We evaluated our translation against the \JSONSchema test suites for both \verb+draft4+ and the latest \verb+version 2020-12+ version.
+Out of 2,000 total test cases, our implementation successfully passed 1,386.
+The remaining failures were strictly isolated to test cases involving non-regular features: \lstinline{uniqueItems}, \lstinline{dynamicAnchor}, and \lstinline{remoteRef}.
 %% TODO Walter: Make sure this is the complete list ^^ of unsupported features.
 %% TODO Walter: Put in the actual numbers and how many tests we skipped because of unsupported features.
 
