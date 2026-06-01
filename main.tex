@@ -407,7 +407,7 @@ We check whether the final schema matches the empty object, which it does, which
 
 \section{The Katydid Algorithm}\label{section_algorithm}
 
-In this section, we describe the Katydid algorithm, a \emph{resource-effective} memoized filtering algorithm, defined as \GrammarMemoizeFilter.
+In this section, we describe the Katydid algorithm, a performant memoized filtering algorithm, defined as \GrammarMemoizeFilter.
 We define its building blocks \enter, \leave, \RegexKatydidDerive and \GrammarKatydidDerive, but we start by defining \emph{regular expressions}, which is the core of \emph{regular hedge grammars}, our generic schema language.
 
 \subsection{Regular Expressions}
@@ -660,7 +660,7 @@ def Grammar.JSONmembers.derive (G: Grammar n φ) (Φ: φ → α → Bool)
 \end{lstlisting}
 This approach mirrors a derivative algorithm previously applied to JSON~Schema~\cite{holstege2019application}, which we refer to as the JSONmembers algorithm for simplicity.
 
-Unfortunately, this approach is not resource-effective to memoize, which motivates the introduction of the Katydid algorithm; again, it requires special handling of the \lstinline{symbol} case, but does so within the \lstinline{nodePred} predicate.
+Unfortunately, this approach is memoization is alphabet dependent and not performant, which motivates the introduction of the Katydid algorithm; again, it requires special handling of the \lstinline{symbol} case, but does so within the \lstinline{nodePred} predicate.
 We also implement and verify a memoized variant of this algorithm that supports filtering; however, we first present the non-memoized version, as it forms the foundation of our memoized algorithm:
 \begin{lstlisting}[label=def Grammar.Katydid.derive]
 def Grammar.Katydid.derive (G: Grammar n φ) (Φ: φ → α → Bool)
@@ -889,8 +889,6 @@ We include two implementations of the Katydid algorithm: \emph{mem} and \emph{au
 The \emph{mem} version of the algorithm, memoizes as the regular hedge grammar is exercised. 
 The \emph{auto} version of the algorithm prepopulates the memoization tables with all possibilities.
 The auto version adds one more optimization where it finds all constant strings in the predicates and creates another table from these strings to the child expressions, see \link{childr}{def Grammar.Katydid.derive}.
-
-\subsection{Resource-Effectiveness of our Golang implementation}
 
 We conducted benchmarks over several iterations to evaluate how memoization improves filter efficiency with repeated execution.
 Two regular hedge grammars (\lstinline{simple} and \lstinline{complex}) were chosen to filter a list of conferences:
@@ -1621,9 +1619,9 @@ These terminals function like XML opening and closing tags, ensuring each rule i
 This avoids the left-recursion issues that arise when applying derivatives to CFGs~\cite{might2011parsing} and enables the use of a simple derivative algorithm based on regular expressions with reference lookups.
 \RelaxNG also includes additional operators, such as \emph{interleave}, to model semi-structured XML content, in particular the unordered nature of attributes.
 They also rely on memoization for efficiency by decomposing the derivative function into multiple, smaller functions: \lstinline{startTagOpenDeriv}, \lstinline{attsDeriv}, \lstinline{startTagCloseDeriv}, \lstinline{endTagDeriv} and \lstinline{textDeriv}.
-Except for \lstinline{textDeriv}, all functions are resource-effective to memoize; memoizing \lstinline{textDeriv} is impractical due to the large and highly variable text-node alphabet.
+Except for \lstinline{textDeriv}, all functions are memoized; memoizing \lstinline{textDeriv} is impractical due to the large and highly variable text-node alphabet.
 This shortcoming is avoided by the Katydid algorithm, which never relies on the input alphabet for memoization, while still remaining applicable to leaf nodes.
-The remaining memoized functions operate on element tags and attribute names, which may come from large alphabets, but whose actual values exhibit low variability, making memoization resource-effective.
+The remaining memoized functions operate on element tags and attribute names, which may come from large alphabets, but whose actual values exhibit low variability.
 An on-the-fly conversion from a regular hedge grammar to a BCFG incurs the overhead of introducing closing tags to ensure grammatical balance, which \RelaxNG implements with its \lstinline{after} expression.
 For example, consider the grammar \lstinline{Grammar.mk (symbol ("<div>", 0)) #v[optional (symbol ("<div>", 0))]} and the input string \lstinline{<div><div><div></div></div></div>}.
 Each invocation of \lstinline{startTagOpenDeriv} on a \lstinline{<div>} produces a progressively larger expression that accumulates closing tags:
@@ -1633,13 +1631,14 @@ after (g.lookup 0) (after emptystr emptystr) -- <div></div></div></div>
 after (g.lookup 0) (after emptystr (after emptystr emptystr)) -- </div></div></div>
 \end{lstlisting}
 This makes it impossible to always build a fully memoized version of the functions up front, since the state space is technically unbounded.
-In practice, recursion depths are shallow, so after validating one or two documents, memoization becomes resource-effective, whereas the Katydid algorithm becomes resource-effective after the first recursive step.
+In practice, recursion depths are shallow, so after validating one or two documents, memoization tables are hit frequently, whereas the Katydid's memoization tables are hit after the first recursive step.
 Another drawback is that the expression keeps more context than is necessary.
 For example, consider the grammar
 \lstinline{Grammar.mk (concat (symbol ("<head>", 0)) (symbol ("<body>", 0))) #v[optional (symbol ("<div>", 0))]}.
 Applying \lstinline{startTagOpenDeriv} to \lstinline{<head>} yields
 \lstinline{after (optional (symbol ("<div>", 0))) (symbol ("<body>", 0))},
-which still retains the \lstinline{<body>} symbol. In contrast, Katydid propagates only \lstinline{optional (symbol ("<div>", 0))} to the children, leading to more resource-effective memoization.
+which still retains the \lstinline{<body>} symbol.
+In contrast, Katydid propagates only \lstinline{optional (symbol ("<div>", 0))} to the children, leading to more more memoization table hits.
 Overall, \RelaxNG provides an elegant and efficient approach to XML validation, albeit theoretically slightly less efficient than the Katydid algorithm.
 
 Derivative-based validation is not the only automata-theoretic route to schema validation. 
@@ -1652,7 +1651,7 @@ Its main trade-off against derivatives is that it shifts work toward compilation
 Visibly Pushdown Automata (VPA)~\cite{alur2004visibly} were also considered, as they have been used successfully for complex XML processing~\cite{mozafari2012high} as well as for fast filtering~\cite{kumar2007visibly}.
 These automata include a stack and a call and return function, which we could apply to regular hedge grammars.
 We can construct a VPA lazily by memoizing derivatives.
-This memoization would also be slightly less resource-effective, because of the large input alphabet and variance in the label of the text nodes, same as \RelaxNG, but the state space would be bounded.
+This memoization tables would also be larger and result in less hits, because of the large input alphabet and variance in the label of the text nodes, same as \RelaxNG, but the state space would be bounded.
 
 Derivatives have been applied to JSON~Schema~\cite{holstege2019application} validation using an algorithm similar to \JSONmembersRuleDerive.
 They convert \JSONSchema to a grammar similar to a regular hedge grammar extended with additional operators, including \lstinline{interleave}, \lstinline{xor} and \lstinline{ifthenelse}.
