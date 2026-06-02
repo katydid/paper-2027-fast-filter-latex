@@ -85,7 +85,6 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
 \newcommand{\link}[2]{\mbox{\hyperref[#2]{\lstinline{#1}}}\xspace}
 \newcommand{\jsonlink}[2]{\mbox{\hyperref[#2]{\lstinline[language=json]{#1}}}\xspace}
 \newcommand{\refcode}[1]{\hyperref[#1]{\lstinline[breaklines=true,literate={\_}{}{0\discretionary{\_}{}{\_}}]{#1}}\xspace}
-
 %% Names
 \newcommand{\Hedge}{\refcode{Hedge}}
 \newcommand{\Node}{\link{Hedge.Node}{Hedge}}
@@ -129,6 +128,10 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
 \newcommand{\JSONSchema}{%
   JSON~Schema\xspace%
 }
+\newcommand{\supplementarymaterial}{%
+  \hyperref[supplementary_material]{supplementary material}\xspace%
+}
+
 
 %% BEGIN: Define JSON syntax highlighting
 \definecolor{delim}{RGB}{20,105,176}
@@ -318,8 +321,7 @@ The remainder of the paper is structured as follows.
 In \Cref{section_go}, we describe the Golang implementation and in \Cref{section_benchmarks}, we provide benchmark results against other \JSONSchema implementations.
 \Cref{section_related} covers related work and \Cref{section_future} outlines the directions for future research.
 
-Definitions, proofs as well as pseudocode for the Golang implementation are presented in the syntax of the Lean theorem prover~\cite{lean4} and are available in the supplementary material~\footnote{No part of the Lean code (including the formal proofs) or the Golang code was created with the aid of GenAI (LLMs).}.
-%% TODO Walter: Make sure we link supplementary material and call it "supplementary material" or rename everywhere we refer to it.
+Definitions, proofs as well as pseudocode for the Golang implementation are presented in the syntax of the Lean theorem prover~\cite{lean4} and are available in the \supplementarymaterial~\footnote{No part of the Lean code (including the formal proofs) or the Golang code was created with the aid of GenAI (LLMs).}.
 Lean tutorials are available online~\cite{learnlean}. 
 
 We start with a simple \JSONSchema example to illustrate and motivate our approach.
@@ -419,7 +421,7 @@ inductive Regex (σ: Type) where
   | concat (r1 r2: Regex σ) | star (r1: Regex σ) | interleave (r1 r2: Regex σ)
 \end{lstlisting}
 We include the \lstinline{interleave} operator to handle semi-structured data, for example, unordered JSON members and XML attributes~\cite{hosoya2010foundations}.
-We also support the \lstinline{and} and \lstinline{complement} operators in our definitions and proofs in the supplementary material, but omit them here for brevity.
+We also support the \lstinline{and} and \lstinline{complement} operators in our definitions and proofs in the \supplementarymaterial, but omit them here for brevity.
 We define additional operators as helper functions:
 \begin{lstlisting}
 def onlyif (cond: Prop) [dcond: Decidable cond] (r: Regex σ): Regex σ :=
@@ -607,7 +609,7 @@ If care is not taken, this would trigger a heap allocation in Golang, which is c
 There are several ways to avoid this heap allocation.
 In Golang, one can pre-allocate a reusable buffer.
 In Lean, we define an alternative to the memoized \enter function, \lstinline{IfExpr.enter}, which returns a nested if expression over the symbols and all possible boolean \lstinline{Vector} combinations.
-The definitions and proofs are available in the supplementary material.
+The definitions and proofs are available in the \supplementarymaterial.
 The drawback of \lstinline{IfExpr.enter} is an exponential blow-up in the space required for memoization.
 
 The \leave function zips the evaluated results with the original input symbols and replaces these back into the \Regex to create a \lstinline{Regex (σ × Bool)}.
@@ -777,7 +779,7 @@ def Rule.denote (G: Grammar n φ) (Φ: φ → α → Prop)
      /\ (denote G Φ r2 (List.get (List.interleaves nodes) i).2)
   termination_by (nodes, r)
 \end{lstlisting}
-We base this denotation on the denotation of regular expressions~\cite{elliott2021symbolic} and prove it equivalent to any alterations we made, in the supplementary material, except for the \lstinline{symbol} and \lstinline{interleave} operators, which we had to define ourselves.
+We base this denotation on the denotation of regular expressions~\cite{elliott2021symbolic} and prove it equivalent to any alterations we made, in the \supplementarymaterial, except for the \lstinline{symbol} and \lstinline{interleave} operators, which we had to define ourselves.
 The \lstinline{emptyset} specifies a set that contains nothing, while the \lstinline{emptystr} is a singleton set containing the empty list.
 The \lstinline{symbol} construct describes only languages consisting of a single \Node, where the node’s label satisfies the predicate \lstinline{pred} and its children belong to the referenced language.
 The \lstinline{or} expression denotes the union of two languages, whereas the \lstinline{concat} expression contains a \Hedge only if it can be decomposed into a prefix and a suffix, such that the prefix belongs to the first language and the suffix to the second.
@@ -791,7 +793,7 @@ def interleaves (xs: List α) (acc: List (List α × List α) := [([], [])])
             ++ (interleaves xs acc).map (fun res => (res.1, x::res.2))
 #guard (interleaves [1,2,3,4]).contains ([1,3],[2,4])
 \end{lstlisting}
-We use this definition to avoid termination issues and prove it equivalent to an alternative definition~\cite{relaxng2001simple}, in the supplementary material, to regain confidence.
+We use this definition to avoid termination issues and prove it equivalent to an alternative definition~\cite{relaxng2001simple}, in the \supplementarymaterial, to regain confidence.
 
 Verifying the correctness of this denotation is simplified by observing that the \RuleDenote function coincides with the denotation of a \Regex in all cases except \lstinline{symbol}:
 \begin{lstlisting}[label=def Regex.denote]
@@ -875,7 +877,7 @@ We encountered a similar termination issue when propagating memoization soundnes
 
 The Katydid memoization technique was originally implemented in Golang in 2016 to filter through petabytes of serialized Protocol Buffers in a proprietary distributed database.
 In the previous section, we verified the memoization technique for regular hedge grammars.
-In this section, we continue to use Lean as pseudo-code to explain the Go implementation.
+In this section, we continue to use Lean as pseudocode to explain the Go implementation.
 The Golang implementation includes several extensions and optimizations beyond the verified technique.
 The extensions include a comprehensive predicate library.
 The optimizations include smart constructors that simplify regular expressions and compute nullability and hashes for comparisons. 
@@ -908,7 +910,7 @@ The \lstinline{simple} grammar filters for conferences within the Category of Co
 For each grammar, we randomly populated data structures and serialized them as Protocol Buffers and JSON.
 We ran the benchmarks using Golang version 1.24 on a 2024 MacBook Pro M4 with 48 GB of memory.
 Note, we also ran benchmarks back in 2016 and achieved similar sub microsecond results for similar grammars on older hardware.
-The supplementary material includes more extensive and larger benchmarks, recorded runs, and explains how to reproduce the benchmarks.
+The \supplementarymaterial includes more extensive and larger benchmarks, recorded runs, and explains how to reproduce the benchmarks.
 
 \begin{figure}[t]
 \begin{center}
@@ -935,6 +937,8 @@ For this purpose, we implement a translation algorithm from \JSONSchema to regul
 Translation is possible, except for a few non-regular operators: \lstinline{uniqueItems} and newer dynamic operators.
 %% TODO Walter: be specific about which dynamic operators.
 \citet{holstege2019application} explains how \JSONSchema can be converted to \emph{tagged-type regular expressions}, which is closely related enough to regular hedge grammars that we could apply most of the same translation techniques.
+They support additional operators, including \lstinline{interleave}, \lstinline{xor} and \lstinline{ifthenelse}.
+The \lstinline{uniqueItems} operator of \JSONSchema is also not supported, since it is not regular.
 
 The JSON \lstinline[language=json]|{"a": ["b", "c"]}| is represented as the following \Hedge, abstracted away behind a performant, pull-based parser: 
 \begin{lstlisting}
@@ -1005,6 +1009,8 @@ To avoid redundancy, we highlight only the optimal variants from the ajv and jsu
 While go-santhosh-tekuri was the most efficient external Go library, katydid demonstrated superior performance across all Go-centric evaluations.
 We also evaluate four variants of our Katydid framework, differentiated by their memoization strategy (on-the-fly vs. prepopulated) and parsing target (online JSON vs. Go reflection): go-katydid-mem-json, go-katydid-auto-json, go-katydid-mem-reflect, and go-katydid-auto-reflect.
 To guarantee cross-platform portability and reproducibility, each configuration is packaged with a dedicated Docker setup.
+Each implementation is warmed up by first validating all the documents.
+This implies the CPU caches and JITs are warm and also that our memoized solution has a populated table.
 
 % The original benchmark suite included the following implementations: 
 % ajv~\cite{jsonschema_impl_ajv} (Javascript),
@@ -1088,70 +1094,8 @@ We also add schemas from ajv's benchmarks.
 Finally, we include the JSON schema for the conference example previously introduced.
 To evaluate the extended schema collection, we developed a random generator capable of producing both valid instances and non-conforming documents containing at least one schema violation.
 For schemas utilizing the \lstinline{uniqueItems} constraint, we derived variants that omit this feature; this allows for isolated benchmarking of the remaining schema logic.
-See \Cref{table_jsonschemas} for a summary of the schemas.
-
-\begin{table}
-\caption[JSON Schemas used for benchmarks]{JSON Schemas used for benchmarks, where rm indicates that features were removed from the original schema and gen indicates that the documents were generated.}
-\label{table_jsonschemas}
-%% generate table by running: `make analytics-schemas` in the benchmark suite.
-% BEGIN Generated tabular
-\begin{tabular}{l|lllll}
-name & schema size (B) & \# Docs & avg doc size (B) & gen & rm \\
-\hline
-cosmicrealms & 1583 & 10000 & 547 & \cmark & \cmark \\
-ansible-meta & 37015 & 333 & 312 & \xmark & \xmark \\
-aws-cdk & 740 & 483 & 1149 & \xmark & \xmark \\
-babelrc & 6717 & 794 & 140 & \xmark & \xmark \\
-clang-format & 55557 & 133 & 334 & \xmark & \xmark \\
-cmake-presets & 86084 & 967 & 2719 & \xmark & \xmark \\
-code-climate & 6051 & 2484 & 281 & \xmark & \xmark \\
-cql2 & 18400 & 109 & 124 & \xmark & \xmark \\
-cspell & 128640 & 981 & 819 & \xmark & \cmark \\
-cypress & 16457 & 981 & 403 & \xmark & \xmark \\
-deno & 22822 & 987 & 1022 & \xmark & \cmark \\
-dependabot & 9631 & 967 & 403 & \xmark & \xmark \\
-draft-04 & 4020 & 563 & 12635 & \xmark & \cmark \\
-address & 761 & 10000 & 140 & \cmark & \xmark \\
-blogpost & 1265 & 10000 & 328 & \cmark & \xmark \\
-calendar & 1499 & 10000 & 341 & \cmark & \xmark \\
-devicetype & 1457 & 10000 & 189 & \cmark & \xmark \\
-health-record & 1509 & 10000 & 416 & \cmark & \xmark \\
-job-posting & 674 & 10000 & 220 & \cmark & \xmark \\
-movie & 708 & 10000 & 243 & \cmark & \xmark \\
-userprofile & 631 & 10000 & 221 & \cmark & \xmark \\
-fabric-mod & 11446 & 911 & 691 & \xmark & \xmark \\
-geojson & 46177 & 500 & 52329 & \xmark & \xmark \\
-gitpod-configuration & 13489 & 986 & 357 & \xmark & \xmark \\
-helm-chart-lock & 1556 & 3888 & 342 & \xmark & \xmark \\
-importmap & 618 & 964 & 629 & \xmark & \xmark \\
-jasmine & 3690 & 980 & 133 & \xmark & \xmark \\
-complex & 4060 & 100 & 31530 & \cmark & \xmark \\
-medium & 1887 & 10000 & 365 & \cmark & \xmark \\
-jsconfig & 60482 & 981 & 177 & \xmark & \cmark \\
-jshintrc & 12142 & 966 & 428 & \xmark & \xmark \\
-conf & 1053 & 10000 & 223 & \cmark & \xmark \\
-krakend & 372808 & 47 & 2382 & \xmark & \cmark \\
-lazygit & 89462 & 280 & 276 & \xmark & \cmark \\
-lerna & 4717 & 985 & 173 & \xmark & \xmark \\
-nest-cli & 19450 & 1025 & 290 & \xmark & \xmark \\
-omnisharp & 13924 & 987 & 595 & \xmark & \xmark \\
-openapi & 33281 & 107 & 164593 & \xmark & \xmark \\
-pre-commit-hooks & 9920 & 985 & 551 & \xmark & \xmark \\
-pulumi & 7983 & 3807 & 251 & \xmark & \xmark \\
-semantic-release & 3422 & 794 & 461 & \xmark & \xmark \\
-stale & 3702 & 961 & 469 & \xmark & \xmark \\
-stylecop & 11732 & 983 & 568 & \xmark & \cmark \\
-tmuxinator & 4545 & 382 & 629 & \xmark & \xmark \\
-ui5 & 96365 & 942 & 487 & \xmark & \xmark \\
-ui5-manifest & 392675 & 611 & 2353 & \xmark & \cmark \\
-unreal-engine-uproject & 10402 & 859 & 394 & \xmark & \cmark \\
-vercel & 38187 & 710 & 406 & \xmark & \xmark \\
-yamllint & 890 & 984 & 352 & \xmark & \xmark \\
-advanced & 2618 & 10000 & 366 & \cmark & \cmark \\
-basic & 975 & 200 & 2783 & \cmark & \cmark \\
-\end{tabular}
-% END Generated tabular
-\end{table}
+See a summary of the schemas is including in the \supplementarymaterial.
+%% TODO Walter: create summary table of schemas in supplementary material.
 
 While \citet{blaze} accounts for schema compilation time and validation performance in both ``cold'' (unprimed) and ``warm'' (primed) states, we introduce a distinct measurement for parsing time.
 This addition underscores that parsing is an integral component of the total validation overhead—a factor that becomes particularly significant when filtering through large volumes of non-matching documents.
@@ -1163,440 +1107,51 @@ To ensure statistical stability, each benchmark was executed three times, with r
 \subsection{Results}
 
 \begin{table}
-\caption{results per implementation}
-\label{table_jsonschema_per_implementation}
-% BEGIN Generated tabular
-\begin{tabular}{l|llll}
-impl & warm avg/doc & warm mean/doc & cold avg/doc & cold mean/doc \\
+\caption{results for API use case per implementation for valid and parsing times excluded}
+\label{table_valid_parsing_excluded}
+% BEGIN Generated tabular for kind: valid and parsing excluded
+\begin{tabular}{l|ll}
+impl & mean/doc & median/doc \\
 \hline
-ajv-bun & 5117 & 465 & 18568 & 3129 \\
-blaze & 2909 & 234 & 3102 & 512 \\
-boon & 7269 & 1382 & 8651 & 1538 \\
-go-katydid-auto-json & 23047 & 4540 & 23175 & 4719 \\
-go-katydid-auto-reflect & 293 & 283 & 379 & 329 \\
-go-katydid-mem-json & 31640 & 7470 & 47183 & 8689 \\
-go-katydid-mem-reflect & 423 & 276 & 442 & 337 \\
-go-santhosh-tekuri & 40897 & 4788 & 40740 & 5386 \\
-jsu-c & 1992 & 224 & 2159 & 280 \\
+ajv-bun & 977 & 238 \\
+blaze & 245 & 190 \\
+boon & 1502 & 1303 \\
+go-katydid-auto-json & 4274 & 3926 \\
+go-katydid-auto-reflect & 2995 & 2354 \\
+go-katydid-mem-json & 9314 & 5158 \\
+go-katydid-mem-reflect & 5850 & 3206 \\
+go-santhosh-tekuri & 4993 & 4517 \\
+jsu-c & 220 & 169 \\
+rapidjson & 2558 & 2160 \\
 \end{tabular}
 % END Generated tabular
 \end{table}
 
 \begin{table}
-\label{table_jsonschema_per_schema_and_implementation}
-\caption{results per schema and implementation}
-
-% BEGIN Generated tabular
-\begin{tabular}{lll|llll}
-name & mixed & impl & \#warm & \%warm & \#cold & \%cold \\
+\caption{results for filter use case per implementation for invalid and parsing times included}
+\label{table_invalid_parsing_included}
+% BEGIN Generated tabular for kind: invalid and parsing included
+\begin{tabular}{l|ll}
+impl & mean/doc & median/doc \\
 \hline
-cosmicrealms & \xmark & ajv-bun & 4 & 300\% & 6 & 892\% \\
-cosmicrealms & \xmark & blaze & 5 & 493\% & 4 & 447\% \\
-cosmicrealms & \xmark & boon & 6 & 891\% & 5 & 882\% \\
-cosmicrealms & \xmark & go-katydid-auto-json & 7 & 3142\% & 7 & 2984\% \\
-cosmicrealms & \xmark & go-katydid-auto-reflect & 2 & 160\% & 3 & 206\% \\
-cosmicrealms & \xmark & go-katydid-mem-json & 9 & 10255\% & 9 & 35613\% \\
-cosmicrealms & \xmark & go-katydid-mem-reflect & 1 & 100\% & 1 & 100\% \\
-cosmicrealms & \xmark & go-santhosh-tekuri & 8 & 6697\% & 8 & 5881\% \\
-cosmicrealms & \xmark & jsu-c & 3 & 193\% & 2 & 170\% \\
-\hline
-aws-cdk & \xmark & ajv-bun & 3 & 159\% & 6 & 2054\% \\
-aws-cdk & \xmark & blaze & 1 & 100\% & 2 & 176\% \\
-aws-cdk & \xmark & boon & 6 & 735\% & 5 & 612\% \\
-aws-cdk & \xmark & go-katydid-auto-json & 8 & 8910\% & 8 & 6699\% \\
-aws-cdk & \xmark & go-katydid-auto-reflect & 5 & 368\% & 3 & 288\% \\
-aws-cdk & \xmark & go-katydid-mem-json & 9 & 9391\% & 9 & 8492\% \\
-aws-cdk & \xmark & go-katydid-mem-reflect & 4 & 341\% & 4 & 333\% \\
-aws-cdk & \xmark & go-santhosh-tekuri & 7 & 3140\% & 7 & 2640\% \\
-aws-cdk & \xmark & jsu-c & 2 & 116\% & 1 & 100\% \\
-\hline
-babelrc & \xmark & ajv-bun & 3 & 292\% & 7 & 2850\% \\
-babelrc & \xmark & blaze & 2 & 111\% & 2 & 107\% \\
-babelrc & \xmark & boon & 6 & 851\% & 5 & 451\% \\
-babelrc & \xmark & go-katydid-auto-json & 7 & 2350\% & 6 & 1285\% \\
-babelrc & \xmark & go-katydid-auto-reflect & 4 & 449\% & 3 & 261\% \\
-babelrc & \xmark & go-katydid-mem-json & 9 & 4275\% & 9 & 4924\% \\
-babelrc & \xmark & go-katydid-mem-reflect & 5 & 669\% & 4 & 414\% \\
-babelrc & \xmark & go-santhosh-tekuri & 8 & 3464\% & 8 & 3049\% \\
-babelrc & \xmark & jsu-c & 1 & 100\% & 1 & 100\% \\
-\hline
-clang-format & \xmark & ajv-bun & 7 & 2347\% & 8 & 28164\% \\
-clang-format & \xmark & blaze & 4 & 292\% & 4 & 370\% \\
-clang-format & \xmark & boon & 5 & 616\% & 5 & 515\% \\
-clang-format & \xmark & go-katydid-auto-json & 6 & 1901\% & 6 & 1394\% \\
-clang-format & \xmark & go-katydid-auto-reflect & 2 & 114\% & 1 & 100\% \\
-clang-format & \xmark & go-katydid-mem-json & 9 & 20981\% & 9 & 101885\% \\
-clang-format & \xmark & go-katydid-mem-reflect & 3 & 124\% & 3 & 162\% \\
-clang-format & \xmark & go-santhosh-tekuri & 8 & 2575\% & 7 & 1956\% \\
-clang-format & \xmark & jsu-c & 1 & 100\% & 2 & 116\% \\
-\hline
-cypress & \xmark & ajv-bun & 6 & 725\% & 8 & 4276\% \\
-cypress & \xmark & blaze & 1 & 100\% & 2 & 133\% \\
-cypress & \xmark & boon & 5 & 457\% & 5 & 358\% \\
-cypress & \xmark & go-katydid-auto-json & 8 & 3372\% & 7 & 2675\% \\
-cypress & \xmark & go-katydid-auto-reflect & 3 & 211\% & 3 & 169\% \\
-cypress & \xmark & go-katydid-mem-json & 9 & 10092\% & 9 & 11792\% \\
-cypress & \xmark & go-katydid-mem-reflect & 4 & 284\% & 4 & 205\% \\
-cypress & \xmark & go-santhosh-tekuri & 7 & 1260\% & 6 & 1410\% \\
-cypress & \xmark & jsu-c & 2 & 108\% & 1 & 100\% \\
-\hline
-deno & \xmark & ajv-bun & 5 & 456\% & 7 & 2198\% \\
-deno & \xmark & blaze & 2 & 107\% & 4 & 206\% \\
-deno & \xmark & boon & 6 & 516\% & 5 & 439\% \\
-deno & \xmark & go-katydid-auto-json & 8 & 4061\% & 8 & 2833\% \\
-deno & \xmark & go-katydid-auto-reflect & 3 & 140\% & 2 & 118\% \\
-deno & \xmark & go-katydid-mem-json & 9 & 7281\% & 9 & 4572\% \\
-deno & \xmark & go-katydid-mem-reflect & 4 & 145\% & 3 & 140\% \\
-deno & \xmark & go-santhosh-tekuri & 7 & 1877\% & 6 & 1192\% \\
-deno & \xmark & jsu-c & 1 & 100\% & 1 & 100\% \\
-\hline
-dependabot & \xmark & ajv-bun & 5 & 186\% & 6 & 1333\% \\
-dependabot & \xmark & blaze & 3 & 126\% & 4 & 208\% \\
-dependabot & \xmark & boon & 6 & 731\% & 5 & 719\% \\
-dependabot & \xmark & go-katydid-auto-json & 7 & 2582\% & 7 & 2285\% \\
-dependabot & \xmark & go-katydid-auto-reflect & 4 & 168\% & 1 & 100\% \\
-dependabot & \xmark & go-katydid-mem-json & 9 & 4833\% & 9 & 4917\% \\
-dependabot & \xmark & go-katydid-mem-reflect & 1 & 100\% & 2 & 103\% \\
-dependabot & \xmark & go-santhosh-tekuri & 8 & 2954\% & 8 & 2734\% \\
-dependabot & \xmark & jsu-c & 2 & 123\% & 3 & 162\% \\
-\hline
-address & \xmark & ajv-bun & 2 & 119\% & 5 & 314\% \\
-address & \xmark & blaze & 1 & 100\% & 1 & 100\% \\
-address & \xmark & boon & 6 & 426\% & 6 & 362\% \\
-address & \xmark & go-katydid-auto-json & 7 & 1202\% & 7 & 983\% \\
-address & \xmark & go-katydid-auto-reflect & 3 & 136\% & 2 & 121\% \\
-address & \xmark & go-katydid-mem-json & 9 & 3087\% & 9 & 2954\% \\
-address & \xmark & go-katydid-mem-reflect & 5 & 242\% & 3 & 127\% \\
-address & \xmark & go-santhosh-tekuri & 8 & 1232\% & 8 & 1023\% \\
-address & \xmark & jsu-c & 4 & 226\% & 4 & 190\% \\
-\hline
-blogpost & \xmark & ajv-bun & 5 & 137\% & 5 & 427\% \\
-blogpost & \xmark & blaze & 4 & 136\% & 4 & 206\% \\
-blogpost & \xmark & boon & 6 & 477\% & 6 & 548\% \\
-blogpost & \xmark & go-katydid-auto-json & 7 & 1598\% & 7 & 1697\% \\
-blogpost & \xmark & go-katydid-auto-reflect & 1 & 100\% & 3 & 128\% \\
-blogpost & \xmark & go-katydid-mem-json & 9 & 2622\% & 9 & 2759\% \\
-blogpost & \xmark & go-katydid-mem-reflect & 2 & 106\% & 1 & 100\% \\
-blogpost & \xmark & go-santhosh-tekuri & 8 & 2193\% & 8 & 2402\% \\
-blogpost & \xmark & jsu-c & 3 & 108\% & 2 & 124\% \\
-\hline
-calendar & \xmark & ajv-bun & 4 & 164\% & 5 & 404\% \\
-calendar & \xmark & blaze & 5 & 182\% & 4 & 241\% \\
-calendar & \xmark & boon & 6 & 430\% & 6 & 446\% \\
-calendar & \xmark & go-katydid-auto-json & 7 & 1383\% & 7 & 1329\% \\
-calendar & \xmark & go-katydid-auto-reflect & 3 & 130\% & 3 & 133\% \\
-calendar & \xmark & go-katydid-mem-json & 9 & 3237\% & 9 & 3061\% \\
-calendar & \xmark & go-katydid-mem-reflect & 2 & 103\% & 2 & 107\% \\
-calendar & \xmark & go-santhosh-tekuri & 8 & 1918\% & 8 & 1879\% \\
-calendar & \xmark & jsu-c & 1 & 100\% & 1 & 100\% \\
-\hline
-devicetype & \xmark & ajv-bun & 2 & 121\% & 5 & 530\% \\
-devicetype & \xmark & blaze & 1 & 100\% & 1 & 100\% \\
-devicetype & \xmark & boon & 6 & 995\% & 6 & 831\% \\
-devicetype & \xmark & go-katydid-auto-json & 7 & 1129\% & 7 & 909\% \\
-devicetype & \xmark & go-katydid-auto-reflect & 5 & 179\% & 3 & 145\% \\
-devicetype & \xmark & go-katydid-mem-json & 8 & 2687\% & 8 & 2423\% \\
-devicetype & \xmark & go-katydid-mem-reflect & 4 & 164\% & 4 & 148\% \\
-devicetype & \xmark & go-santhosh-tekuri & 9 & 2927\% & 9 & 2473\% \\
-devicetype & \xmark & jsu-c & 3 & 127\% & 2 & 106\% \\
-\hline
-health-record & \xmark & ajv-bun & 4 & 193\% & 5 & 543\% \\
-health-record & \xmark & blaze & 5 & 221\% & 4 & 281\% \\
-health-record & \xmark & boon & 6 & 711\% & 6 & 714\% \\
-health-record & \xmark & go-katydid-auto-json & 7 & 2439\% & 7 & 2245\% \\
-health-record & \xmark & go-katydid-auto-reflect & 2 & 118\% & 3 & 171\% \\
-health-record & \xmark & go-katydid-mem-json & 9 & 3582\% & 9 & 3409\% \\
-health-record & \xmark & go-katydid-mem-reflect & 1 & 100\% & 1 & 100\% \\
-health-record & \xmark & go-santhosh-tekuri & 8 & 3012\% & 8 & 2959\% \\
-health-record & \xmark & jsu-c & 3 & 154\% & 2 & 155\% \\
-\hline
-job-posting & \xmark & ajv-bun & 2 & 149\% & 5 & 440\% \\
-job-posting & \xmark & blaze & 3 & 157\% & 4 & 177\% \\
-job-posting & \xmark & boon & 6 & 438\% & 6 & 452\% \\
-job-posting & \xmark & go-katydid-auto-json & 7 & 1463\% & 7 & 1436\% \\
-job-posting & \xmark & go-katydid-auto-reflect & 4 & 163\% & 2 & 166\% \\
-job-posting & \xmark & go-katydid-mem-json & 9 & 2586\% & 9 & 2658\% \\
-job-posting & \xmark & go-katydid-mem-reflect & 5 & 307\% & 3 & 176\% \\
-job-posting & \xmark & go-santhosh-tekuri & 8 & 1746\% & 8 & 1838\% \\
-job-posting & \xmark & jsu-c & 1 & 100\% & 1 & 100\% \\
-\hline
-movie & \xmark & ajv-bun & 3 & 135\% & 5 & 413\% \\
-movie & \xmark & blaze & 2 & 132\% & 4 & 166\% \\
-movie & \xmark & boon & 6 & 444\% & 6 & 442\% \\
-movie & \xmark & go-katydid-auto-json & 7 & 1525\% & 7 & 1482\% \\
-movie & \xmark & go-katydid-auto-reflect & 4 & 154\% & 3 & 156\% \\
-movie & \xmark & go-katydid-mem-json & 9 & 2603\% & 9 & 2520\% \\
-movie & \xmark & go-katydid-mem-reflect & 5 & 155\% & 2 & 152\% \\
-movie & \xmark & go-santhosh-tekuri & 8 & 1619\% & 8 & 1674\% \\
-movie & \xmark & jsu-c & 1 & 100\% & 1 & 100\% \\
-\hline
-userprofile & \xmark & ajv-bun & 3 & 127\% & 5 & 394\% \\
-userprofile & \xmark & blaze & 2 & 118\% & 2 & 156\% \\
-userprofile & \xmark & boon & 6 & 426\% & 6 & 691\% \\
-userprofile & \xmark & go-katydid-auto-json & 7 & 1533\% & 7 & 1538\% \\
-userprofile & \xmark & go-katydid-auto-reflect & 4 & 165\% & 4 & 172\% \\
-userprofile & \xmark & go-katydid-mem-json & 9 & 2552\% & 9 & 2490\% \\
-userprofile & \xmark & go-katydid-mem-reflect & 5 & 169\% & 3 & 161\% \\
-userprofile & \xmark & go-santhosh-tekuri & 8 & 2261\% & 8 & 2126\% \\
-userprofile & \xmark & jsu-c & 1 & 100\% & 1 & 100\% \\
-\hline
-fabric-mod & \xmark & ajv-bun & 5 & 683\% & 7 & 4064\% \\
-fabric-mod & \xmark & blaze & 4 & 294\% & 4 & 322\% \\
-fabric-mod & \xmark & boon & 6 & 1405\% & 5 & 1637\% \\
-fabric-mod & \xmark & go-katydid-auto-json & 7 & 3201\% & 6 & 2828\% \\
-fabric-mod & \xmark & go-katydid-auto-reflect & 2 & 107\% & 1 & 100\% \\
-fabric-mod & \xmark & go-katydid-mem-json & 9 & 8380\% & 9 & 8059\% \\
-fabric-mod & \xmark & go-katydid-mem-reflect & 1 & 100\% & 2 & 118\% \\
-fabric-mod & \xmark & go-santhosh-tekuri & 8 & 8133\% & 8 & 5923\% \\
-fabric-mod & \xmark & jsu-c & 3 & 166\% & 3 & 154\% \\
-\hline
-gitpod-configuration & \xmark & ajv-bun & 5 & 486\% & 9 & 2916\% \\
-gitpod-configuration & \xmark & blaze & 2 & 104\% & 4 & 184\% \\
-gitpod-configuration & \xmark & boon & 6 & 523\% & 5 & 447\% \\
-gitpod-configuration & \xmark & go-katydid-auto-json & 7 & 1971\% & 7 & 1640\% \\
-gitpod-configuration & \xmark & go-katydid-auto-reflect & 4 & 151\% & 2 & 116\% \\
-gitpod-configuration & \xmark & go-katydid-mem-json & 9 & 2607\% & 8 & 2626\% \\
-gitpod-configuration & \xmark & go-katydid-mem-reflect & 3 & 143\% & 3 & 127\% \\
-gitpod-configuration & \xmark & go-santhosh-tekuri & 8 & 2065\% & 6 & 1589\% \\
-gitpod-configuration & \xmark & jsu-c & 1 & 100\% & 1 & 100\% \\
-\hline
-helm-chart-lock & \xmark & ajv-bun & 2 & 248\% & 5 & 552\% \\
-helm-chart-lock & \xmark & blaze & 1 & 100\% & 1 & 100\% \\
-helm-chart-lock & \xmark & boon & 6 & 1987\% & 6 & 577\% \\
-helm-chart-lock & \xmark & go-katydid-auto-json & 8 & 7041\% & 8 & 1897\% \\
-helm-chart-lock & \xmark & go-katydid-auto-reflect & 4 & 558\% & 3 & 155\% \\
-helm-chart-lock & \xmark & go-katydid-mem-json & 9 & 8066\% & 9 & 2261\% \\
-helm-chart-lock & \xmark & go-katydid-mem-reflect & 5 & 1585\% & 4 & 168\% \\
-helm-chart-lock & \xmark & go-santhosh-tekuri & 7 & 6411\% & 7 & 1732\% \\
-helm-chart-lock & \xmark & jsu-c & 3 & 377\% & 2 & 132\% \\
-\hline
-importmap & \xmark & ajv-bun & 3 & 470\% & 6 & 2115\% \\
-importmap & \xmark & blaze & 1 & 100\% & 1 & 100\% \\
-importmap & \xmark & boon & 6 & 2139\% & 5 & 1043\% \\
-importmap & \xmark & go-katydid-auto-json & 9 & 10247\% & 8 & 4712\% \\
-importmap & \xmark & go-katydid-auto-reflect & 5 & 688\% & 3 & 342\% \\
-importmap & \xmark & go-katydid-mem-json & 8 & 9812\% & 9 & 5189\% \\
-importmap & \xmark & go-katydid-mem-reflect & 4 & 672\% & 4 & 349\% \\
-importmap & \xmark & go-santhosh-tekuri & 7 & 7044\% & 7 & 4186\% \\
-importmap & \xmark & jsu-c & 2 & 382\% & 2 & 185\% \\
-\hline
-jasmine & \xmark & ajv-bun & 3 & 126\% & 6 & 1603\% \\
-jasmine & \xmark & blaze & 2 & 107\% & 2 & 131\% \\
-jasmine & \xmark & boon & 6 & 986\% & 4 & 748\% \\
-jasmine & \xmark & go-katydid-auto-json & 7 & 2111\% & 7 & 1613\% \\
-jasmine & \xmark & go-katydid-auto-reflect & 5 & 291\% & 3 & 246\% \\
-jasmine & \xmark & go-katydid-mem-json & 9 & 4873\% & 9 & 4149\% \\
-jasmine & \xmark & go-katydid-mem-reflect & 4 & 279\% & 5 & 1244\% \\
-jasmine & \xmark & go-santhosh-tekuri & 8 & 3613\% & 8 & 2820\% \\
-jasmine & \xmark & jsu-c & 1 & 100\% & 1 & 100\% \\
-\hline
-complex & \xmark & ajv-bun & 5 & 131872\% & 6 & 94552\% \\
-complex & \xmark & blaze & 4 & 81176\% & 4 & 26684\% \\
-complex & \xmark & boon & 6 & 180881\% & 5 & 71713\% \\
-complex & \xmark & go-katydid-auto-json & 7 & 555231\% & 7 & 183865\% \\
-complex & \xmark & go-katydid-auto-reflect & 1 & 100\% & 2 & 143\% \\
-complex & \xmark & go-katydid-mem-json & 8 & 628881\% & 8 & 218982\% \\
-complex & \xmark & go-katydid-mem-reflect & 2 & 771\% & 1 & 100\% \\
-complex & \xmark & go-santhosh-tekuri & 9 & 1103005\% & 9 & 359602\% \\
-complex & \xmark & jsu-c & 3 & 54782\% & 3 & 19195\% \\
-\hline
-medium & \xmark & ajv-bun & 1 & 100\% & 5 & 227\% \\
-medium & \xmark & blaze & 5 & 240\% & 3 & 177\% \\
-medium & \xmark & boon & 6 & 763\% & 6 & 506\% \\
-medium & \xmark & go-katydid-auto-json & 7 & 2173\% & 7 & 1108\% \\
-medium & \xmark & go-katydid-auto-reflect & 3 & 127\% & 2 & 115\% \\
-medium & \xmark & go-katydid-mem-json & 9 & 2897\% & 9 & 1466\% \\
-medium & \xmark & go-katydid-mem-reflect & 2 & 116\% & 4 & 177\% \\
-medium & \xmark & go-santhosh-tekuri & 8 & 2767\% & 8 & 1459\% \\
-medium & \xmark & jsu-c & 4 & 159\% & 1 & 100\% \\
-\hline
-jsconfig & \xmark & ajv-bun & 6 & 775\% & 8 & 2162\% \\
-jsconfig & \xmark & blaze & 1 & 100\% & 2 & 112\% \\
-jsconfig & \xmark & boon & 5 & 746\% & 5 & 605\% \\
-jsconfig & \xmark & go-katydid-auto-json & 7 & 1351\% & 6 & 848\% \\
-jsconfig & \xmark & go-katydid-auto-reflect & 3 & 169\% & 3 & 117\% \\
-jsconfig & \xmark & go-katydid-mem-json & 9 & 6586\% & 9 & 9083\% \\
-jsconfig & \xmark & go-katydid-mem-reflect & 4 & 603\% & 4 & 388\% \\
-jsconfig & \xmark & go-santhosh-tekuri & 8 & 2693\% & 7 & 1951\% \\
-jsconfig & \xmark & jsu-c & 2 & 125\% & 1 & 100\% \\
-\hline
-jshintrc & \xmark & ajv-bun & 6 & 599\% & 6 & 1589\% \\
-jshintrc & \xmark & blaze & 4 & 353\% & 4 & 364\% \\
-jshintrc & \xmark & boon & 5 & 543\% & 5 & 594\% \\
-jshintrc & \xmark & go-katydid-auto-json & 8 & 11174\% & 8 & 9413\% \\
-jshintrc & \xmark & go-katydid-auto-reflect & 1 & 100\% & 1 & 100\% \\
-jshintrc & \xmark & go-katydid-mem-json & 9 & 25779\% & 9 & 24045\% \\
-jshintrc & \xmark & go-katydid-mem-reflect & 2 & 104\% & 2 & 108\% \\
-jshintrc & \xmark & go-santhosh-tekuri & 7 & 2043\% & 7 & 2125\% \\
-jshintrc & \xmark & jsu-c & 3 & 147\% & 3 & 151\% \\
-\hline
-conf & \xmark & ajv-bun & 2 & 102\% & 5 & 288\% \\
-conf & \xmark & blaze & 1 & 100\% & 3 & 150\% \\
-conf & \xmark & boon & 6 & 901\% & 6 & 742\% \\
-conf & \xmark & go-katydid-auto-json & 7 & 1930\% & 7 & 1424\% \\
-conf & \xmark & go-katydid-auto-reflect & 4 & 132\% & 2 & 136\% \\
-conf & \xmark & go-katydid-mem-json & 8 & 2172\% & 8 & 1636\% \\
-conf & \xmark & go-katydid-mem-reflect & 3 & 116\% & 1 & 100\% \\
-conf & \xmark & go-santhosh-tekuri & 9 & 2352\% & 9 & 1792\% \\
-conf & \xmark & jsu-c & 5 & 153\% & 4 & 241\% \\
-\hline
-lazygit & \xmark & ajv-bun & 6 & 1386\% & 9 & 16600\% \\
-lazygit & \xmark & blaze & 4 & 142\% & 4 & 282\% \\
-lazygit & \xmark & boon & 5 & 757\% & 5 & 689\% \\
-lazygit & \xmark & go-katydid-auto-json & 7 & 1861\% & 6 & 1515\% \\
-lazygit & \xmark & go-katydid-auto-reflect & 3 & 105\% & 1 & 100\% \\
-lazygit & \xmark & go-katydid-mem-json & 9 & 4335\% & 8 & 11358\% \\
-lazygit & \xmark & go-katydid-mem-reflect & 2 & 101\% & 2 & 105\% \\
-lazygit & \xmark & go-santhosh-tekuri & 8 & 2541\% & 7 & 2344\% \\
-lazygit & \xmark & jsu-c & 1 & 100\% & 3 & 123\% \\
-\hline
-lerna & \xmark & ajv-bun & 3 & 205\% & 6 & 1246\% \\
-lerna & \xmark & blaze & 1 & 100\% & 2 & 184\% \\
-lerna & \xmark & boon & 6 & 512\% & 5 & 434\% \\
-lerna & \xmark & go-katydid-auto-json & 8 & 2354\% & 8 & 2083\% \\
-lerna & \xmark & go-katydid-auto-reflect & 5 & 248\% & 3 & 192\% \\
-lerna & \xmark & go-katydid-mem-json & 9 & 3432\% & 9 & 2690\% \\
-lerna & \xmark & go-katydid-mem-reflect & 4 & 244\% & 4 & 192\% \\
-lerna & \xmark & go-santhosh-tekuri & 7 & 1932\% & 7 & 1550\% \\
-lerna & \xmark & jsu-c & 2 & 101\% & 1 & 100\% \\
-\hline
-nest-cli & \xmark & ajv-bun & 5 & 305\% & 7 & 1524\% \\
-nest-cli & \xmark & blaze & 1 & 100\% & 3 & 112\% \\
-nest-cli & \xmark & boon & 6 & 754\% & 5 & 540\% \\
-nest-cli & \xmark & go-katydid-auto-json & 7 & 2401\% & 6 & 1307\% \\
-nest-cli & \xmark & go-katydid-auto-reflect & 4 & 180\% & 2 & 110\% \\
-nest-cli & \xmark & go-katydid-mem-json & 9 & 3732\% & 9 & 2485\% \\
-nest-cli & \xmark & go-katydid-mem-reflect & 3 & 176\% & 4 & 124\% \\
-nest-cli & \xmark & go-santhosh-tekuri & 8 & 2569\% & 8 & 1551\% \\
-nest-cli & \xmark & jsu-c & 2 & 122\% & 1 & 100\% \\
-\hline
-omnisharp & \xmark & ajv-bun & 5 & 380\% & 7 & 1755\% \\
-omnisharp & \xmark & blaze & 4 & 201\% & 3 & 264\% \\
-omnisharp & \xmark & boon & 6 & 565\% & 5 & 700\% \\
-omnisharp & \xmark & go-katydid-auto-json & 8 & 2951\% & 8 & 2629\% \\
-omnisharp & \xmark & go-katydid-auto-reflect & 2 & 116\% & 4 & 495\% \\
-omnisharp & \xmark & go-katydid-mem-json & 9 & 14109\% & 9 & 14988\% \\
-omnisharp & \xmark & go-katydid-mem-reflect & 3 & 123\% & 2 & 116\% \\
-omnisharp & \xmark & go-santhosh-tekuri & 7 & 1798\% & 6 & 1578\% \\
-omnisharp & \xmark & jsu-c & 1 & 100\% & 1 & 100\% \\
-\hline
-pre-commit-hooks & \xmark & ajv-bun & 5 & 1920\% & 6 & 5290\% \\
-pre-commit-hooks & \xmark & blaze & 4 & 349\% & 4 & 558\% \\
-pre-commit-hooks & \xmark & boon & 6 & 2237\% & 5 & 2117\% \\
-pre-commit-hooks & \xmark & go-katydid-auto-json & 8 & 10357\% & 8 & 9648\% \\
-pre-commit-hooks & \xmark & go-katydid-auto-reflect & 1 & 100\% & 1 & 100\% \\
-pre-commit-hooks & \xmark & go-katydid-mem-json & 9 & 14207\% & 9 & 15211\% \\
-pre-commit-hooks & \xmark & go-katydid-mem-reflect & 2 & 110\% & 2 & 141\% \\
-pre-commit-hooks & \xmark & go-santhosh-tekuri & 7 & 7005\% & 7 & 6669\% \\
-pre-commit-hooks & \xmark & jsu-c & 3 & 268\% & 3 & 276\% \\
-\hline
-pulumi & \xmark & ajv-bun & 5 & 339\% & 6 & 1700\% \\
-pulumi & \xmark & blaze & 2 & 154\% & 4 & 213\% \\
-pulumi & \xmark & boon & 6 & 701\% & 5 & 716\% \\
-pulumi & \xmark & go-katydid-auto-json & 8 & 2486\% & 7 & 1890\% \\
-pulumi & \xmark & go-katydid-auto-reflect & 3 & 233\% & 2 & 187\% \\
-pulumi & \xmark & go-katydid-mem-json & 9 & 4358\% & 9 & 3627\% \\
-pulumi & \xmark & go-katydid-mem-reflect & 4 & 238\% & 3 & 191\% \\
-pulumi & \xmark & go-santhosh-tekuri & 7 & 2299\% & 8 & 1993\% \\
-pulumi & \xmark & jsu-c & 1 & 100\% & 1 & 100\% \\
-\hline
-semantic-release & \xmark & ajv-bun & 5 & 333\% & 6 & 2405\% \\
-semantic-release & \xmark & blaze & 1 & 100\% & 2 & 199\% \\
-semantic-release & \xmark & boon & 6 & 1576\% & 5 & 1212\% \\
-semantic-release & \xmark & go-katydid-auto-json & 7 & 5070\% & 7 & 3762\% \\
-semantic-release & \xmark & go-katydid-auto-reflect & 4 & 272\% & 3 & 249\% \\
-semantic-release & \xmark & go-katydid-mem-json & 8 & 5386\% & 8 & 4604\% \\
-semantic-release & \xmark & go-katydid-mem-reflect & 3 & 269\% & 4 & 249\% \\
-semantic-release & \xmark & go-santhosh-tekuri & 9 & 6260\% & 9 & 5510\% \\
-semantic-release & \xmark & jsu-c & 2 & 107\% & 1 & 100\% \\
-\hline
-stale & \xmark & ajv-bun & 2 & 112\% & 6 & 1253\% \\
-stale & \xmark & blaze & 1 & 100\% & 1 & 100\% \\
-stale & \xmark & boon & 6 & 607\% & 5 & 421\% \\
-stale & \xmark & go-katydid-auto-json & 7 & 2584\% & 7 & 1752\% \\
-stale & \xmark & go-katydid-auto-reflect & 4 & 203\% & 3 & 140\% \\
-stale & \xmark & go-katydid-mem-json & 9 & 5673\% & 9 & 4095\% \\
-stale & \xmark & go-katydid-mem-reflect & 5 & 368\% & 4 & 178\% \\
-stale & \xmark & go-santhosh-tekuri & 8 & 2690\% & 8 & 2142\% \\
-stale & \xmark & jsu-c & 3 & 161\% & 2 & 120\% \\
-\hline
-stylecop & \xmark & ajv-bun & 5 & 291\% & 6 & 1643\% \\
-stylecop & \xmark & blaze & 2 & 106\% & 4 & 196\% \\
-stylecop & \xmark & boon & 6 & 515\% & 5 & 485\% \\
-stylecop & \xmark & go-katydid-auto-json & 8 & 2251\% & 7 & 1983\% \\
-stylecop & \xmark & go-katydid-auto-reflect & 4 & 140\% & 3 & 117\% \\
-stylecop & \xmark & go-katydid-mem-json & 9 & 2918\% & 9 & 3317\% \\
-stylecop & \xmark & go-katydid-mem-reflect & 3 & 136\% & 2 & 115\% \\
-stylecop & \xmark & go-santhosh-tekuri & 7 & 1859\% & 8 & 2109\% \\
-stylecop & \xmark & jsu-c & 1 & 100\% & 1 & 100\% \\
-\hline
-tmuxinator & \xmark & ajv-bun & 5 & 519\% & 8 & 3646\% \\
-tmuxinator & \xmark & blaze & 2 & 121\% & 4 & 436\% \\
-tmuxinator & \xmark & boon & 6 & 982\% & 5 & 882\% \\
-tmuxinator & \xmark & go-katydid-auto-json & 7 & 3386\% & 6 & 3090\% \\
-tmuxinator & \xmark & go-katydid-auto-reflect & 3 & 155\% & 2 & 161\% \\
-tmuxinator & \xmark & go-katydid-mem-json & 9 & 5071\% & 9 & 6608\% \\
-tmuxinator & \xmark & go-katydid-mem-reflect & 4 & 168\% & 3 & 231\% \\
-tmuxinator & \xmark & go-santhosh-tekuri & 8 & 3424\% & 7 & 3289\% \\
-tmuxinator & \xmark & jsu-c & 1 & 100\% & 1 & 100\% \\
-\hline
-ui5 & \xmark & ajv-bun & 7 & 5364\% & 9 & 58940\% \\
-ui5 & \xmark & blaze & 3 & 574\% & 4 & 859\% \\
-ui5 & \xmark & boon & 8 & 5577\% & 7 & 4150\% \\
-ui5 & \xmark & go-katydid-auto-json & 6 & 4738\% & 5 & 3431\% \\
-ui5 & \xmark & go-katydid-auto-reflect & 2 & 321\% & 3 & 269\% \\
-ui5 & \xmark & go-katydid-mem-json & 5 & 4501\% & 6 & 3645\% \\
-ui5 & \xmark & go-katydid-mem-reflect & 4 & 1237\% & 2 & 262\% \\
-ui5 & \xmark & go-santhosh-tekuri & 9 & 15541\% & 8 & 11714\% \\
-ui5 & \xmark & jsu-c & 1 & 100\% & 1 & 100\% \\
-\hline
-unreal-engine-uproject & \xmark & ajv-bun & 5 & 216\% & 6 & 1876\% \\
-unreal-engine-uproject & \xmark & blaze & 3 & 125\% & 4 & 172\% \\
-unreal-engine-uproject & \xmark & boon & 6 & 767\% & 5 & 682\% \\
-unreal-engine-uproject & \xmark & go-katydid-auto-json & 7 & 2674\% & 7 & 2340\% \\
-unreal-engine-uproject & \xmark & go-katydid-auto-reflect & 2 & 102\% & 1 & 100\% \\
-unreal-engine-uproject & \xmark & go-katydid-mem-json & 9 & 3835\% & 9 & 3910\% \\
-unreal-engine-uproject & \xmark & go-katydid-mem-reflect & 1 & 100\% & 2 & 103\% \\
-unreal-engine-uproject & \xmark & go-santhosh-tekuri & 8 & 2733\% & 8 & 2749\% \\
-unreal-engine-uproject & \xmark & jsu-c & 4 & 150\% & 3 & 170\% \\
-\hline
-vercel & \xmark & ajv-bun & 4 & 437\% & 8 & 6260\% \\
-vercel & \xmark & blaze & 2 & 140\% & 4 & 222\% \\
-vercel & \xmark & boon & 6 & 589\% & 5 & 645\% \\
-vercel & \xmark & go-katydid-auto-json & 7 & 1913\% & 6 & 1588\% \\
-vercel & \xmark & go-katydid-auto-reflect & 1 & 100\% & 2 & 114\% \\
-vercel & \xmark & go-katydid-mem-json & 9 & 2763\% & 9 & 25665\% \\
-vercel & \xmark & go-katydid-mem-reflect & 5 & 554\% & 1 & 100\% \\
-vercel & \xmark & go-santhosh-tekuri & 8 & 2470\% & 7 & 1598\% \\
-vercel & \xmark & jsu-c & 3 & 162\% & 3 & 159\% \\
-\hline
-yamllint & \xmark & ajv-bun & 3 & 416\% & 5 & 1310\% \\
-yamllint & \xmark & blaze & 1 & 100\% & 1 & 100\% \\
-yamllint & \xmark & boon & 4 & 2774\% & 3 & 1030\% \\
-yamllint & \xmark & go-katydid-auto-json & 9 & 34562\% & 8 & 9689\% \\
-yamllint & \xmark & go-katydid-auto-reflect & 5 & 3919\% & 4 & 1249\% \\
-yamllint & \xmark & go-katydid-mem-json & 8 & 32045\% & 9 & 11730\% \\
-yamllint & \xmark & go-katydid-mem-reflect & 6 & 4421\% & 6 & 1431\% \\
-yamllint & \xmark & go-santhosh-tekuri & 7 & 10962\% & 7 & 5604\% \\
-yamllint & \xmark & jsu-c & 2 & 347\% & 2 & 134\% \\
-\hline
-advanced & \xmark & ajv-bun & 5 & 392\% & 5 & 703\% \\
-advanced & \xmark & blaze & 3 & 256\% & 4 & 267\% \\
-advanced & \xmark & boon & 6 & 1836\% & 6 & 1471\% \\
-advanced & \xmark & go-katydid-auto-json & 7 & 2377\% & 7 & 1636\% \\
-advanced & \xmark & go-katydid-auto-reflect & 2 & 116\% & 1 & 100\% \\
-advanced & \xmark & go-katydid-mem-json & 8 & 3895\% & 8 & 2662\% \\
-advanced & \xmark & go-katydid-mem-reflect & 1 & 100\% & 2 & 245\% \\
-advanced & \xmark & go-santhosh-tekuri & 9 & 5510\% & 9 & 3897\% \\
-advanced & \xmark & jsu-c & 4 & 262\% & 3 & 255\% \\
+ajv-bun & 8349 & 8349 \\
+blaze & 7176 & 7176 \\
+boon & 9526 & 9526 \\
+go-katydid-auto-json & 5545 & 5545 \\
+go-katydid-auto-reflect & 13054 & 13054 \\
+go-katydid-mem-json & 9030 & 9030 \\
+go-katydid-mem-reflect & 12258 & 12258 \\
+go-santhosh-tekuri & 16453 & 16453 \\
+jsu-c & 12497 & 12497 \\
+rapidjson & 43 & 43 \\
 \end{tabular}
 % END Generated tabular
-
 \end{table}
 
-TODO: Talk about two uses cases: validation on APIs and filtering in a database. Main contribution is that we built a library for filtering and not just validation. New use case not covered by other validators.
 
-TODO: Figure out what is the best way to display benchmark results.
+
+
+TODO: Talk about two uses cases: validation on APIs and filtering in a database. Main contribution is that we built a library for filtering and not just validation. New use case not covered by other validators.
 
 TODO Walter: add conclusion of results.
 
@@ -1638,7 +1193,7 @@ For example, consider the grammar
 Applying \lstinline{startTagOpenDeriv} to \lstinline{<head>} yields
 \lstinline{after (optional (symbol ("<div>", 0))) (symbol ("<body>", 0))},
 which still retains the \lstinline{<body>} symbol.
-In contrast, Katydid propagates only \lstinline{optional (symbol ("<div>", 0))} to the children, leading to more more memoization table hits.
+In contrast, Katydid propagates only \lstinline{optional (symbol ("<div>", 0))} to the children, leading to more memoization table hits.
 Overall, \RelaxNG provides an elegant and efficient approach to XML validation, albeit theoretically slightly less efficient than the Katydid algorithm.
 
 Derivative-based validation is not the only automata-theoretic route to schema validation. 
@@ -1683,6 +1238,11 @@ Including formal verification that the memoization table is bounded, which has b
 We also hope that we can prove the correctness of the further optimizations from the Golang implementation including the pull-based parser.
 There is also the open problems of proving the correctness of the conversion algorithms from JSON~Schema~\cite{holstege2019application} and \RelaxNG to regular hedge grammars to produce fully verified validators of schema languages.
 This would also open up the possibility of benchmarking the Go implementation against the Lean implementation and validate the Golang implementation against the Lean implementation, by using the Lean as a full referece implementation.
+
+\section*{Supplementary Material}
+\label{supplementary_material}
+Full proofs in Lean, Golang implementation and benchmarks are available at TODO
+%% TODO: Add our code to zenodo. Here is an example zenodo artifact: https://zenodo.org/records/17347734
 
 %%
 %% Bibliography
