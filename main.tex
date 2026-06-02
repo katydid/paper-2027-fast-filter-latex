@@ -409,7 +409,7 @@ We check whether the final schema matches the empty object, which it does, which
 
 \section{The Katydid Algorithm}\label{section_algorithm}
 
-In this section, we describe the Katydid algorithm, a performant memoized filtering algorithm, defined as \GrammarMemoizeFilter.
+In this section, we describe the Katydid algorithm, an alphabet indepedent memoized filtering algorithm, defined as \GrammarMemoizeFilter.
 We define its building blocks \enter, \leave, \RegexKatydidDerive and \GrammarKatydidDerive, but we start by defining \emph{regular expressions}, which is the core of \emph{regular hedge grammars}, our generic schema language.
 
 \subsection{Regular Expressions}
@@ -662,7 +662,9 @@ def Grammar.JSONmembers.derive (G: Grammar n φ) (Φ: φ → α → Bool)
 \end{lstlisting}
 This approach mirrors a derivative algorithm previously applied to JSON~Schema~\cite{holstege2019application}, which we refer to as the JSONmembers algorithm for simplicity.
 
-Unfortunately, this approach is memoization is alphabet dependent and not performant, which motivates the introduction of the Katydid algorithm; again, it requires special handling of the \lstinline{symbol} case, but does so within the \lstinline{nodePred} predicate.
+Unfortunately, this approach memoizes parameters with high variance.
+One reason being that the parameters are alphabet dependent.
+This motivates the introduction of the Katydid algorithm; again, it requires special handling of the \lstinline{symbol} case, but does so within the \lstinline{nodePred} predicate.
 We also implement and verify a memoized variant of this algorithm that supports filtering; however, we first present the non-memoized version, as it forms the foundation of our memoized algorithm:
 \begin{lstlisting}[label=def Grammar.Katydid.derive]
 def Grammar.Katydid.derive (G: Grammar n φ) (Φ: φ → α → Bool)
@@ -932,14 +934,14 @@ This shift occurs because Protocol Buffers offer superior parsing speeds; our pr
 
 \subsection{Supporting \JSONSchema}
 
-We benchmark our algorithm against other \JSONSchema libraries.
-For this purpose, we implement a translation algorithm from \JSONSchema to regular hedge grammars.
-Translation is possible, except for a few non-regular operators: \lstinline{uniqueItems} and newer dynamic operators.
-%% TODO Walter: be specific about which dynamic operators.
-\citet{holstege2019application} explains how \JSONSchema can be converted to \emph{tagged-type regular expressions}, which is closely related enough to regular hedge grammars that we could apply most of the same translation techniques.
+\citet{holstege2019application} explains how \JSONSchema can be converted to \emph{tagged-type regular expressions}.
 They support additional operators, including \lstinline{interleave}, \lstinline{xor} and \lstinline{ifthenelse}.
-The \lstinline{uniqueItems} operator of \JSONSchema is also not supported, since it is not regular.
+They show that translation is possible, except for non-regular operators, such as \lstinline{uniqueItems} and newer dynamic operators.
+%% TODO Walter: be specific about which dynamic operators.
+We benchmark our algorithm against other \JSONSchema libraries.
+To achieve this, we implement our own translation algorithm from \JSONSchema to regular hedge grammars.
 
+Next, a trivial example to how the JSON is parsed.
 The JSON \lstinline[language=json]|{"a": ["b", "c"]}| is represented as the following \Hedge, abstracted away behind a performant, pull-based parser: 
 \begin{lstlisting}
 [node (tag "object") [
@@ -1107,7 +1109,7 @@ To ensure statistical stability, each benchmark was executed three times, with r
 \subsection{Results}
 
 \begin{table}
-\caption{results for API use case per implementation for valid and parsing times excluded}
+\caption{Validation times for API use case per implementation for valid and parsing times excluded}
 \label{table_valid_parsing_excluded}
 % BEGIN Generated tabular for kind: valid and parsing excluded
 \begin{tabular}{l|ll}
@@ -1128,7 +1130,7 @@ rapidjson & 2558 & 2160 \\
 \end{table}
 
 \begin{table}
-\caption{results for filter use case per implementation for invalid and parsing times included}
+\caption{Validation times for filter use case per implementation for invalid and parsing times included}
 \label{table_invalid_parsing_included}
 % BEGIN Generated tabular for kind: invalid and parsing included
 \begin{tabular}{l|ll}
@@ -1148,16 +1150,23 @@ rapidjson & 43 & 43 \\
 % END Generated tabular
 \end{table}
 
+TODO: add ns to tables to make it clear that it is nanoseconds
 
-
+TODO: remember the comma , in the numbers
 
 TODO: Talk about two uses cases: validation on APIs and filtering in a database. Main contribution is that we built a library for filtering and not just validation. New use case not covered by other validators.
 
-TODO Walter: add conclusion of results.
+TODO Walter: add conclusion of results: We have a competitive library that is fast for the filtering use case. It is more viable to verify the derivative approach over a custom implementation. Our algorithm is flexible and can easily support other schema languages including RelaxNG and serialization formats.
+
+TODO: Look at reexamined paper and how they sold derivatives. And include this in motivation.
 
 TODO: Explain why blaze is sometimes faster.
 
 TODO: Explain that jsu-c is generated
+
+TODO: Sort by first column (make the median the first column)
+
+TODO: Include rank in table 1 (valid - parsing) so that we can list more implementations and exlude some with ... with order number
 
 \section{Related Work}
 \label{section_related}
@@ -1186,14 +1195,14 @@ after (g.lookup 0) (after emptystr emptystr) -- <div></div></div></div>
 after (g.lookup 0) (after emptystr (after emptystr emptystr)) -- </div></div></div>
 \end{lstlisting}
 This makes it impossible to always build a fully memoized version of the functions up front, since the state space is technically unbounded.
-In practice, recursion depths are shallow, so after validating one or two documents, memoization tables are hit frequently, whereas the Katydid's memoization tables are hit after the first recursive step.
+In practice, recursion depths are shallow, so after validating a few documents, memoization tables are hit frequently, whereas the Katydid's memoization tables are hit after the first recursive step.
 Another drawback is that the expression keeps more context than is necessary.
 For example, consider the grammar
 \lstinline{Grammar.mk (concat (symbol ("<head>", 0)) (symbol ("<body>", 0))) #v[optional (symbol ("<div>", 0))]}.
 Applying \lstinline{startTagOpenDeriv} to \lstinline{<head>} yields
 \lstinline{after (optional (symbol ("<div>", 0))) (symbol ("<body>", 0))},
 which still retains the \lstinline{<body>} symbol.
-In contrast, Katydid propagates only \lstinline{optional (symbol ("<div>", 0))} to the children, leading to more memoization table hits.
+In contrast, Katydid propagates only \lstinline{optional (symbol ("<div>", 0))} to the children, leading to more frequent memoization table hits.
 Overall, \RelaxNG provides an elegant and efficient approach to XML validation, albeit theoretically slightly less efficient than the Katydid algorithm.
 
 Derivative-based validation is not the only automata-theoretic route to schema validation. 
@@ -1228,16 +1237,16 @@ Although pragmatic and user-friendly, there is room for more efficiency consider
 \label{section_future}
 
 We provide the highly memoized Katydid algorithm for filtering millions of records per second.
-We have shown how our implementation is benchmarked against \JSONSchema implementations, but in future we would also like to benchmark against \RelaxNG for XML validation.
-Further optimizations are possible, for example SIMD has been shown to be a faster way of parsing JSON~\cite{simdjson}.
-Further investigation is warranted into how serialization formats JSON and Protocol Buffers (unlike XML) can be optimized further to take advantage of their unique field names~\cite{holstege2019application}.
-As far as we are aware, we also provide the first verification, in an interactive theorem prover, of algorithms for validation of regular hedge grammars using derivatives.
+We benchmarked against \JSONSchema implementations.
+Future work includes benchmarking against \RelaxNG for XML validation.
+Our pull-based JSON parser could be further optimized using SIMD; a faster way of parsing JSON~\cite{simdjson}.
+As far as we know, we provide the first verification, in an interactive theorem prover, of algorithms for validation of regular hedge grammars using derivatives.
 We chose a generic representation of serialization formats and schema languages, a \Hedge and a symbolic regular hedge grammar, which makes this algorithm and verification applicable to any schema language that can be translated to these general types.
-We hope that this forms the foundation for further proofs in this area.
-Including formal verification that the memoization table is bounded, which has been proven for regular expressions~\cite{symbolicfinite, brzozowski1964derivatives}, but requires extra work to prove the boundedness of the \lstinline{interleave} operator.
-We also hope that we can prove the correctness of the further optimizations from the Golang implementation including the pull-based parser.
-There is also the open problems of proving the correctness of the conversion algorithms from JSON~Schema~\cite{holstege2019application} and \RelaxNG to regular hedge grammars to produce fully verified validators of schema languages.
-This would also open up the possibility of benchmarking the Go implementation against the Lean implementation and validate the Golang implementation against the Lean implementation, by using the Lean as a full referece implementation.
+It is still open to prove the correctness of the conversion algorithms from JSON~Schema~\cite{holstege2019application} and \RelaxNG to regular hedge grammars to produce fully verified validators of schema languages.
+We have not formally verified that the memoization table is bounded.
+It has been proven for regular expressions~\cite{symbolicfinite, brzozowski1964derivatives}, but requires extra work to prove the boundedness of the \lstinline{interleave} operator.
+We also plan to prove the correctness of the further optimizations from the Golang implementation, including the pull-based parser.
+This would also open up the possibility of benchmarking and validating the Go implementation against the Lean implementation.
 
 \section*{Supplementary Material}
 \label{supplementary_material}
