@@ -131,7 +131,9 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
 \newcommand{\supplementarymaterial}{%
   \hyperref[supplementary_material]{supplementary material}\xspace%
 }
-
+\newcommand{\GitHub}{%
+  GitHub\xspace%
+}
 
 %% BEGIN: Define JSON syntax highlighting
 \definecolor{delim}{RGB}{20,105,176}
@@ -936,8 +938,8 @@ This shift occurs because Protocol Buffers offer superior parsing speeds; our pr
 
 \citet{holstege2019application} explains how \JSONSchema can be converted to \emph{tagged-type regular expressions}.
 They support additional operators, including \lstinline{interleave}, \lstinline{xor} and \lstinline{ifthenelse}.
-They show that translation is possible, except for non-regular operators, such as \lstinline{uniqueItems} and newer dynamic operators.
-%% TODO Walter: be specific about which dynamic operators.
+They show that translation is possible, except for non-regular operators, such as \lstinline{uniqueItems} and dynamic references.
+After analysing 31,000 schemas on \GitHub \citet{blaze} found only 10 uses of dynamic references.
 We benchmark our algorithm against other \JSONSchema libraries.
 To achieve this, we implement our own translation algorithm from \JSONSchema to regular hedge grammars.
 
@@ -981,39 +983,31 @@ star (symbol (Pred.not (Pred.or (Pred.strEq "content") (Pred.strEq "author"))), 
 
 We evaluated our translation against the \JSONSchema test suites for both \verb+draft4+ and the latest \verb+version 2020-12+ version.
 Out of 2,000 total test cases, our implementation successfully passed 1,386.
-The remaining failures were strictly isolated to test cases involving non-regular features: \lstinline{uniqueItems}, \lstinline{dynamicAnchor}, and \lstinline{remoteRef}.
+The remaining failures were strictly isolated to test cases involving non-regular features: \lstinline{uniqueItems}, \lstinline{dynamicRef}, and \lstinline{remoteRef}.
 %% TODO Walter: Make sure this is the complete list ^^ of unsupported features.
 %% TODO Walter: Put in the actual numbers and how many tests we skipped because of unsupported features.
 
-\section{Benchmarks}
+\section{\JSONSchema Benchmarks}
 \label{section_benchmarks}
 
-Our \JSONSchema benchmark extends the suite developed by \citet{blaze}. In the following sections, we detail the underlying implementations, schemas, and measurement methodologies.
+Our \JSONSchema benchmark extends the suite developed by \citet{blaze}, adding several implementations, schemas, and measurement methodologies, which we detail in the following sections.
 
-The benchmarks include many implementations in various programming languages.
-% We added the following third-party libraries:
-% rapidjson~\cite{jsonschema_impl_rapidjson} (C++),
-% go-google~\cite{jsonschema_impl_go-google} (Golang),
-% go-json-schema-spec~\cite{jsonschema_impl_go-json-schema-spec} (Golang),
-% go-kaptinlin~\cite{jsonschema_impl_go-kaptinlin} (Golang).
-% The benchmark suite includes alternative Go libraries as well as an event-based C++ parser to serve as baselines for our pull-based implementation.
-For brevity, we restrict our discussion to the fastest implementations:
+%% TODO Walter: List the exact number of implementations.
+The benchmarks include implementations in various programming languages:
 \begin{itemize}
-\item ajv-bun~\cite{jsonschema_impl_ajv} (Javascript executed on the BUN~\cite{javascript_engine_bun} engine),
-\item blaze~\cite{blaze} (C++),
-\item boon~\cite{jsonschema_impl_boon} (Rust),
-\item go-santhosh-tekuri~\cite{jsonschema_impl_go-santhosh-tekuri} (Golang),
-\item jsu-c~\cite{jsonschema_impl_jsu} (generated C),
-\item rapidjson~\cite{jsonschema_impl_rapidjson} (C++ with event based parser)
-\item and katydid (Golang).
+\item Ajv~\cite{jsonschema_impl_ajv}: The popular Javascript implementation Ajv, including an implementation executed on the BUN~\cite{javascript_engine_bun} Javascript runtime for extra speed;
+\item RapidJSON~\cite{jsonschema_impl_rapidjson}: A C++ implementation with an event-based parser, optimized to only parse what is necessary;
+\item Blaze~\cite{blaze}: A highly optimized C++ implementation that uses a custom field name hash function for faster string comparison;
+\item JSON Schema Utils (jsu)~\cite{jsonschema_impl_jsu} is a tool that generates code in several target languages: C, Java, Javascript, Perl or Python to validate a specific schema;
+\item Corvus\.JsonSchema~\cite{jsonschema_impl_corvus}: A tool that generates C\# for a specific schema;
+\item and other languages including: Golang, Ruby, Elixir, Kotlin and PHP.
 \end{itemize}
-To avoid redundancy, we highlight only the optimal variants from the ajv and jsu families.
-While go-santhosh-tekuri was the most efficient external Go library, katydid demonstrated superior performance across all Go-centric evaluations.
-We also evaluate four variants of our Katydid framework, differentiated by their memoization strategy (on-the-fly vs. prepopulated) and parsing target (online JSON vs. Go reflection): go-katydid-mem-json, go-katydid-auto-json, go-katydid-mem-reflect, and go-katydid-auto-reflect.
-To guarantee cross-platform portability and reproducibility, each configuration is packaged with a dedicated Docker setup.
-Each implementation is warmed up by first validating all the documents.
-This implies the CPU caches and JITs are warm and also that our memoized solution has a populated table.
-
+To guarantee cross-platform portability and reproducibility, each implementation is packaged with a dedicated Docker setup.
+%% TODO cite Docker.
+We also evaluate four variants of our Katydid library, differentiated by their memoization strategy (on-the-fly vs. prepopulated) and parsing target (online JSON vs. Golang reflection): go-katydid-mem-json, go-katydid-auto-json, go-katydid-mem-reflect, and go-katydid-auto-reflect.
+Each implementation is warmed up by first validating all the documents for over a hundred iterations.
+This implies the CPU caches are warmed up, JIT has been triggered, and also that our memoized solution has a populated table.
+This is representative of the real-world situations of an API gateway or filtering through millions of records.
 % The original benchmark suite included the following implementations: 
 % ajv~\cite{jsonschema_impl_ajv} (Javascript),
 % ajv-bun~\cite{jsonschema_impl_ajv} (Javascript executed on the BUN~\cite{javascript_engine_bun} engine),
@@ -1036,8 +1030,14 @@ This implies the CPU caches and JITs are warm and also that our memoized solutio
 % opis~\cite{jsonschema_impl_opis} (PHP),
 % py-jsonschema~\cite{jsonschema_impl_py-jsonschema} (Python),
 % schemasafe~\cite{jsonschema_impl_schemasafe} (Javascript).
+% We added the following third-party libraries:
+% rapidjson~\cite{jsonschema_impl_rapidjson} (C++),
+% go-google~\cite{jsonschema_impl_go-google} (Golang),
+% go-json-schema-spec~\cite{jsonschema_impl_go-json-schema-spec} (Golang),
+% go-kaptinlin~\cite{jsonschema_impl_go-kaptinlin} (Golang).
+% The benchmark suite includes alternative Go libraries as well as an event-based C++ parser to serve as baselines for our pull-based implementation.
 
-\citet{blaze} collected schemas from the \JSONSchema Store~\cite{schemastore} and then crawled GitHub for valid JSON documents for each of these schemas.
+\citet{blaze} collected schemas from the \JSONSchema Store~\cite{schemastore} and then crawled \GitHub for valid JSON documents for each of these schemas.
 % :
 % ansible-meta,
 % aws-cdk,
@@ -1076,7 +1076,7 @@ This implies the CPU caches and JITs are warm and also that our memoized solutio
 % unreal-engine-uproject,
 % vercel,
 % yamllint.
-We add schemas from the official \JSONSchema examples~\cite{jsonschemaexamples}.
+We removed the two schemas that use \lstinline{dynamicRef} and added schemas from the official \JSONSchema examples~\cite{jsonschemaexamples},
 % :
 % address,
 % blogpost,
@@ -1086,87 +1086,124 @@ We add schemas from the official \JSONSchema examples~\cite{jsonschemaexamples}.
 % job-posting,
 % movie,
 % userprofile.
-We also add schemas from ajv's benchmarks.
+Ajv's benchmarks and
 % cosmicrealms~\cite{jsonschema_impl_ajv},
 % : 
 % complex~\cite{jsonschema_jsck},
 % medium~\cite{jsonschema_jsck},
 % advanced~\cite{jsonschema_zschema},
 % basic~\cite{jsonschema_zschema}.
-Finally, we include the JSON schema for the conference example previously introduced.
-To evaluate the extended schema collection, we developed a random generator capable of producing both valid instances and non-conforming documents containing at least one schema violation.
+also include the \JSONSchema for the conference example previously introduced.
+To evaluate the extended schema collection, we developed a random generator capable of producing both valid instances and non-conforming (invalid) documents containing at least one schema violation.
 For schemas utilizing the \lstinline{uniqueItems} constraint, we derived variants that omit this feature; this allows for isolated benchmarking of the remaining schema logic.
-See a summary of the schemas is including in the \supplementarymaterial.
-%% TODO Walter: create summary table of schemas in supplementary material.
+See a summary of the schemas included in the \supplementarymaterial.
+%% TODO Walter: create summary table of schemas in supplementary material, remember to show uniqueItems and dynamicRef.
 
-While \citet{blaze} accounts for schema compilation time and validation performance in both ``cold'' (unprimed) and ``warm'' (primed) states, we introduce a distinct measurement for parsing time.
+While \citet{blaze} measures validation time, we introduce a distinct measurement for parsing time.
 This addition underscores that parsing is an integral component of the total validation overhead—a factor that becomes particularly significant when filtering through large volumes of non-matching documents.
 
+Another factor to consider is the reuse of the JSON Object after validating it.
+Most implementations first parse the JSON into a generic JSON Object, which might be what the user expects to use after validation.
+But it is also common for users to expect JSON to be deserialized into specialized structures that have field names and are statically typed, which are safer and more convenient to use, but this does not seem to be supported by Blaze or any of the Golang implementations.
+There would need to be an additional copy step that copies the generic structure into the specialized structure, which would be expensive compared to validation.
+Katydid can abstract and validate specialized or generic deserialized JSON structures behind a reflect implementation of the pull-based parser interface.
+Katydid can also abstract away and validate serialized JSON, without allocating any object or, in fact, any heap allocations.
+This allows for a lot of flexibility, where validating serialized JSON is appropriate in the filtering use case, since we will not need to deserialize it in most cases.
+
 Benchmarks were conducted on a 2024 MacBook Pro equipped with an M4 processor and 48 GB of memory.
-To ensure statistical stability, each benchmark was executed three times, with results reported as the average execution time.
-%% TODO Walter: Actually run it tree times.
+To ensure statistical stability, each benchmark was executed three times, with results reported as the mean execution time.
+Our benchmarks are set up for three use-cases:
+\begin{itemize}
+\item API Gateway: Expects mostly valid documents that are validated for security purposes, for which we only validate valid documents collected by \cite{blaze} and valid documents generated by us for the new schemas we added. API Gateway branches into two other use cases:
+  \begin{itemize}
+  \item generic reuse: We do not add parse time to validation time and ignore Katydid's validation of serialized JSON data, since it is not applicable, see \Cref{table_api_gateway_generic}, and
+  \item specialized: always add the parsing time, since we would need to reparse or copy the structure into another specialized structure after, see \Cref{table_api_gateway_specialized}.
+  \end{itemize}
+\item Filtering through a database expects mostly invalid documents, so we generated only invalid documents for the new schemas we added, see \Cref{table_filtering}.
+\end{itemize}
+For the filtering use, we always add the parse time to the validation time, since reuse happens so little, it is negligible.
+Technically, there is another case where Katydid could gain an advantage when deserializing directly into the specialized structure and then validating using reflect, but we exclude this, since deserializing into the specialized structure would already do some validation and give it an unfair advantage.
 
-\subsection{Results}
+Possible unfair advantages to consider:
+\begin{itemize}
+\item Katydid was built for the filtering use case, which means it does not allocate memory for descriptions of validation errors.
+\item When Blaze parses JSON, it also calculates hashes for field names, which allows it to do faster string comparisons. One could argue that this is part of the validation calculation that is happening at parse time, and we should always add parse time to validation time. One could also argue that this is just a custom implementation of a hash map and a perfectly generic dictionary.
+\item JSON Schema Utils and Corvus\.JsonSchema generate code in the target language, which is a big advantage for inlining a lot of instructions. On the other hand, \citet{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema.
+\end{itemize}
 
+The results show that Katydid is the fastest library for the filtering use case. 
+We also find that even though it is not the fastest library for the API gateway use case, it is still competitive and the fastest Golang library.
+
+% TODO Walter: Check if this is true: While go-santhosh-tekuri was the most efficient external Go library, katydid demonstrated superior performance across all Go-centric evaluations.
+
+%% TODO Walter: Actually run all benchmarks locally 3 times and regenerate these tables.
+%% TODO compress tables by adding vdots to tables: `\vdots & \vdots & \vdots & \vdots \\` and removing the uninteresting cases.
+
+%% TODO Walter: Remember to remove go-katydid-auto-json and go-katydid-mem-json
 \begin{table}
-\caption{Validation times for API use case per implementation for valid and parsing times excluded}
-\label{table_valid_parsing_excluded}
+\caption{API Gateway (generic)}
+\label{table_api_gateway_generic}
 % BEGIN Generated tabular for kind: valid and parsing excluded
-\begin{tabular}{l|ll}
-impl & mean/doc & median/doc \\
+\begin{tabular}{ll|ll}
+\# & impl & median ns/doc & mean ns/doc \\
 \hline
-ajv-bun & 977 & 238 \\
-blaze & 245 & 190 \\
-boon & 1502 & 1303 \\
-go-katydid-auto-json & 4274 & 3926 \\
-go-katydid-auto-reflect & 2995 & 2354 \\
-go-katydid-mem-json & 9314 & 5158 \\
-go-katydid-mem-reflect & 5850 & 3206 \\
-go-santhosh-tekuri & 4993 & 4517 \\
-jsu-c & 220 & 169 \\
-rapidjson & 2558 & 2160 \\
+0 & jsu-c & 169 & 220 \\
+1 & blaze & 190 & 245 \\
+2 & ajv-bun & 238 & 977 \\
+3 & boon & 1,303 & 1,502 \\
+4 & rapidjson & 2,160 & 2,558 \\
+5 & go-katydid-auto-reflect & 2,354 & 2,995 \\
+6 & go-katydid-mem-reflect & 3,206 & 5,850 \\
+\vdots & \vdots & \vdots & \vdots \\
+8 & go-santhosh-tekuri & 4,517 & 4,993 \\
+\vdots & \vdots & \vdots & \vdots \\
 \end{tabular}
 % END Generated tabular
 \end{table}
 
 \begin{table}
-\caption{Validation times for filter use case per implementation for invalid and parsing times included}
-\label{table_invalid_parsing_included}
-% BEGIN Generated tabular for kind: invalid and parsing included
-\begin{tabular}{l|ll}
-impl & mean/doc & median/doc \\
+\caption{API Gateway (specialized)}
+\label{table_api_gateway_specialized}
+% BEGIN Generated tabular for kind: valid and parsing included
+\begin{tabular}{ll|ll}
+\# & impl & median ns/doc & mean ns/doc \\
 \hline
-ajv-bun & 8349 & 8349 \\
-blaze & 7176 & 7176 \\
-boon & 9526 & 9526 \\
-go-katydid-auto-json & 5545 & 5545 \\
-go-katydid-auto-reflect & 13054 & 13054 \\
-go-katydid-mem-json & 9030 & 9030 \\
-go-katydid-mem-reflect & 12258 & 12258 \\
-go-santhosh-tekuri & 16453 & 16453 \\
-jsu-c & 12497 & 12497 \\
-rapidjson & 43 & 43 \\
+0 & rapidjson & 2,160 & 2,558 \\
+1 & ajv-bun & 3,344 & 3,627 \\
+2 & go-katydid-auto-json & 3,926 & 4,274 \\
+3 & blaze & 4,541 & 4,338 \\
+4 & go-katydid-mem-json & 5,158 & 9,314 \\
+5 & boon & 6,367 & 7,216 \\
+6 & jsu-c & 6,579 & 7,084 \\
+7 & go-katydid-mem-reflect & 7,429 & 10,551 \\
+8 & go-katydid-auto-reflect & 8,362 & 9,182 \\
+9 & go-santhosh-tekuri & 10,358 & 11,066 \\
 \end{tabular}
 % END Generated tabular
 \end{table}
 
-TODO: add ns to tables to make it clear that it is nanoseconds
+\begin{table}
+\caption{Filtering}
+\label{table_filtering}
+% BEGIN Generated tabular for kind: invalid and parsing included
+\begin{tabular}{ll|ll}
+\# & impl & median ns/doc & mean ns/doc \\
+\hline
+0 & rapidjson & 43 & 43 \\
+1 & go-katydid-auto-json & 5,545 & 5,545 \\
+2 & blaze & 7,176 & 7,176 \\
+3 & ajv-bun & 8,349 & 8,349 \\
+4 & go-katydid-mem-json & 9,030 & 9,030 \\
+5 & boon & 9,526 & 9,526 \\
+6 & go-katydid-mem-reflect & 12,258 & 12,258 \\
+7 & jsu-c & 12,497 & 12,497 \\
+8 & go-katydid-auto-reflect & 13,054 & 13,054 \\
+9 & go-santhosh-tekuri & 16,453 & 16,453 \\
+\end{tabular}
+% END Generated tabular
+\end{table}
 
-TODO: remember the comma , in the numbers
 
-TODO: Talk about two uses cases: validation on APIs and filtering in a database. Main contribution is that we built a library for filtering and not just validation. New use case not covered by other validators.
-
-TODO Walter: add conclusion of results: We have a competitive library that is fast for the filtering use case. It is more viable to verify the derivative approach over a custom implementation. Our algorithm is flexible and can easily support other schema languages including RelaxNG and serialization formats.
-
-TODO: Look at reexamined paper and how they sold derivatives. And include this in motivation.
-
-TODO: Explain why blaze is sometimes faster.
-
-TODO: Explain that jsu-c is generated
-
-TODO: Sort by first column (make the median the first column)
-
-TODO: Include rank in table 1 (valid - parsing) so that we can list more implementations and exlude some with ... with order number
 
 \section{Related Work}
 \label{section_related}
@@ -1175,7 +1212,16 @@ Derivatives of regular expressions have previously been formalized in proof assi
 To the best of our knowledge, no comparable formalization exists for schema languages or regular hedge grammars based on derivatives.
 
 The semantics, complexity and expressive power of \JSONSchema have been formalized~\cite{jsonschemafoundations} to find that most operators are expressible using tree automata, except for non-regular operators, such as the \lstinline{uniqueItems} operator, which could be used to specify perfectly balanced binary trees.
-Modern extensions of \JSONSchema that use dynamic scope require a validation algorithm that is PSPACE-complete~\cite{modernjsonschema}, which makes these operators also not convertible to a regular hedge grammar.
+Modern extensions of \JSONSchema that use dynamic references require a validation algorithm that is PSPACE-complete~\cite{modernjsonschema}, which makes these operators also not convertible to a regular hedge grammar.
+
+The RapidJSON~\cite{jsonschema_impl_rapidjson} \JSONSchema validator uses a SAX~\cite{brownell2002sax2} like event-based parser for JSON, which stop parsing as soon as the document is found to be invalid according to the schema.
+Blaze~\cite{blaze}, like most of the other \JSONSchema validators we used in our benchmarks, parse the whole JSON structure before trying to validate the document.
+Blaze compiles \JSONSchema to its own internal Domain Specific Language (DSL), that it optimizes by reordering instructions, unrolling loops and specialized hashing.
+They found that 95\% of field names in their data set are shorter than 14 characters, so they created a perfect hashing function for strings consisting of 31 bytes or fewer.
+This makes comparison of common string cases very fast, via four 64-bit integers.
+These hashes are stored in a custom JSON Object into which the JSON is parsed before validation.
+This implies that some validation preprocessing happens during parse time.
+% https://github.com/sourcemeta/core/blob/main/src/core/json/include/sourcemeta/core/json_object.h#L42C12-L42C46
 
 We found our original inspiration for using derivatives to filter semi-structured data from \RelaxNG~\cite{relaxng2001simple}, which converts their regular hedge grammar to a \emph{Balanced Context Free Grammar} (BCFG) on the fly, while taking the derivative.
 A BCFG is a Context-Free Grammar (CFG) where every production rule is enclosed by matching terminals.
