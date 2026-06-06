@@ -267,10 +267,10 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
 \begin{abstract}
 We present a high-performance filtering and schema-validation algorithm based on Brzozowski’s derivatives extended to regular hedge grammars for semi-structured data.
 Our algorithm inherits the expressiveness of regular hedge grammars to support a wide range of schema languages and serialization formats, such as \JSONSchema, \RelaxNG for XML and Protocol Buffers.
-High performance is achieved by refactoring the derivative algorithm to make it more amenable to memoization of hedges and elimination of heap allocations.
+High performance is achieved by refactoring the derivative algorithm to make it more amenable to memoization of hedges and the elimination of heap allocations.
 We verify the correctness of our memoization technique for regular hedge grammars in Lean.
 This is the first proof of correctness in an interactive theorem prover of a derivative algorithm for regular hedge grammars or schema languages.
-We benchmark an implementation of our memoization technique in Golang, against several other \JSONSchema implementations, showing it can filter millions of records per second.
+We benchmark an implementation of our memoization technique in Golang against several other \JSONSchema implementations, showing that we have created a competitive library for the API-gateway use case and the fastest library for the filtering use case by filtering millions of records per second.
 \end{abstract}
 
 %%
@@ -280,39 +280,39 @@ We benchmark an implementation of our memoization technique in Golang, against s
 
 \section{Introduction}
 
-We present a filtering algorithm for semi-structured data formats such as XML, JSON and Protocol Buffers~\cite{protobuf}, designed for high-throughput use cases involving millions of records per second.
+We present a filtering algorithm for semi-structured data formats such as XML, JSON, and Protocol Buffers~\cite{protobuf}, designed for high-throughput use cases involving millions of records per second.
 Our approach is based on Brzozowski derivatives~\cite{brzozowski1964derivatives}, a classical technique for recognizing regular languages.
-We adapt this derivative algorithm to operate on regular hedge grammars, which generalize regular expressions to \emph{hedges}, or informally, to tree-shaped data. 
+We adapt this derivative algorithm to operate on regular hedge grammars, which generalize regular expressions to \emph{hedges}, or, informally, to tree-shaped data. 
 These grammars form the foundation of schema languages such as \RelaxNG~\cite{hosoya2010foundations} and \JSONSchema~\cite{jsonschemafoundations}.
-They enable expressive constraints over ordered and unordered element sequences, nesting, repetition and recursion.
-Performance is achieved in our Katydid\footnote{A Katydid is a leaf insect that camouflages (requires filtering) itself in trees (data structures)} algorithm via a novel memoization technique.
+They enable expressive constraints over ordered and unordered element sequences, nesting, repetition, and recursion.
+Performance is achieved in our Katydid\footnote{A Katydid is a leaf insect that camouflages (requires filtering) itself in trees (data structures)} algorithm, via a novel memoization technique.
 
-Outside our Katydid algorithm there are two other derivative-based algorithms for schema validation: \RelaxNG~\cite{relaxng2001simple} and JSONmembers-a term we adopt for the procedure introduced by~\citet{holstege2019application}.
+Outside our Katydid algorithm there are two other derivative-based algorithms for schema validation: \RelaxNG~\cite{relaxng2001simple} and JSONmembers --- a term we adopt for the procedure introduced by~\citet{holstege2019application}.
 % holstege2019application> However, the current implementation performance numbers are not particularly compelling: the need to match types against an infinitude of specific values makes it difficult to find effective caching strategies, undermining the point of using derivatives as an implementation technique in the first place. 
-JSONMembers flattens the JSON object into a sequence of key-value pairs and takes the derivative given on key-value pair at a time.
-\citet{holstege2019application} explicitly notes that the performance is not compelling and it is difficult to find a memoization solution, because the derivative is taken on an infinite input alphabet.
+JSONMembers flattens the JSON object into a sequence of key-value pairs and takes the derivative given one key-value pair at a time.
+\citet{holstege2019application} explicitly notes that the performance is not compelling and it is difficult to find a memoization solution because the derivative is taken on an infinite input alphabet.
 \RelaxNG~\cite{relaxng2001simple} converts the schema into a Balanced Context Free Grammar (BCFG), on the fly, as it applies derivatives.
 The algorithm decomposes the derivative function into smaller components that can be memoized, exploiting the limited variation in XML element nodes.
-It implements memoization, that only uses the schema and element names in the memoization table.
-The element names have a large alphabet, but low variance, which results in lots of hits of the memoization table.
-However, this memoization strategy runs into similar problems, because the text nodes have a large and highly variable string alphabet.
+It implements memoization that only uses the schema and element names in the memoization table.
+The element names have a large alphabet but low variance, which results in many hits in the memoization table.
+However, this memoization strategy runs into similar problems because the text nodes have a large and highly variable string alphabet.
 To address the challenge of this high variability, they only memoize element nodes and not text nodes.
 Also, the memoization technique is unbounded in the number of entries to be memoized.
-The table grows on inputs with new element names or deeper recursion.
+The table grows with inputs that have new element names or deeper recursion.
 
 We restructure the derivative function to have memoization that is alphabet independent.
 The refactored derivative function is a composition of three functions, two of which are memoized and alphabet independent.
-We refactor the derivative function into a composition of three steps: enter, evaluate predicates and leave.
-The big improvement our algorithm makes over \RelaxNG is that our algorithm can optionally create a fully memoized table before seeing any input and this table will take up finite space, because our memoization technique is bounded, since we model a schema as a regular hedge grammar and not a BCFG.
+We refactor the derivative function into a composition of three steps: enter, evaluate predicates, and leave.
+The big improvement our algorithm makes over \RelaxNG is that our algorithm can optionally create a fully memoized table before seeing any input, and this table will take up finite space because our memoization technique is bounded, since we model a schema as a regular hedge grammar and not a BCFG.
 Our main contributions are:
 \begin{itemize}
-    \item The factorization of the derivative function to enable memoization for regular hedge grammars that is alphabet independent and bounded in size for performant filtering.
-    \item Formal verification in Lean~\cite{lean4}, that the implementation of the JSONmembers algorithm and Katydid's memoization algorithm faithfully matches the semantics of a regular hedge grammar.
+    \item The factorization of the derivative function enables memoization for regular hedge grammars that are alphabet independent and bounded in size for performant filtering.
+    \item Formal verification in Lean~\cite{lean4} that the implementation of the JSONmembers algorithm and Katydid's memoization algorithm faithfully matches the semantics of a regular hedge grammar.
     \item The application of the memoization technique in Golang~\cite{golang} to \JSONSchema and also regular hedge grammars for Protobufs and JSON formats.
 \end{itemize}
 
 The motivation for this work arose in the context of a proprietary distributed database that stored denormalized Protocol Buffers, where schema-based filtering needed to be performed at scale.
-To meet production-level performance requirements we implemented the memoization technique in Golang~\cite{golang} with a strong emphasis on avoiding heap allocations.
+To meet production-level performance requirements, we implemented the memoization technique in Golang~\cite{golang} with a strong emphasis on avoiding heap allocations.
 The benchmarks of this implementation demonstrate its ability to filter data at high speeds and that it competes with other \JSONSchema validators.
 
 \subsection{Outline}
@@ -320,10 +320,10 @@ The benchmarks of this implementation demonstrate its ability to filter data at 
 The remainder of the paper is structured as follows. 
 \Cref{section_algorithm} explains the Katydid algorithm.
 \Cref{section_verification} presents formal verifications. 
-In \Cref{section_go}, we describe the Golang implementation and in \Cref{section_benchmarks}, we provide benchmark results against other \JSONSchema implementations.
-\Cref{section_related} covers related work and \Cref{section_future} outlines the directions for future research.
+In \Cref{section_go}, we describe the Golang implementation, and in \Cref{section_benchmarks}, we provide benchmark results against other \JSONSchema implementations.
+\Cref{section_related} covers related work, and \Cref{section_future} outlines the directions for future research.
 
-Definitions, proofs as well as pseudocode for the Golang implementation are presented in the syntax of the Lean theorem prover~\cite{lean4} and are available in the \supplementarymaterial~\footnote{No part of the Lean code (including the formal proofs) or the Golang code was created with the aid of GenAI (LLMs).}.
+Definitions, proofs, as well as pseudocode for the Golang implementation are presented in the syntax of the Lean theorem prover~\cite{lean4} and are available in the \supplementarymaterial~\footnote{No part of the Lean code (including the formal proofs) or the Golang code was created with the aid of GenAI (LLMs).}.
 Lean tutorials are available online~\cite{learnlean}. 
 
 We start with a simple \JSONSchema example to illustrate and motivate our approach.
@@ -1096,13 +1096,15 @@ Ajv's benchmarks and
 also include the \JSONSchema for the conference example previously introduced.
 To evaluate the extended schema collection, we developed a random generator capable of producing both valid instances and non-conforming (invalid) documents containing at least one schema violation.
 For schemas utilizing the \lstinline{uniqueItems} constraint, we derived variants that omit this feature; this allows for isolated benchmarking of the remaining schema logic.
+We also add support for \JSONSchema formats to all implementations, that was not present in the previous benchmark, since Blaze did not support formats at the time, but has recently added support.
 See a summary of the schemas included in the \supplementarymaterial.
 %% TODO Walter: create summary table of schemas in supplementary material, remember to show uniqueItems and dynamicRef.
 
 While \citet{blaze} measures validation time, we introduce a distinct measurement for parsing time.
 This addition underscores that parsing is an integral component of the total validation overhead—a factor that becomes particularly significant when filtering through large volumes of non-matching documents.
 
-Another factor to consider is the reuse of the JSON Object after validating it.
+Another factor to consider is when parsing JSON, what are we parsing into.
+Will the JSON Object we parse into be reused after validating it.
 Most implementations first parse the JSON into a generic JSON Object, which might be what the user expects to use after validation.
 But it is also common for users to expect JSON to be deserialized into specialized structures that have field names and are statically typed, which are safer and more convenient to use, but this does not seem to be supported by Blaze or any of the Golang implementations.
 There would need to be an additional copy step that copies the generic structure into the specialized structure, which would be expensive compared to validation.
@@ -1126,7 +1128,7 @@ Technically, there is another case where Katydid could gain an advantage when de
 
 Possible unfair advantages to consider:
 \begin{itemize}
-\item Katydid was built for the filtering use case, which means it does not allocate memory for descriptions of validation errors.
+\item Katydid, ajv, blaze, json\_schemer, jsu, kmp, networknt, py-jsonschema, rapidjson and schemasafe return booleans and not detailed errors. In the invalid case this gives them an advantage of not allocating memory over implementations that create descriptions of validations errors.
 \item When Blaze parses JSON, it also calculates hashes for field names, which allows it to do faster string comparisons. One could argue that this is part of the validation calculation that is happening at parse time, and we should always add parse time to validation time. One could also argue that this is just a custom implementation of a hash map and a perfectly generic dictionary.
 \item JSON Schema Utils and Corvus\.JsonSchema generate code in the target language, which is a big advantage for inlining a lot of instructions. On the other hand, \citet{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema.
 \end{itemize}
@@ -1214,7 +1216,7 @@ To the best of our knowledge, no comparable formalization exists for schema lang
 The semantics, complexity and expressive power of \JSONSchema have been formalized~\cite{jsonschemafoundations} to find that most operators are expressible using tree automata, except for non-regular operators, such as the \lstinline{uniqueItems} operator, which could be used to specify perfectly balanced binary trees.
 Modern extensions of \JSONSchema that use dynamic references require a validation algorithm that is PSPACE-complete~\cite{modernjsonschema}, which makes these operators also not convertible to a regular hedge grammar.
 
-The RapidJSON~\cite{jsonschema_impl_rapidjson} \JSONSchema validator uses a SAX~\cite{brownell2002sax2} like event-based parser for JSON, which stop parsing as soon as the document is found to be invalid according to the schema.
+The RapidJSON~\cite{jsonschema_impl_rapidjson} \JSONSchema validator uses a SAX~\cite{brownell2002sax2} like event-based parser for JSON, which stops parsing as soon as the document is found to be invalid according to the schema.
 Blaze~\cite{blaze}, like most of the other \JSONSchema validators we used in our benchmarks, parse the whole JSON structure before trying to validate the document.
 Blaze compiles \JSONSchema to its own internal Domain Specific Language (DSL), that it optimizes by reordering instructions, unrolling loops and specialized hashing.
 They found that 95\% of field names in their data set are shorter than 14 characters, so they created a perfect hashing function for strings consisting of 31 bytes or fewer.
