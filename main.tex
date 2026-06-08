@@ -996,11 +996,10 @@ Our \JSONSchema benchmark extends the suite developed by \citet{blaze}, adding s
 The benchmarks include implementations in various programming languages:
 \begin{itemize}
 \item Ajv~\cite{jsonschema_impl_ajv}: The popular Javascript implementation Ajv, including an implementation executed on the BUN~\cite{javascript_engine_bun} Javascript runtime for extra speed;
-\item RapidJSON~\cite{jsonschema_impl_rapidjson}: A C++ implementation with an event-based parser, optimized to only parse what is necessary;
 \item Blaze~\cite{blaze}: A highly optimized C++ implementation that uses a custom field name hash function for faster string comparison;
 \item JSON Schema Utils (jsu)~\cite{jsonschema_impl_jsu} is a tool that generates code in several target languages: C, Java, Javascript, Perl or Python to validate a specific schema;
-\item Corvus\.JsonSchema~\cite{jsonschema_impl_corvus}: A tool that generates C\# for a specific schema;
-\item and other languages including: Golang, Ruby, Elixir, Kotlin and PHP.
+\item Corvus.JsonSchema~\cite{jsonschema_impl_corvus}: A tool that generates C\# for a specific schema;
+\item and libraries in other languages including: Golang, Ruby, Elixir, Kotlin and PHP.
 \end{itemize}
 To guarantee cross-platform portability and reproducibility, each implementation is packaged with a dedicated Docker setup.
 %% TODO cite Docker.
@@ -1126,11 +1125,11 @@ Our benchmarks are set up for three use-cases:
 For the filtering use, we always add the parse time to the validation time, since reuse happens so little, it is negligible.
 Technically, there is another case where Katydid could gain an advantage when deserializing directly into the specialized structure and then validating using reflect, but we exclude this, since deserializing into the specialized structure would already do some validation and give it an unfair advantage.
 
-Possible unfair advantages to consider:
+Threats to validity of benchmarking results:
 \begin{itemize}
-\item Katydid, ajv, blaze, json\_schemer, jsu, kmp, networknt, py-jsonschema, rapidjson and schemasafe return booleans and not detailed errors. In the invalid case this gives them an advantage of not allocating memory over implementations that create descriptions of validations errors.
+\item Katydid, Ajv, Blaze, JSONSchemer, jsu, OptimumCode, networknt, py-jsonschema return booleans and not detailed errors. In the invalid case this gives them an advantage of not allocating memory over implementations that create descriptions of validations errors.
 \item When Blaze parses JSON, it also calculates hashes for field names, which allows it to do faster string comparisons. One could argue that this is part of the validation calculation that is happening at parse time, and we should always add parse time to validation time. One could also argue that this is just a custom implementation of a hash map and a perfectly generic dictionary.
-\item JSON Schema Utils and Corvus\.JsonSchema generate code in the target language, which is a big advantage for inlining a lot of instructions. On the other hand, \citet{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema.
+\item JSON Schema Utils and Corvus.JsonSchema generate code in the target language, which is a big advantage for inlining a lot of instructions. On the other hand, \citet{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema.
 \end{itemize}
 
 The results show that Katydid is the fastest library for the filtering use case. 
@@ -1149,16 +1148,29 @@ We also find that even though it is not the fastest library for the API gateway 
 \begin{tabular}{ll|ll}
 \# & impl & median ns/doc & mean ns/doc \\
 \hline
-0 & jsu-c & 169 & 220 \\
-1 & blaze & 190 & 245 \\
-2 & ajv-bun & 238 & 977 \\
-3 & boon & 1,303 & 1,502 \\
-4 & rapidjson & 2,160 & 2,558 \\
-5 & go-katydid-auto-reflect & 2,354 & 2,995 \\
-6 & go-katydid-mem-reflect & 3,206 & 5,850 \\
-\vdots & \vdots & \vdots & \vdots \\
-8 & go-santhosh-tekuri & 4,517 & 4,993 \\
-\vdots & \vdots & \vdots & \vdots \\
+0 & blaze & 252 & 2,118 \\
+1 & jsu-c & 274 & 2,256 \\
+2 & jsu-java & 610 & 7,700 \\
+3 & ajv-bun & 909 & 6,272 \\
+4 & jsu-js & 1,112 & 8,865 \\
+5 & ajv & 1,128 & 9,321 \\
+6 & boon & 1,566 & 8,488 \\
+7 & kmp & 2,599 & 16,086 \\
+8 & jsu-py & 2,972 & 50,267 \\
+9 & corvus & 3,008 & 12,791 \\
+10 & go-katydid-auto-reflect & 3,682 & 22,075 \\
+11 & go-katydid-auto-json & 5,016 & 24,660 \\
+12 & networknt & 5,427 & 49,825 \\
+13 & go-santhosh-tekuri & 5,813 & 43,685 \\
+14 & go-katydid-mem-reflect & 7,554 & 31,373 \\
+15 & go-katydid-mem-json & 8,609 & 35,230 \\
+16 & go-kaptinlin & 19,381 & 85,372 \\
+17 & jsv & 23,264 & 168,698 \\
+18 & jsdotnet & 27,121 & 189,888 \\
+19 & opis & 35,419 & 168,559 \\
+20 & json\_schemer & 100,656 & 387,382 \\
+21 & py-jsonschema & 148,219 & 748,401 \\
+22 & hyperjump & 277,520 & 1,157,245 \\
 \end{tabular}
 % END Generated tabular
 \end{table}
@@ -1170,16 +1182,29 @@ We also find that even though it is not the fastest library for the API gateway 
 \begin{tabular}{ll|ll}
 \# & impl & median ns/doc & mean ns/doc \\
 \hline
-0 & rapidjson & 2,160 & 2,558 \\
-1 & ajv-bun & 3,344 & 3,627 \\
-2 & go-katydid-auto-json & 3,926 & 4,274 \\
-3 & blaze & 4,541 & 4,338 \\
-4 & go-katydid-mem-json & 5,158 & 9,314 \\
-5 & boon & 6,367 & 7,216 \\
-6 & jsu-c & 6,579 & 7,084 \\
-7 & go-katydid-mem-reflect & 7,429 & 10,551 \\
-8 & go-katydid-auto-reflect & 8,362 & 9,182 \\
-9 & go-santhosh-tekuri & 10,358 & 11,066 \\
+0 & blaze & 4,501 & 13,365 \\
+1 & ajv-bun & 4,544 & 13,860 \\
+2 & go-katydid-auto-json & 5,016 & 24,660 \\
+3 & networknt & 5,427 & 49,825 \\
+4 & ajv & 5,500 & 20,916 \\
+5 & jsu-js & 6,793 & 21,733 \\
+6 & jsu-c & 6,998 & 22,563 \\
+7 & boon & 7,374 & 23,088 \\
+8 & go-katydid-mem-json & 8,609 & 35,230 \\
+9 & jsu-py & 9,273 & 63,364 \\
+10 & go-katydid-auto-reflect & 10,465 & 40,235 \\
+11 & go-katydid-mem-reflect & 13,970 & 50,240 \\
+12 & go-santhosh-tekuri & 14,523 & 64,466 \\
+13 & go-kaptinlin & 27,570 & 104,284 \\
+14 & kmp & 30,135 & 62,360 \\
+15 & jsv & 31,526 & 188,425 \\
+16 & jsu-java & 32,844 & 64,508 \\
+17 & opis & 37,540 & 175,868 \\
+18 & corvus & 40,592 & 83,548 \\
+19 & jsdotnet & 65,985 & 267,119 \\
+20 & json\_schemer & 115,354 & 408,625 \\
+21 & py-jsonschema & 153,251 & 763,186 \\
+22 & hyperjump & 281,827 & 1,170,058 \\
 \end{tabular}
 % END Generated tabular
 \end{table}
@@ -1191,16 +1216,29 @@ We also find that even though it is not the fastest library for the API gateway 
 \begin{tabular}{ll|ll}
 \# & impl & median ns/doc & mean ns/doc \\
 \hline
-0 & rapidjson & 43 & 43 \\
-1 & go-katydid-auto-json & 5,545 & 5,545 \\
-2 & blaze & 7,176 & 7,176 \\
-3 & ajv-bun & 8,349 & 8,349 \\
-4 & go-katydid-mem-json & 9,030 & 9,030 \\
-5 & boon & 9,526 & 9,526 \\
-6 & go-katydid-mem-reflect & 12,258 & 12,258 \\
-7 & jsu-c & 12,497 & 12,497 \\
-8 & go-katydid-auto-reflect & 13,054 & 13,054 \\
-9 & go-santhosh-tekuri & 16,453 & 16,453 \\
+0 & go-katydid-auto-json & 5,671 & 29,165 \\
+1 & blaze & 6,115 & 21,608 \\
+2 & ajv-bun & 6,790 & 18,856 \\
+3 & go-katydid-mem-json & 7,778 & 34,086 \\
+4 & boon & 8,648 & 38,993 \\
+5 & networknt & 9,113 & 50,166 \\
+6 & jsu-c & 9,210 & 37,071 \\
+7 & ajv & 9,592 & 28,834 \\
+8 & jsu-js & 10,171 & 31,844 \\
+9 & go-katydid-auto-reflect & 11,592 & 51,971 \\
+10 & go-katydid-mem-reflect & 13,391 & 58,731 \\
+11 & jsu-py & 15,416 & 72,001 \\
+12 & kmp & 16,081 & 96,343 \\
+13 & jsu-java & 16,791 & 92,581 \\
+14 & go-santhosh-tekuri & 17,622 & 112,710 \\
+15 & corvus & 18,762 & 97,015 \\
+16 & opis & 24,051 & 236,022 \\
+17 & go-kaptinlin & 27,518 & 167,924 \\
+18 & jsdotnet & 36,413 & 208,266 \\
+19 & py-jsonschema & 66,083 & 626,210 \\
+20 & jsv & 92,605 & 331,605 \\
+21 & json\_schemer & 106,819 & 685,251 \\
+22 & hyperjump & 215,167 & 348,541 \\
 \end{tabular}
 % END Generated tabular
 \end{table}
@@ -1295,6 +1333,8 @@ We have not formally verified that the memoization table is bounded.
 It has been proven for regular expressions~\cite{symbolicfinite, brzozowski1964derivatives}, but requires extra work to prove the boundedness of the \lstinline{interleave} operator.
 We also plan to prove the correctness of the further optimizations from the Golang implementation, including the pull-based parser.
 This would also open up the possibility of benchmarking and validating the Go implementation against the Lean implementation.
+
+%% TODO: Consider: All the new schemas are randomly generated (valid and invalid), but the old schemas only have valid documents. There is an opportunity to apply mutation testing to get an invalid set of documents for these schemas too.
 
 \section*{Supplementary Material}
 \label{supplementary_material}
