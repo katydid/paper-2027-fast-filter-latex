@@ -306,10 +306,13 @@ We refactor the derivative function into a composition of three steps: enter, ev
 The big improvement our algorithm makes over \RelaxNG is that our algorithm can optionally create a fully memoized table before seeing any input, and this table will take up finite space because our memoization technique is bounded, since we model a schema as a regular hedge grammar and not a BCFG.
 Our main contributions are:
 \begin{itemize}
-    \item The factorization of the derivative function enables memoization for regular hedge grammars that are alphabet independent and bounded in size for performant filtering.
-    \item Formal verification in Lean~\cite{lean4} that the implementation of the JSONmembers algorithm and Katydid's memoization algorithm faithfully matches the semantics of a regular hedge grammar.
-    \item The application of the memoization technique in Golang~\cite{golang} to \JSONSchema and also regular hedge grammars for Protobufs and JSON formats.
+    \item The factorization of the derivative function enables memoization for regular hedge grammars that are alphabet independent and bounded in size for performant filtering;
+    \item Formal verification in Lean~\cite{lean4} that the implementation of the JSONmembers algorithm and Katydid's memoization algorithm faithfully matches the semantics of a regular hedge grammar;
+    \item A fused~\cite{fusion} derivative and parsing algorithm removing the overhead of the intermediate parsing data structures;
+    \item The abstraction of serialization formats behind a pull-based parser interface in Golang~\cite{golang} to allow for regular hedge grammar validation of Protobufs, JSON, and reflected Golang structures; and
+    \item A significant extension of the \JSONSchema benchmark suite developed by \citet{blaze}, which we run in Golang by first translating the \JSONSchema to regular hedge grammars.
 \end{itemize}
+% fusion> we have accomplished our goal of removing the intermediate data structures by transforming the numerous recursive traversals into a single one. This process is called fusion
 
 The motivation for this work arose in the context of a proprietary distributed database that stored denormalized Protocol Buffers, where schema-based filtering needed to be performed at scale.
 To meet production-level performance requirements, we implemented the memoization technique in Golang~\cite{golang} with a strong emphasis on avoiding heap allocations.
@@ -416,7 +419,7 @@ We define its building blocks \enter, \leave, \RegexKatydidDerive and \GrammarKa
 
 \subsection{Regular Expressions}
 
-A symbolic \emph{regular expression}~\cite{brzozowski1964derivatives, stanford2021symbolic, elliott2021symbolic} is defined as an inductive type in Lean, where \lstinline{σ} represents the symbol:
+A symbolic \emph{regular expression}~\cite{brzozowski1964derivatives, stanford2021symbolic, elliott2021symbolic} is defined as an inductive type in Lean as follows:
 \begin{lstlisting}[label=Regex]
 inductive Regex (σ: Type) where
   | emptyset | emptystr | symbol (s: σ) | or (r1 r2: Regex σ)
@@ -453,7 +456,7 @@ def Regex.Char.derive (r: Regex Char) (a: Char): Regex Char
 #guard Regex.Char.derive (star (symbol 'a')) 'a'
   = concat emptystr (star (symbol 'a')) -- star (symbol 'a')
 \end{lstlisting}
-We use Lean's \lstinline{#guard} commands, to show examples that are checked by the type checker.
+We use Lean's \lstinline{#guard} command, to show examples that are checked by the type checker.
 The derivatives examples above can be simplified to the expressions in comments, which is common to do via smart constructors~\cite{reexamined} when taking derivatives, but we do not thoroughly discuss in this paper.
 To define the derivative of a regular hedge grammar, we need a more general version of the regular expression derivative function that is capable of supporting hedges. 
 We achieve this by using a symbolic derivative~\cite{stanford2021symbolic, elliott2021symbolic} over a generic input alphabet (\lstinline{α}) and a decidable predicate (\lstinline{Φ: σ → α → Bool}):
@@ -501,7 +504,7 @@ def Regex.Point.derive: (r: Regex (σ × Bool)) → Regex σ
       (interleave (derive r1) (first r2))
       (interleave (derive r2) (first r1))
 \end{lstlisting}
-Instead of the original symbols, each position now contains a tuple comprising the symbol and its predicate evaluation result \lstinline{(σ × Bool)}.
+Instead of the original alphabet symbols, each position now contains a tuple comprising the symbol and its predicate evaluation result \lstinline{(σ × Bool)}.
 This pair can be interpreted as a point on the graph of the predicate function.
 In the \lstinline{symbol} case, the result is checked, but in all other cases the original derivative algorithm is applied by either calling derive or retrieving the original regular expression with the \lstinline{first} function, which maps over the regular expression as a Functor:
 \begin{lstlisting}
@@ -734,7 +737,7 @@ class MemoizeKatydid (m: Type → Type u) σ [DecidableEq σ] [Hashable σ] wher
   leaveM : (param: Σ (r: Regex σ), (Vector Bool (symcount r)))
              → m { res: Regex σ // res = Regex.leave param.1 param.2 }
 \end{lstlisting}
-We use \lstinline{Σ} in Lean to express a tuple, where the value of the first element determines the type of the second element.
+We use \lstinline{Σ} in Lean to express a dependent pair type, where the value of the first element determines the type of the second element.
 This class allows one to specify a memoization strategy appropriate to the use case.
 We adopt a strategy that records every invocation in a \lstinline{State} Monad.
 
@@ -1012,7 +1015,15 @@ This shift occurs because Protocol Buffers offer superior parsing speeds; our pr
 
 \subsection{\JSONSchema Benchmarks}
 
-Our \JSONSchema benchmark extends the suite developed by \citet{blaze}, adding several implementations, schemas, and measurement methodologies, which we detail in the following sections.
+Our \JSONSchema benchmark significantly extends the suite developed by \citet{blaze}.
+We added:
+\begin{itemize}
+\item Measurement of parse times;
+\item Schemas from \JSONSchema examples~\cite{jsonschemaexamples} and Ajv's~\cite{jsonschema_impl_ajv} benchmarks;
+\item Random generation of valid and invalid \JSONSchema documents for new schemas;
+\item The use cases Filtering and API Gateway (specialized), which was made possible by the addition of the measurement of parse times and the generation of invalid documents; and
+\item Support for the \JSONSchema formats in all implementations, which is now possible, since Blaze recently added support.
+\end{itemize}
 
 %% TODO Walter: List the exact number of implementations.
 The benchmarks include implementations in various programming languages:
@@ -1127,11 +1138,13 @@ This addition underscores that parsing is an integral component of the total val
 Another factor to consider is when parsing JSON, what are we parsing into.
 Will the JSON Object we parse into be reused after validating it.
 Most implementations first parse the JSON into a generic JSON Object, which might be what the user expects to use after validation.
-But it is also common for users to expect JSON to be deserialized into specialized structures that have field names and are statically typed, which are safer and more convenient to use, but this does not seem to be supported by Blaze or any of the Golang implementations.
+But it is also common for users to expect JSON to be deserialized into specialized structures that have field names and are statically typed, which are safer and faster to use.
 There would need to be an additional copy step that copies the generic structure into the specialized structure, which would be expensive compared to validation.
+Deserializing directly into the specialized structure and then validating this structure is only supported by Katydid and kaptinlin; we did not benchmark it.
+This provides a major advantage in API Gateway use case, since with this functionality, the user only needs to parse the JSON once, and no copies occur between generic and specialized structures.
 Katydid can abstract and validate specialized or generic deserialized JSON structures behind a reflect implementation of the pull-based parser interface.
 Katydid can also abstract away and validate serialized JSON, without allocating any object or, in fact, any heap allocations.
-This allows for a lot of flexibility, where validating serialized JSON is appropriate in the filtering use case, since we will not need to deserialize it in most cases.
+This allows for significant flexibility, where validating serialized JSON is appropriate in the filtering use case, since the user will often not need the deserialized JSON.
 
 Benchmarks were conducted on a 2024 MacBook Pro equipped with an M4 processor and 48 GB of memory.
 To ensure statistical stability, each benchmark was executed three times, with results reported as the mean execution time.
@@ -1145,7 +1158,7 @@ Our benchmarks are set up for three use-cases:
 \item Filtering through a database expects mostly invalid documents, so we generated only invalid documents for the new schemas we added, see \Cref{table_filtering}.
 \end{itemize}
 For the filtering use, we always add the parse time to the validation time, since reuse happens so little, it is negligible.
-Technically, there is another case where Katydid could gain an advantage when deserializing directly into the specialized structure and then validating using reflect, but we exclude this, since deserializing into the specialized structure would already do some validation and give it an unfair advantage.
+
 
 Threats to validity of benchmarking results:
 \begin{itemize}
