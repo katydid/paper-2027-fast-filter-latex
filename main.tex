@@ -416,7 +416,7 @@ We define its building blocks \enter, \leave, \RegexKatydidDerive and \GrammarKa
 
 \subsection{Regular Expressions}
 
-A symbolic \emph{regular expression} is defined as~\cite{brzozowski1964derivatives, stanford2021symbolic, elliott2021symbolic}:
+A symbolic \emph{regular expression}~\cite{brzozowski1964derivatives, stanford2021symbolic, elliott2021symbolic} is defined as an inductive type in Lean, where \lstinline{σ} represents the symbol:
 \begin{lstlisting}[label=Regex]
 inductive Regex (σ: Type) where
   | emptyset | emptystr | symbol (s: σ) | or (r1 r2: Regex σ)
@@ -426,13 +426,14 @@ We include the \lstinline{interleave} operator to handle semi-structured data, f
 We also support the \lstinline{and} and \lstinline{complement} operators in our definitions and proofs in the \supplementarymaterial, but omit them here for brevity.
 We define additional operators as helper functions:
 \begin{lstlisting}
-def onlyif (cond: Prop) [dcond: Decidable cond] (r: Regex σ): Regex σ :=
+def onlyif (cond: Prop) [Decidable cond] (r: Regex σ): Regex σ :=
   if cond then r else emptyset
 def oneOrMore (r: Regex σ) := concat r (star r)
 def optional (r: Regex σ) := or r emptystr
 def starAny: Regex σ := complement emptyset
 def contains (r: Regex σ) := concat starAny (concat r starAny)
 \end{lstlisting}
+Note, that \lstinline{cond} is an instance of \lstinline{Decidable}, which makes it possible to use it as if it was a boolean in an if expression's condition.
 These extra operators and helper functions are used by both \RelaxNG and \JSONSchema, as well as in our examples and benchmarks.
 
 \subsection{Derivative of a Regular Expression}
@@ -447,9 +448,15 @@ def Regex.filter (Φ: σ → α → Bool) (r: Regex σ) (xs: List (List α)) :=
 The derivative of a regular expression yields the expression that remains to be matched after consuming a list element~\cite{brzozowski1964derivatives, reexamined}:
 \begin{lstlisting}[label=def Regex.Char.derive]
 def Regex.Char.derive (r: Regex Char) (a: Char): Regex Char
+#guard Regex.Char.derive (concat (symbol 'a') (symbol 'b')) 'a'
+  = or (concat emptystr (symbol 'b')) emptyset -- symbol 'b'
+#guard Regex.Char.derive (star (symbol 'a')) 'a'
+  = concat emptystr (star (symbol 'a')) -- star (symbol 'a')
 \end{lstlisting}
+We use Lean's \lstinline{#guard} commands, to show examples that are checked by the type checker.
+The derivatives examples above can be simplified to the expressions in comments, which is common to do via smart constructors~\cite{reexamined} when taking derivatives, but we do not thoroughly discuss in this paper.
 To define the derivative of a regular hedge grammar, we need a more general version of the regular expression derivative function that is capable of supporting hedges. 
-We achieve this by using a symbolic derivative~\cite{stanford2021symbolic, elliott2021symbolic} over a generic input alphabet (\lstinline{α}), a decidable predicate (\lstinline{Φ: σ → α → Bool}):
+We achieve this by using a symbolic derivative~\cite{stanford2021symbolic, elliott2021symbolic} over a generic input alphabet (\lstinline{α}) and a decidable predicate (\lstinline{Φ: σ → α → Bool}):
 \begin{lstlisting}[label=def Regex.derive]
 def Regex.derive (Φ: σ → α → Bool) (r: Regex σ) (a: α): Regex σ := match r with
   | emptyset => emptyset | emptystr => emptyset
@@ -464,6 +471,7 @@ def Regex.derive (Φ: σ → α → Bool) (r: Regex σ) (a: α): Regex σ := mat
       (interleave (derive Φ r2 a) r1)
 theorem gen_derive: Regex.Char.derive r a = Regex.derive (fun s a => s == a) r a
 \end{lstlisting}
+The Lean \lstinline{theorem} is used to prove that the two definitions of derive are equal when the derivative is a \lstinline{Char} and the correctness is checked by the Lean type checker.
 In \RegexCharDerive, the symbol \lstinline{σ} is of the same type as the alphabet \lstinline{α}, but in the general case, the symbol can represent an inductive predicate type, where \lstinline{Φ} is the evaluation function.
 We will provide an example in the next section.
 
@@ -493,7 +501,7 @@ def Regex.Point.derive: (r: Regex (σ × Bool)) → Regex σ
       (interleave (derive r1) (first r2))
       (interleave (derive r2) (first r1))
 \end{lstlisting}
-Instead of the original symbols, each position now contains a tuple comprising the symbol and its predicate evaluation result.
+Instead of the original symbols, each position now contains a tuple comprising the symbol and its predicate evaluation result \lstinline{(σ × Bool)}.
 This pair can be interpreted as a point on the graph of the predicate function.
 In the \lstinline{symbol} case, the result is checked, but in all other cases the original derivative algorithm is applied by either calling derive or retrieving the original regular expression with the \lstinline{first} function, which maps over the regular expression as a Functor:
 \begin{lstlisting}
@@ -539,6 +547,7 @@ structure Grammar (n: Nat) (φ: Type) where
   start: Regex (φ × Ref n)
   prods: Vector (Regex (φ × Ref n)) n
 \end{lstlisting}
+In Lean a \lstinline{Vector} has an underlying presentation of a list, but it includes a length as a parameter in the type.
 In the rest of this section we justify the representation.
 
 Non-terminals are represented as a reference \Reference, which is the abbreviation of the set of natural numbers smaller than \lstinline{n}:
@@ -576,26 +585,32 @@ def example_grammar_doc: Grammar 3 (Pred String) :=
       Regex.emptystr,
     ])
 \end{lstlisting}
+Note, the \lstinline{Vector} of production rules is constructed with the macro \lstinline{#v[]}.
 It validates the XML snippet \lstinline{<doc><p><pcdata/></p><p><br/></p></doc>}.
 We now proceed to describe the \RegexKatydidDerive function, the key to \GrammarKatydidDerive.
 
-\subsection{Enter and Leave}
+\subsection{Katydid Algorithm for Regular Expressions}
 \label{section_enter_and_leave}
 
-The \GrammarKatydidDerive function is defined using \RegexKatydidDerive, which is defined using the two memoizable functions \enter and \leave.
-The \enter function is memoized over the \Regex parameter, whereas \leave is memoized over the product of the \Regex and the evaluated symbols, \lstinline{Vector Bool (symcount r)}.
-We name the functions \enter and \leave to reflect that they correspond to entering and leaving a \Node.
-Note that both of these functions are alphabet independent.
-The \symcount function determines the number of symbols in a regular expression:
-\begin{lstlisting}[label=def symcount]
-def symcount (r: Regex σ): Nat
-#guard symcount (or (symbol 'a') (star (symbol 'b'))) = 2
+The \GrammarKatydidDerive function is defined using \RegexKatydidDerive, which is defined using the two memoizable functions \enter and \leave:
+\begin{lstlisting}[label=def Regex.Katydid.derive]
+def Regex.Katydid.derive (Φ: σ → Bool) (r: Regex σ): Regex σ :=
+  enter r |> Vector.map Φ |> leave r
 \end{lstlisting}
+The \enter function is memoized over the \Regex parameter, whereas \leave is memoized over the product of the \Regex and the evaluated symbols, \lstinline{Vector Bool (symcount r)}.
+We name the functions \enter and \leave to reflect that they correspond to entering and leaving a \Node, which we will discuss in the next section.
+Note that both of these functions are alphabet independent.
 
 The \enter function returns a \lstinline{Vector} of the symbols contained in the regular expression:
 \begin{lstlisting}[label=def enter]
 def enter (r: Regex σ): Vector σ (symcount r) := (extract r).2
 #guard enter (or (symbol 'a') (star (symbol 'b'))) = #v['a','b']
+\end{lstlisting}
+
+The \symcount function determines the number of symbols in a regular expression:
+\begin{lstlisting}[label=def symcount]
+def symcount (r: Regex σ): Nat
+#guard symcount (or (symbol 'a') (star (symbol 'b'))) = 2
 \end{lstlisting}
 
 The symbols are extracted from the regular expression, using the \extract function.
@@ -651,7 +666,6 @@ With the \RegexKatydidDerive algorithm defined, let us move on to its role in re
 \subsection{Derivative of a Regular Hedge Grammar}
 
 The derivative of a regular hedge grammar can be defined analogously to that of a regular expression, with special handling required for the \lstinline{symbol} case:
-
 \begin{lstlisting}[label=def Grammar.JSONmembers.derive]
 def Grammar.JSONmembers.derive (G: Grammar n φ) (Φ: φ → α → Bool)
   (r: Regex (φ × Ref n)) (node: Node α): Regex (φ × Ref n) := match r with
@@ -663,6 +677,8 @@ def Grammar.JSONmembers.derive (G: Grammar n φ) (Φ: φ → α → Bool)
   termination_by (node, r)
 \end{lstlisting}
 This approach mirrors a derivative algorithm previously applied to JSON~Schema~\cite{holstege2019application}, which we refer to as the JSONmembers algorithm for simplicity.
+In \Lean every function has to terminate or explicitly state that it is \lstinline{partial}.
+Usually \Lean can automatically detect that a function will terminate, but in some cases the termination needs to be proved via \lstinline{termination_by}.
 
 Unfortunately, this approach memoizes parameters with high variance.
 One reason being that the parameters are alphabet dependent.
@@ -696,11 +712,12 @@ def filter (G: Grammar n φ) (Φ: φ → α → Bool) (hedges: List (Hedge α)) 
 We wish to use memoization to improve the performance of derivative-based filtering over regular hedge grammars.
 To characterize when memoization helps in this setting, we make the following definitions:
 A function is \emph{memoizable} if its input parameters can be hashed and have decidable equality. 
-We express this in Lean using a Monad \lstinline{m} for stateful caching:
+We express this as a Lean \lstinline{class} using a Monad \lstinline{m} for stateful caching:
 \begin{lstlisting}[label=Memoize]
 class Memoize [DecidableEq α] [Hashable α] {β: α -> Type} (f: (a: α) → β a)
   (m: Type -> Type u) where call: (a: α) -> m { b: β a // b = f a }
 \end{lstlisting}
+The return type is expressed as a \lstinline{Subtype}, \lstinline|{ b: β a // b = f a }|, which has a value \lstinline{b} and a property that the value is equal to the output value of the original non-memoized function \lstinline{f}.
 Other formalizations~\cite{formalmem} additionally have an invariant that input and output values have to be stored, but the \lstinline{Memoize} class allows various caching strategies, including limited space strategies.
 
 We define memoize versions of the derivative, validate and filter functions, for both regular expressions and regular hedge grammars.
@@ -717,8 +734,9 @@ class MemoizeKatydid (m: Type → Type u) σ [DecidableEq σ] [Hashable σ] wher
   leaveM : (param: Σ (r: Regex σ), (Vector Bool (symcount r)))
              → m { res: Regex σ // res = Regex.leave param.1 param.2 }
 \end{lstlisting}
+We use \lstinline{Σ} in Lean to express a tuple, where the value of the first element determines the type of the second element.
 This class allows one to specify a memoization strategy appropriate to the use case.
-We adopt a strategy that records every invocation in a \lstinline{State} monad.
+We adopt a strategy that records every invocation in a \lstinline{State} Monad.
 
 The memoized functions are updated to use monads and to propagate soundness via the \lstinline{Subtype}; otherwise, they are a one-to-one translation of the non-memoized functions.
 Propagating soundness required redefining some standard library functions (including \lstinline{List.foldlM},  \lstinline{Vector.mapM} and \lstinline{List.filterM}) to also propagate soundness.
@@ -896,44 +914,6 @@ The \emph{mem} version of the algorithm, memoizes as the regular hedge grammar i
 The \emph{auto} version of the algorithm prepopulates the memoization tables with all possibilities.
 The auto version adds one more optimization where it finds all constant strings in the predicates and creates another table from these strings to the child expressions, see \link{childr}{def Grammar.Katydid.derive}.
 
-We conducted benchmarks over several iterations to evaluate how memoization improves filter efficiency with repeated execution.
-Two regular hedge grammars (\lstinline{simple} and \lstinline{complex}) were chosen to filter a list of conferences:
-\begin{lstlisting}
-def simple: Grammar 2 (Pred String) :=
-  mk (field ("Category", 1)) #v[emptystr, eq ("Computer Science", 0)]
-def complex: Grammar 7 (Pred String) :=
-  mk (interleave (eq ("Due", 1)) (interleave (eq ("Loc", 5)) starAny)) #v[emptystr,
-    or (field ("Year", 2)) (and (field ("Year", 3)) (field ("Month", 4))),
-    eq ("2026", 0), eq ("2025", 0), symbol (Pred.ge "10", 0),
-    field ("Cont", 6), eq ("EU", 0),
-  ]
-def eq (v: α × Fin n) := symbol (Pred.eq v.1, v.2)
-def field (v: α × Fin n) := contains (symbol (Pred.eq v.1, v.2))
-\end{lstlisting}
-The \lstinline{simple} grammar filters for conferences within the Category of Computer Science, while the \lstinline{complex} grammar filters for conferences that have submission deadlines in 2026 or after October 2025 and are also located on the continent of Europe.
-For each grammar, we randomly populated data structures and serialized them as Protocol Buffers and JSON.
-We ran the benchmarks using Golang version 1.24 on a 2024 MacBook Pro M4 with 48 GB of memory.
-Note, we also ran benchmarks back in 2016 and achieved similar sub microsecond results for similar grammars on older hardware.
-The \supplementarymaterial includes more extensive and larger benchmarks, recorded runs, and explains how to reproduce the benchmarks.
-
-\begin{figure}[t]
-\begin{center}
-\includegraphics[]{graphics/bargraph/bargraph.pdf}
-\caption{Benchmarks}
-\Description[Short Summary]{Long Detailed Description} %% TODO Add a better description
-\label{figure_benchmarks}
-\end{center}
-\end{figure}
-
-The results of the benchmarks are shown in \Cref{figure_benchmarks}.
-We ran each grammar for multiple iterations.
-Zero iterations correspond to no memoization, while infinitely many iterations correspond to fully memoized \enter and \leave functions, with all possible cases precomputed. 
-For the other iterations, we recorded the average running time, while memoizing for that number of iterations.
-We observe that the longer the same grammar is memoized, the faster the algorithm becomes.
-Once the functions are fully memoized over all possible cases, the benchmarks indicate zero heap allocations.
-Notice that the JSON benchmarks are slower than the Protocol Buffer benchmarks for the same \lstinline{complex} grammar.
-This shift occurs because Protocol Buffers offer superior parsing speeds; our profiling confirms that parsing has become the primary CPU bottleneck.
-
 \subsection{Supporting \JSONSchema}
 
 \citet{holstege2019application} explains how \JSONSchema can be converted to \emph{tagged-type regular expressions}.
@@ -987,8 +967,50 @@ The remaining failures were strictly isolated to test cases involving non-regula
 %% TODO Walter: Make sure this is the complete list ^^ of unsupported features.
 %% TODO Walter: Put in the actual numbers and how many tests we skipped because of unsupported features.
 
-\section{\JSONSchema Benchmarks}
+\section{Benchmarks}
 \label{section_benchmarks}
+
+\subsection{Regular Hedge Grammar Benchmarks}
+
+We conducted benchmarks over several iterations to evaluate how memoization improves filter efficiency with repeated execution.
+Two regular hedge grammars (\lstinline{simple} and \lstinline{complex}) were chosen to filter a list of conferences:
+\begin{lstlisting}
+def simple: Grammar 2 (Pred String) :=
+  mk (field ("Category", 1)) #v[emptystr, eq ("Computer Science", 0)]
+def complex: Grammar 7 (Pred String) :=
+  mk (interleave (eq ("Due", 1)) (interleave (eq ("Loc", 5)) starAny)) #v[emptystr,
+    or (field ("Year", 2)) (and (field ("Year", 3)) (field ("Month", 4))),
+    eq ("2026", 0), eq ("2025", 0), symbol (Pred.ge "10", 0),
+    field ("Cont", 6), eq ("EU", 0),
+  ]
+def eq (v: α × Fin n) := symbol (Pred.eq v.1, v.2)
+def field (v: α × Fin n) := contains (symbol (Pred.eq v.1, v.2))
+\end{lstlisting}
+The \lstinline{simple} grammar filters for conferences within the Category of Computer Science, while the \lstinline{complex} grammar filters for conferences that have submission deadlines in 2026 or after October 2025 and are also located on the continent of Europe.
+For each grammar, we randomly populated data structures and serialized them as Protocol Buffers and JSON.
+We ran the benchmarks using Golang version 1.24 on a 2024 MacBook Pro M4 with 48 GB of memory.
+Note, we also ran benchmarks back in 2016 and achieved similar sub microsecond results for similar grammars on older hardware.
+The \supplementarymaterial includes more extensive and larger benchmarks, recorded runs, and explains how to reproduce the benchmarks.
+
+\begin{figure}[t]
+\begin{center}
+\includegraphics[]{graphics/bargraph/bargraph.pdf}
+\caption{Benchmarks}
+\Description[Short Summary]{Long Detailed Description} %% TODO Add a better description
+\label{figure_benchmarks}
+\end{center}
+\end{figure}
+
+The results of the benchmarks are shown in \Cref{figure_benchmarks}.
+We ran each grammar for multiple iterations.
+Zero iterations correspond to no memoization, while infinitely many iterations correspond to fully memoized \enter and \leave functions, with all possible cases precomputed. 
+For the other iterations, we recorded the average running time, while memoizing for that number of iterations.
+We observe that the longer the same grammar is memoized, the faster the algorithm becomes.
+Once the functions are fully memoized over all possible cases, the benchmarks indicate zero heap allocations.
+Notice that the JSON benchmarks are slower than the Protocol Buffer benchmarks for the same \lstinline{complex} grammar.
+This shift occurs because Protocol Buffers offer superior parsing speeds; our profiling confirms that parsing has become the primary CPU bottleneck.
+
+\subsection{\JSONSchema Benchmarks}
 
 Our \JSONSchema benchmark extends the suite developed by \citet{blaze}, adding several implementations, schemas, and measurement methodologies, which we detail in the following sections.
 
@@ -1255,6 +1277,7 @@ The semantics, complexity and expressive power of \JSONSchema have been formaliz
 Modern extensions of \JSONSchema that use dynamic references require a validation algorithm that is PSPACE-complete~\cite{modernjsonschema}, which makes these operators also not convertible to a regular hedge grammar.
 
 The RapidJSON~\cite{jsonschema_impl_rapidjson} \JSONSchema validator uses a SAX~\cite{brownell2002sax2} like event-based parser for JSON, which stops parsing as soon as the document is found to be invalid according to the schema.
+We did not include it in the benchmarks, since it lacks support for \JSONSchema formats, which are represent in most of the schemas in the benchmark suite.
 Blaze~\cite{blaze}, like most of the other \JSONSchema validators we used in our benchmarks, parse the whole JSON structure before trying to validate the document.
 Blaze compiles \JSONSchema to its own internal Domain Specific Language (DSL), that it optimizes by reordering instructions, unrolling loops and specialized hashing.
 They found that 95\% of field names in their data set are shorter than 14 characters, so they created a perfect hashing function for strings consisting of 31 bytes or fewer.
