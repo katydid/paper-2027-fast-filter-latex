@@ -117,6 +117,8 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
 \newcommand{\MemoizeKatydid}{\link{MemoizeKatydid}{MemoizeKatydid}}
 \newcommand{\AnyEqPred}{\link{Pred}{AnyEqPred}}
 \newcommand{\Token}{\link{Token}{Token}}
+\newcommand{\Parser}{\link{Parser}{class Parser}}
+\newcommand{\fusedDerive}{\link{fusedDerive}{def fusedDerive}}
 
 %% Names
 \newcommand{\Lean}{%
@@ -737,7 +739,7 @@ class MemoizeKatydid (m: Type → Type u) σ [DecidableEq σ] [Hashable σ] wher
   leaveM : (param: Σ (r: Regex σ), (Vector Bool (symcount r)))
              → m { res: Regex σ // res = Regex.leave param.1 param.2 }
 \end{lstlisting}
-We use \lstinline{Σ} in Lean to express a dependent pair type, where the value of the first element determines the type of the second element.
+We use \lstinline{Σ} in Lean to express a dependent pair type, where the type of the second element depends on the value of the first element.
 This class allows one to specify a memoization strategy appropriate to the use case.
 We adopt a strategy that records every invocation in a \lstinline{State} Monad.
 
@@ -902,20 +904,73 @@ We encountered a similar termination issue when propagating memoization soundnes
 
 The Katydid memoization technique was originally implemented in Golang in 2016 to filter through petabytes of serialized Protocol Buffers in a proprietary distributed database.
 In the previous section, we verified the memoization technique for regular hedge grammars.
-In this section, we continue to use Lean as pseudocode to explain the Go implementation.
+In this section, we continue to use Lean as pseudocode to explain the Golang implementation.
 The Golang implementation includes several extensions and optimizations beyond the verified technique.
-The extensions include a comprehensive predicate library.
-The optimizations include smart constructors that simplify regular expressions and compute nullability and hashes for comparisons. 
+Simple extensions include a comprehensive predicate library, while simple optimizations include smart constructors that simplify regular expressions and compute nullability and hashes for comparisons.
+The optimization that is considered a major contribution is the fusion of the derivative and parsing algorithms.
+Before discussing the fusion, we have to explain the pull-based parser.
 
-A significant addition is that instead of parsing the serialized data into a \Hedge data structure in memory, we use a pull-based parser, which only parses what is required and avoids allocating memory on the heap.
-The parser is an online parser and therefore performs no backtracking, requiring the order of \Hedge traversal to be refactored.
-The predicate and memoized functions (\enter and \leave) are adjusted to operate on a Vector of \Rule rather than a single \Rule, to accommodate the revised traversal order.
-We include several implementations of this pull-based parser interface: JSON, Protocol Buffers and one for reflected Go structures, as an option for handling deserialized JSON in the \JSONSchema benchmarks.
+\subsection{Pull-based parser}
 
-We include two implementations of the Katydid algorithm: \emph{mem} and \emph{auto}.
-The \emph{mem} version of the algorithm, memoizes as the regular hedge grammar is exercised. 
-The \emph{auto} version of the algorithm prepopulates the memoization tables with all possibilities.
-The auto version adds one more optimization where it finds all constant strings in the predicates and creates another table from these strings to the child expressions, see \link{childr}{def Grammar.Katydid.derive}.
+SAX \cite{brownell2002sax2} event-based parsers have been used to parse XML, where the parser pushes events to a callback function.
+This avoids the need to create a parsing data structure, which allocates a lot of unnecessary memory if the user is filtering or only needs access to a limited number of values.
+A pull-based parser also avoids the need to create a parsing data structure, but rather asks the parser for the event, without the need for a callback function.
+Instead of parsing the serialized data into a \Hedge data structure in memory, we implement instances of a pull-based parser interface.
+\begin{lstlisting}[label=class Parser]
+class Parser (m: Type -> Type u) (α: outParam Type) where
+  next: m Hint
+  token: m α
+  skip: m Unit
+\end{lstlisting}
+The \lstinline{α} type parameter will be the values returned by our parser, while the \lstinline{m} type parameter will be a Monad, which in our implementations means the methods can return errors and the parser has some state in the form of a stack.
+When the \lstinline{next} method is called, the implementation on parses what is required and returns only a hint of the underlying data:
+\begin{lstlisting}[label=Hint]
+inductive Hint where | enter | leave | value | eof
+\end{lstlisting}
+To avoid unnecessary parsing, only when the \lstinline{token} method is called is the value, such as a 64-bit integer, actually parsed.
+Our \Parser implementations are all of type \Parser \Token, which means the \lstinline{token} method returns a \Token:
+\begin{lstlisting}[label=Token]
+inductive Token where
+  | null | bool (value: Bool) | string (value: String) | tag (value: String)
+  | int64 (value: Int64) | float64 (value: Float64Bits) | decimal (value: String) | ...
+\end{lstlisting}
+We also introduce a \lstinline{skip} method to skip the parsing of children, which is efficient to do in the case of Protocol Buffers.
+We built pull-based parsers for JSON and Protocol Buffers is optimized to avoid any allocation on the heap.
+We also built a pull-based parser for already parsed structures using Golang's reflect.
+This allows us to emulate an unfused version of the algorithm for benchmark purposes, Unfortunately, this parser makes many heap allocations.
+
+\subsection{Fused Katydid Algorithm}
+
+By fusing~\cite{fusion} the derivative and parsing algorithms we can avoid creating an intermediate \Hedge data structure:
+\begin{lstlisting}[label=def fusedDerive]
+partial def fusedDerive [DecidableEq φ] [Hashable φ] [FusedKatydid m (φ × Ref n) α]
+  (G: Grammar n φ) (Φ: φ → α → Bool)
+  (rs: Vector (Regex (φ × Ref n)) l): m (Vector (Regex (φ × Ref n)) l) := do
+  if Vector.all rs Regex.unescapable then Parser.skip; return rs
+  match ← Parser.next with
+  | Hint.value =>
+    let ⟨enters, _⟩ ← MemoizeKatydids.entersM ⟨l, rs⟩
+    let token ← Parser.token
+    let childrs := Vector.map (xs := enters)
+      (fun ⟨pred, ref⟩ => if Φ pred token then G.lookup ref else Regex.emptyset)
+    _ ← Parser.next -- always Hint.enter
+    let dchildrs ← fusedDerive G Φ childrs -- handle children
+    let rsLeave ← MemoizeKatydids.leavesM ⟨l, rs, (Vector.map Regex.null dchildrs)⟩
+    fusedDerive G Φ rsLeave -- handle siblings
+  | Hint.enter => fusedDerive G Φ rs
+  | _ => return rs -- Hint.leave or Hint.eof
+\end{lstlisting}
+In Lean we use \lstinline{do} notation for Monads with \lstinline{←} to check for errors and handle the mutation of the parser and memoization state.
+The \Parser is an online parser and therefore performs no backtracking, requiring the order of \Hedge traversal to be refactored.
+Handling this new traversal order requires the memoized functions (\lstinline{enterM} and \lstinline{leaveM}) to be adjusted to operate on a Vector of \Regex rather than a single \Regex.
+The new adjusted functions \lstinline{entersM} and \lstinline{leavesM} require the length of the Vector to also be memoized, hence the addition of \lstinline{l} in their dependent pairs parameters, which is constructed using \lstinline{⟨⟩}.
+We also start each call to \fusedDerive with a check whether we can skip parsing the children, since the Vector \lstinline{rs} could be empty or only contain \lstinline{emptyset} elements.
+
+There are other optimizations not included here.
+The auto version adds one more optimization where it finds all constant strings in the predicates and creates another table from these strings to the child expressions \lstinline{childrs}.
+The Vector \lstinline{childrs} is also compressed before calling \fusedDerive.
+This is done by removing duplicates, \lstinline{emptyset}, and \lstinline{starAny}.
+The resulting Vector \lstinline{dchildrs} is then decompressed to match the original length of \lstinline{childrs} using a Vector of indices that the compression function emitted.
 
 \subsection{Supporting \JSONSchema}
 
@@ -934,13 +989,7 @@ The JSON \lstinline[language=json]|{"a": ["b", "c"]}| is represented as the foll
      node (tag "array") [
        node (int64 0) [node (string "b") []], node (int64 1) [node (string "c") []]]]]]
 \end{lstlisting}
-The objects and arrays are tagged with labels to help us support JSON~Schema's \lstinline[language=json]|{"type": "object"}| and \lstinline[language=json]|{"type": "array"}|. The arrays are indexed, which makes them behave similarly to objects with field names, and finally, the \Hedge is parameterized over the \Token type:
-\begin{lstlisting}[label=Token]
-inductive Token where
-  | null | bool (value: Bool) | string (value: String) | tag (value: String)
-  | int64 (value: Int64) | float64 (value: Float64Bits) | decimal (value: String) | ...
-\end{lstlisting}
-This includes several representations of numbers for optimization purposes, as well as to generically support other serialization formats.
+The objects and arrays are tagged with labels to help us support JSON~Schema's \lstinline[language=json]|{"type": "object"}| and \lstinline[language=json]|{"type": "array"}|. The arrays are indexed, which makes them behave similarly to objects with field names, and finally, the \Hedge is parameterized over the \Token type.
 
 We can translate the \jsonlink{"small jsonschema for a blogpost"}{jsonschema_blogpost} into a regular hedge grammar:
 \begin{lstlisting}
@@ -973,9 +1022,16 @@ The remaining failures were strictly isolated to test cases involving non-regula
 \section{Benchmarks}
 \label{section_benchmarks}
 
-\subsection{Regular Hedge Grammar Benchmarks}
+The benchmarks are completed on variations of the Katydid algorithm in Golang.
+We include two variations of the Katydid algorithm: \emph{mem} and \emph{auto}.
+The \emph{mem} version of the algorithm, memoizes as the regular hedge grammar is exercised. 
+The \emph{auto} version of the algorithm prepopulates the memoization tables with all possibilities.
+We also include various implementations of the pull-based parser.
+We also include variations based on selecting different pull-based parser implementations.
 
-We conducted benchmarks over several iterations to evaluate how memoization improves filter efficiency with repeated execution.
+\subsection{Memoization Benchmarks}
+
+We start by benchmarking how memoization increases efficiency over time using the JSON and Protocol Buffer implementations of the \Parser.
 Two regular hedge grammars (\lstinline{simple} and \lstinline{complex}) were chosen to filter a list of conferences:
 \begin{lstlisting}
 def simple: Grammar 2 (Pred String) :=
@@ -991,9 +1047,11 @@ def field (v: α × Fin n) := contains (symbol (Pred.eq v.1, v.2))
 \end{lstlisting}
 The \lstinline{simple} grammar filters for conferences within the Category of Computer Science, while the \lstinline{complex} grammar filters for conferences that have submission deadlines in 2026 or after October 2025 and are also located on the continent of Europe.
 For each grammar, we randomly populated data structures and serialized them as Protocol Buffers and JSON.
+
 We ran the benchmarks using Golang version 1.24 on a 2024 MacBook Pro M4 with 48 GB of memory.
 Note, we also ran benchmarks back in 2016 and achieved similar sub microsecond results for similar grammars on older hardware.
-The \supplementarymaterial includes more extensive and larger benchmarks, recorded runs, and explains how to reproduce the benchmarks.
+We conducted benchmarks over several iterations to evaluate how memoization improves filter efficiency with repeated execution.
+The \supplementarymaterial includes a more extensive benchmark suite, recorded runs, and explains how to reproduce the benchmarks.
 
 \begin{figure}[t]
 \begin{center}
@@ -1015,7 +1073,8 @@ This shift occurs because Protocol Buffers offer superior parsing speeds; our pr
 
 \subsection{\JSONSchema Benchmarks}
 
-Our \JSONSchema benchmark significantly extends the suite developed by \citet{blaze}.
+Next we chose to conduct benchmarks against other validators, in this case for \JSONSchema.
+Our \JSONSchema benchmark suite significantly extends the suite developed by \citet{blaze}.
 We added:
 \begin{itemize}
 \item Measurement of parse times;
@@ -1160,7 +1219,7 @@ Our benchmarks are set up for three use-cases:
 For the filtering use, we always add the parse time to the validation time, since reuse happens so little, it is negligible.
 
 
-Threats to validity of benchmarking results:
+Threats to the validity of benchmarking results:
 \begin{itemize}
 \item Katydid, Ajv, Blaze, JSONSchemer, jsu, OptimumCode, networknt, py-jsonschema return booleans and not detailed errors. In the invalid case this gives them an advantage of not allocating memory over implementations that create descriptions of validations errors.
 \item When Blaze parses JSON, it also calculates hashes for field names, which allows it to do faster string comparisons. One could argue that this is part of the validation calculation that is happening at parse time, and we should always add parse time to validation time. One could also argue that this is just a custom implementation of a hash map and a perfectly generic dictionary.
