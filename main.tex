@@ -940,9 +940,31 @@ inductive Token where
   | nanoseconds (value: Int64) | datetime (value: String) | tag (value: String) 
 \end{lstlisting}
 We also introduce a \lstinline{skip} method to skip the parsing of children, which is efficient to do in the case of Protocol Buffers.
+
+Given the following \Hedge representation of the JSON example discussed earlier:
+\begin{lstlisting}
+#guard runs exampleParse [
+    node (Token.string "author") [
+      node (Token.string "username") [node (Token.string "Khaleesi") []]],
+    node (Token.string "content") []]
+\end{lstlisting}
+We can parse it using with an implementation our \Parser for Hedges:
+\begin{lstlisting}
+def exampleParse [p: Parser m Token] [MonadExcept String m] [Monad m]: m Unit := do
+  assertEq Hint.enter (<- p.next) -- enter blogpost
+  assertEq Hint.value (<- p.next); assertEq (Token.string "author") (<- p.token)
+  _ <- p.skip                     -- skip author's children, username, ...
+  assertEq Hint.value (<- p.next); assertEq (Token.string "content") (<- p.token)
+  assertEq Hint.enter (<- p.next); assertEq Hint.leave (<- p.next)
+  assertEq Hint.leave (<- p.next) -- leave blogpost
+  assertEq Hint.eof (<- p.next)
+\end{lstlisting}
+
 We built pull-based parsers for JSON and Protocol Buffers is optimized to avoid any allocation on the heap.
 We also built a pull-based parser for already parsed structures using Golang's reflect.
 This allows us to emulate an unfused version of the algorithm for benchmark purposes, Unfortunately, this parser makes many heap allocations.
+
+
 
 \subsection{Fused Katydid Algorithm}
 
