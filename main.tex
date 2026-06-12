@@ -939,7 +939,6 @@ inductive Token where
   | int64 (value: Int64) | float64 (value: Float64Bits) | decimal (value: String)
   | nanoseconds (value: Int64) | datetime (value: String) | tag (value: String) 
 \end{lstlisting}
-The values are all thunks, so that predicates that do not need to know the value, but only the type can avoid the parsing computation.
 We also introduce a \lstinline{skip} method to skip the parsing of children, which is efficient to do in the case of Protocol Buffers.
 We built pull-based parsers for JSON and Protocol Buffers is optimized to avoid any allocation on the heap.
 We also built a pull-based parser for already parsed structures using Golang's reflect.
@@ -947,7 +946,7 @@ This allows us to emulate an unfused version of the algorithm for benchmark purp
 
 \subsection{Fused Katydid Algorithm}
 
-We create an algorithm that fuses the derivative and parsing algorithms to avoid creating an intermediate \Hedge data structure, which avoids unnecessary allocations and copying.
+We create an algorithm that fuses~\cite{fusion} the derivative and parsing algorithms to avoid creating an intermediate \Hedge data structure, which avoids unnecessary allocations and copying.
 This fused algorithm requires a \lstinline{FusedKatydid} class that extends both the \MemoizeKatydid and \Parser classes:
 \begin{lstlisting}
 class FusedKatydid (m: Type → Type u) (σ: Type) (α: Type)
@@ -1068,7 +1067,7 @@ The \supplementarymaterial includes a more extensive benchmark suite, recorded r
 
 \begin{figure}[t]
 \begin{center}
-\includegraphics[]{graphics/bargraph/bargraph.pdf}
+\includegraphics[width=\linewidth]{graphics/bargraph/bargraph.pdf}
 \caption{Benchmarks}
 \Description[Short Summary]{Long Detailed Description} %% TODO Add a better description
 \label{figure_benchmarks}
@@ -1102,7 +1101,7 @@ The benchmarks include implementations in various programming languages:
 \begin{itemize}
 \item Ajv~\cite{jsonschema_impl_ajv}: The popular Javascript implementation Ajv, including an implementation executed on the BUN~\cite{javascript_engine_bun} Javascript runtime for extra speed;
 \item Blaze~\cite{blaze}: A highly optimized C++ implementation that uses a custom field name hash function for faster string comparison;
-\item JSON Schema Utils (jsu)~\cite{jsonschema_impl_jsu} is a tool that generates code in several target languages: C, Java, Javascript, Perl or Python to validate a specific schema;
+\item JSON Schema Utils (JSU)~\cite{jsonschema_impl_jsu} is a tool that generates code in several target languages: C, Java, Javascript, Perl or Python to validate a specific schema;
 \item Corvus.JsonSchema~\cite{jsonschema_impl_corvus}: A tool that generates C\# for a specific schema;
 \item and libraries in other languages including: Golang, Ruby, Elixir, Kotlin and PHP.
 \end{itemize}
@@ -1234,7 +1233,7 @@ For the filtering use, we always add the parse time to the validation time, sinc
 
 Threats to the validity of benchmarking results:
 \begin{itemize}
-\item Katydid, Ajv, Blaze, JSONSchemer, jsu, OptimumCode, networknt, py-jsonschema return booleans and not detailed errors. In the invalid case this gives them an advantage of not allocating memory over implementations that create descriptions of validations errors.
+\item Katydid, Ajv, Blaze, JSONSchemer, JSU, OptimumCode, networknt, py-jsonschema return booleans and not detailed errors. In the invalid case this gives them an advantage of not allocating memory over implementations that create descriptions of validations errors.
 \item When Blaze parses JSON, it also calculates hashes for field names, which allows it to do faster string comparisons. One could argue that this is part of the validation calculation that is happening at parse time, and we should always add parse time to validation time. One could also argue that this is just a custom implementation of a hash map and a perfectly generic dictionary.
 \item JSON Schema Utils and Corvus.JsonSchema generate code in the target language, which is a big advantage for inlining a lot of instructions. On the other hand, \citet{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema.
 \end{itemize}
@@ -1249,35 +1248,35 @@ We also find that even though it is not the fastest library for the API gateway 
 
 %% TODO Walter: Remember to remove go-katydid-auto-json and go-katydid-mem-json
 \begin{table}
-\caption{API Gateway (generic)}
+\caption{API Gateway (generic) }
 \label{table_api_gateway_generic}
 % BEGIN Generated tabular for kind: valid and parsing excluded
-\begin{tabular}{ll|ll}
-\# & impl & median ns/doc & mean ns/doc \\
+\begin{tabular}{ll|l|ll}
+\# & impl & lang & median ns/doc & mean ns/doc \\
 \hline
-0 & blaze & 252 & 2,118 \\
-1 & jsu-c & 274 & 2,256 \\
-2 & jsu-java & 610 & 7,700 \\
-3 & ajv-bun & 909 & 6,272 \\
-4 & jsu-js & 1,112 & 8,865 \\
-5 & ajv & 1,128 & 9,321 \\
-6 & boon & 1,566 & 8,488 \\
-7 & kmp & 2,599 & 16,086 \\
-8 & jsu-py & 2,972 & 50,267 \\
-9 & corvus & 3,008 & 12,791 \\
-10 & go-katydid-auto-reflect & 3,682 & 22,075 \\
-11 & go-katydid-auto-json & 5,016 & 24,660 \\
-12 & networknt & 5,427 & 49,825 \\
-13 & go-santhosh-tekuri & 5,813 & 43,685 \\
-14 & go-katydid-mem-reflect & 7,554 & 31,373 \\
-15 & go-katydid-mem-json & 8,609 & 35,230 \\
-16 & go-kaptinlin & 19,381 & 85,372 \\
-17 & jsv & 23,264 & 168,698 \\
-18 & jsdotnet & 27,121 & 189,888 \\
-19 & opis & 35,419 & 168,559 \\
-20 & json\_schemer & 100,656 & 387,382 \\
-21 & py-jsonschema & 148,219 & 748,401 \\
-22 & hyperjump & 277,520 & 1,157,245 \\
+0 & blaze & C++ & 252 & 2,118 \\
+1 & jsu-c (generated) & C++ & 274 & 2,256 \\
+2 & jsu-java (generated) & Java & 610 & 7,700 \\
+3 & ajv-bun & Javascript & 909 & 6,272 \\
+4 & jsu-js (generated) & Javascript & 1,112 & 8,865 \\
+5 & ajv & Javascript & 1,128 & 9,321 \\
+6 & boon & Rust & 1,566 & 8,488 \\
+7 & kmp & Kotlin & 2,599 & 16,086 \\
+8 & jsu-py (generated) & Python & 2,972 & 50,267 \\
+9 & corvus (generated) & C\# & 3,008 & 12,791 \\
+10 & katydid-auto-reflect & Golang & 3,682 & 22,075 \\
+11 & katydid-auto-json & Golang & 5,016 & 24,660 \\
+12 & networknt & Java & 5,427 & 49,825 \\
+13 & santhosh-tekuri & Golang & 5,813 & 43,685 \\
+14 & katydid-mem-reflect & Golang & 7,554 & 31,373 \\
+15 & katydid-mem-json & Golang & 8,609 & 35,230 \\
+16 & kaptinlin & Golang & 19,381 & 85,372 \\
+17 & jsv & Elixir & 23,264 & 168,698 \\
+18 & jsdotnet & C\# & 27,121 & 189,888 \\
+19 & opis & PHP & 35,419 & 168,559 \\
+20 & json\_schemer & Ruby & 100,656 & 387,382 \\
+21 & py-jsonschema & Python & 148,219 & 748,401 \\
+22 & hyperjump & Javascript & 277,520 & 1,157,245 \\
 \end{tabular}
 % END Generated tabular
 \end{table}

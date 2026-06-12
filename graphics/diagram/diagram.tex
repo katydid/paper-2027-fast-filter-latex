@@ -1,15 +1,32 @@
 \documentclass[border=2pt]{standalone}
+
+\usepackage{libertine}
+\usepackage{inconsolata}
+\usepackage[T1]{fontenc}
+\usepackage{amssymb}
+\let\Bbbk\relax              % undefine it before newtxmath redefines it
+\usepackage[libertine]{newtxmath}
+\usepackage{inconsolata}
+\usepackage[T1]{fontenc}
+
 \usepackage{listings}
+\def\lstlanguagefiles{lstlean.tex}
+\lstset{language=lean,
+backgroundcolor=,
+extendedchars=true,
+stringstyle=\color{stringcolor}
+}
+
 \usepackage{quiver}
 \usepackage{tikz}
 \usetikzlibrary{positioning}
 \begin{document}
 
 \begin {tikzpicture}[-latex, auto, node distance =2 cm and 5cm, on grid, semithick, state/.style={rectangle, draw, black, text=black, minimum width=1 cm}]
-\node[state] (R) {\verb+Rule+};
-\node[state] (DR) [below =of R] {derived \verb+Rule+};
-\node[state] (S) [right =of R] {\verb+Lang+};
-\node[state] (DS) [right =of DR] {derived \verb+Lang+ };
+\node[state] (R) {\lstinline{Rule}};
+\node[state] (DR) [below =of R] {derived \lstinline{Rule}};
+\node[state] (S) [right =of R] {\lstinline{Lang}};
+\node[state] (DS) [right =of DR] {derived \lstinline{Lang} };
 \path (R) edge  node[left] { \lstinline{Grammar.derive} } (DR);
 \path (DR) edge  node[below =0.15 cm] { \lstinline{Rule.denote} } (DS);
 \path (R) edge  node[above =0.15 cm] { \lstinline{Rule.denote} } (S);
