@@ -310,6 +310,7 @@ Our main contributions are:
 \begin{itemize}
     \item The factorization of the derivative function enables memoization for regular hedge grammars that are alphabet independent and bounded in size for performant filtering;
     \item Formal verification in Lean~\cite{lean4} that the implementation of the JSONmembers algorithm and Katydid's memoization algorithm faithfully matches the semantics of a regular hedge grammar;
+    \item A pull-based parser interface to handle any sequential data serialization format and allow for validating any serialization format with derivatives.
     \item A fused~\cite{fusion} derivative and parsing algorithm removing the overhead of the intermediate parsing data structures;
     \item The abstraction of serialization formats behind a pull-based parser interface in Golang~\cite{golang} to allow for regular hedge grammar validation of Protobufs, JSON, and reflected Golang structures; and
     \item A significant extension of the \JSONSchema benchmark suite developed by \citet{blaze}, which we run in Golang by first translating the \JSONSchema to regular hedge grammars.
@@ -912,6 +913,9 @@ Before discussing the fusion, we have to explain the pull-based parser.
 
 \subsection{Pull-based parser}
 
+We designed a pull-based parser interface to be lazy enough to only parse what is required and generic enough to handle any sequential serialized data format.
+We base our design on survey of serialization formats conducted by ~\citet{survey}.
+
 SAX \cite{brownell2002sax2} event-based parsers have been used to parse XML, where the parser pushes events to a callback function.
 This avoids the need to create a parsing data structure, which allocates a lot of unnecessary memory if the user is filtering or only needs access to a limited number of values.
 A pull-based parser also avoids the need to create a parsing data structure, but rather asks the parser for the event, without the need for a callback function.
@@ -923,7 +927,7 @@ class Parser (m: Type -> Type u) (α: outParam Type) where
   skip: m Unit
 \end{lstlisting}
 The \lstinline{α} type parameter will be the values returned by our parser, while the \lstinline{m} type parameter will be a Monad, which in our implementations means the methods can return errors and the parser has some state in the form of a stack.
-When the \lstinline{next} method is called, the implementation on parses what is required and returns only a hint of the underlying data:
+When the \lstinline{next} method is called, the implementation on parses what is required and returns only a hint whether we are enter or leaving a structure or have reached a value:
 \begin{lstlisting}[label=Hint]
 inductive Hint where | enter | leave | value | eof
 \end{lstlisting}
@@ -931,9 +935,11 @@ To avoid unnecessary parsing, only when the \lstinline{token} method is called i
 Our \Parser implementations are all of type \Parser \Token, which means the \lstinline{token} method returns a \Token:
 \begin{lstlisting}[label=Token]
 inductive Token where
-  | null | bool (value: Bool) | string (value: String) | tag (value: String)
-  | int64 (value: Int64) | float64 (value: Float64Bits) | decimal (value: String) | ...
+  | null | bool (value: Bool) | string (value: String) | bytes (value: Bytes)
+  | int64 (value: Int64) | float64 (value: Float64Bits) | decimal (value: String)
+  | nanoseconds (value: Int64) | datetime (value: String) | tag (value: String) 
 \end{lstlisting}
+The values are all thunks, so that predicates that do not need to know the value, but only the type can avoid the parsing computation.
 We also introduce a \lstinline{skip} method to skip the parsing of children, which is efficient to do in the case of Protocol Buffers.
 We built pull-based parsers for JSON and Protocol Buffers is optimized to avoid any allocation on the heap.
 We also built a pull-based parser for already parsed structures using Golang's reflect.
@@ -941,18 +947,25 @@ This allows us to emulate an unfused version of the algorithm for benchmark purp
 
 \subsection{Fused Katydid Algorithm}
 
-By fusing~\cite{fusion} the derivative and parsing algorithms we can avoid creating an intermediate \Hedge data structure:
+We create an algorithm that fuses the derivative and parsing algorithms to avoid creating an intermediate \Hedge data structure, which avoids unnecessary allocations and copying.
+This fused algorithm requires a \lstinline{FusedKatydid} class that extends both the \MemoizeKatydid and \Parser classes:
+\begin{lstlisting}
+class FusedKatydid (m: Type → Type u) (σ: Type) (α: Type)
+  [DecidableEq σ] [Hashable σ] extends
+  Monad m, MonadExcept String m, Parser m α, MemoizeKatydids m σ
+\end{lstlisting}
+We create an alternative of the \MemoizeKatydid called \lstinline{MemoizeKatydids} that is exactly the same except that it handles Vectors of regular expressions instead of single regular expressions.
+This was necessary, since the fused algorithm uses the \Parser, which is an online parser and therefore performs no backtracking, requiring the order of \Hedge traversal to be refactored:
 \begin{lstlisting}[label=def fusedDerive]
 partial def fusedDerive [DecidableEq φ] [Hashable φ] [FusedKatydid m (φ × Ref n) α]
-  (G: Grammar n φ) (Φ: φ → α → Bool)
+  (G: Grammar n φ) (Φ: φ → m α → m Bool)
   (rs: Vector (Regex (φ × Ref n)) l): m (Vector (Regex (φ × Ref n)) l) := do
   if Vector.all rs Regex.unescapable then Parser.skip; return rs
   match ← Parser.next with
   | Hint.value =>
     let ⟨enters, _⟩ ← MemoizeKatydids.entersM ⟨l, rs⟩
-    let token ← Parser.token
-    let childrs := Vector.map (xs := enters)
-      (fun ⟨pred, ref⟩ => if Φ pred token then G.lookup ref else Regex.emptyset)
+    let childrs <- Vector.mapM (xs := enters) (fun ⟨pred, ref⟩ =>
+      do if <- Φ pred Parser.token then return G.lookup ref else return Regex.emptyset)
     _ ← Parser.next -- always Hint.enter
     let dchildrs ← fusedDerive G Φ childrs -- handle children
     let rsLeave ← MemoizeKatydids.leavesM ⟨l, rs, (Vector.map Regex.null dchildrs)⟩
@@ -961,9 +974,9 @@ partial def fusedDerive [DecidableEq φ] [Hashable φ] [FusedKatydid m (φ × Re
   | _ => return rs -- Hint.leave or Hint.eof
 \end{lstlisting}
 In Lean we use \lstinline{do} notation for Monads with \lstinline{←} to check for errors and handle the mutation of the parser and memoization state.
-The \Parser is an online parser and therefore performs no backtracking, requiring the order of \Hedge traversal to be refactored.
 Handling this new traversal order requires the memoized functions (\lstinline{enterM} and \lstinline{leaveM}) to be adjusted to operate on a Vector of \Regex rather than a single \Regex.
 The new adjusted functions \lstinline{entersM} and \lstinline{leavesM} require the length of the Vector to also be memoized, hence the addition of \lstinline{l} in their dependent pairs parameters, which is constructed using \lstinline{⟨⟩}.
+Notice the predicate evaluation function \lstinline{Φ} is responsible for calling the \lstinline{token} method, so that it is only done if it is truly necessary.
 We also start each call to \fusedDerive with a check whether we can skip parsing the children, since the Vector \lstinline{rs} could be empty or only contain \lstinline{emptyset} elements.
 
 There are other optimizations not included here.
