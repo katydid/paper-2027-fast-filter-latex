@@ -117,6 +117,7 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
 \newcommand{\MemoizeKatydid}{\link{MemoizeKatydid}{MemoizeKatydid}}
 \newcommand{\AnyEqPred}{\link{Pred}{AnyEqPred}}
 \newcommand{\Token}{\link{Token}{Token}}
+\newcommand{\Hint}{\link{Hint}{Hint}}
 \newcommand{\Parser}{\link{Parser}{class Parser}}
 \newcommand{\fusedDerive}{\link{fusedDerive}{def fusedDerive}}
 
@@ -315,7 +316,7 @@ Our main contributions are:
     \item The abstraction of serialization formats behind a pull-based parser interface in Golang~\cite{golang} to allow for regular hedge grammar validation of Protobufs, JSON, and reflected Golang structures; and
     \item A significant extension of the \JSONSchema benchmark suite developed by \citet{blaze}, which we run in Golang by first translating the \JSONSchema to regular hedge grammars.
 \end{itemize}
-% fusion> we have accomplished our goal of removing the intermediate data structures by transforming the numerous recursive traversals into a single one. This process is called fusion
+% fusion> We have accomplished our goal of removing the intermediate data structures by transforming the numerous recursive traversals into a single one. This process is called fusion
 
 The motivation for this work arose in the context of a proprietary distributed database that stored denormalized Protocol Buffers, where schema-based filtering needed to be performed at scale.
 To meet production-level performance requirements, we implemented the memoization technique in Golang~\cite{golang} with a strong emphasis on avoiding heap allocations.
@@ -439,7 +440,7 @@ def optional (r: Regex σ) := or r emptystr
 def starAny: Regex σ := complement emptyset
 def contains (r: Regex σ) := concat starAny (concat r starAny)
 \end{lstlisting}
-Note, that \lstinline{cond} is an instance of \lstinline{Decidable}, which makes it possible to use it as if it was a boolean in an if expression's condition.
+Note that \lstinline{cond} is an instance of \lstinline{Decidable}, which makes it possible to use it as if it was a boolean in an if expression's condition.
 These extra operators and helper functions are used by both \RelaxNG and \JSONSchema, as well as in our examples and benchmarks.
 
 \subsection{Derivative of a Regular Expression}
@@ -459,8 +460,8 @@ def Regex.Char.derive (r: Regex Char) (a: Char): Regex Char
 #guard Regex.Char.derive (star (symbol 'a')) 'a'
   = concat emptystr (star (symbol 'a')) -- star (symbol 'a')
 \end{lstlisting}
-We use Lean's \lstinline{#guard} command, to show examples that are checked by the type checker.
-The derivatives examples above can be simplified to the expressions in comments, which is common to do via smart constructors~\cite{reexamined} when taking derivatives, but we do not thoroughly discuss in this paper.
+We use Lean's \lstinline{#guard} command to show examples that are checked by the type checker.
+The derivatives examples above can be simplified to the expressions in comments, which is common to do via smart constructors~\cite{reexamined} when taking derivatives, but we do not thoroughly discuss this in this paper.
 To define the derivative of a regular hedge grammar, we need a more general version of the regular expression derivative function that is capable of supporting hedges. 
 We achieve this by using a symbolic derivative~\cite{stanford2021symbolic, elliott2021symbolic} over a generic input alphabet (\lstinline{α}) and a decidable predicate (\lstinline{Φ: σ → α → Bool}):
 \begin{lstlisting}[label=def Regex.derive]
@@ -553,7 +554,7 @@ structure Grammar (n: Nat) (φ: Type) where
   start: Regex (φ × Ref n)
   prods: Vector (Regex (φ × Ref n)) n
 \end{lstlisting}
-In Lean a \lstinline{Vector} has an underlying presentation of a list, but it includes a length as a parameter in the type.
+In Lean, a \lstinline{Vector} has an underlying presentation of a list, but it includes a length as a parameter in the type.
 In the rest of this section we justify the representation.
 
 Non-terminals are represented as a reference \Reference, which is the abbreviation of the set of natural numbers smaller than \lstinline{n}:
@@ -684,7 +685,7 @@ def Grammar.JSONmembers.derive (G: Grammar n φ) (Φ: φ → α → Bool)
 \end{lstlisting}
 This approach mirrors a derivative algorithm previously applied to JSON~Schema~\cite{holstege2019application}, which we refer to as the JSONmembers algorithm for simplicity.
 In \Lean every function has to terminate or explicitly state that it is \lstinline{partial}.
-Usually \Lean can automatically detect that a function will terminate, but in some cases the termination needs to be proved via \lstinline{termination_by}.
+Usually, \Lean can automatically detect that a function will terminate, but in some cases the termination needs to be proved via \lstinline{termination_by}.
 
 Unfortunately, this approach memoizes parameters with high variance.
 One reason being that the parameters are alphabet dependent.
@@ -964,8 +965,6 @@ We built pull-based parsers for JSON and Protocol Buffers is optimized to avoid 
 We also built a pull-based parser for already parsed structures using Golang's reflect.
 This allows us to emulate an unfused version of the algorithm for benchmark purposes, Unfortunately, this parser makes many heap allocations.
 
-
-
 \subsection{Fused Katydid Algorithm}
 
 We create an algorithm that fuses~\cite{fusion} the derivative and parsing algorithms to avoid creating an intermediate \Hedge data structure, which avoids unnecessary allocations and copying.
@@ -978,33 +977,34 @@ class FusedKatydid (m: Type → Type u) (σ: Type) (α: Type)
 We create an alternative of the \MemoizeKatydid called \lstinline{MemoizeKatydids} that is exactly the same except that it handles Vectors of regular expressions instead of single regular expressions.
 This was necessary, since the fused algorithm uses the \Parser, which is an online parser and therefore performs no backtracking, requiring the order of \Hedge traversal to be refactored:
 \begin{lstlisting}[label=def fusedDerive]
-partial def fusedDerive [DecidableEq φ] [Hashable φ] [FusedKatydid m (φ × Ref n) α]
+partial def Grammar.Fused.derive
+  [DecidableEq φ] [Hashable φ] [FusedKatydid m (φ × Ref n) α]
   (G: Grammar n φ) (Φ: φ → m α → m Bool)
   (rs: Vector (Regex (φ × Ref n)) l): m (Vector (Regex (φ × Ref n)) l) := do
-  if Vector.all rs Regex.unescapable then Parser.skip; return rs
-  match ← Parser.next with
-  | Hint.value =>
-    let ⟨enters, _⟩ ← MemoizeKatydids.entersM ⟨l, rs⟩
-    let childrs <- Vector.mapM (xs := enters) (fun ⟨pred, ref⟩ =>
-      do if <- Φ pred Parser.token then return G.lookup ref else return Regex.emptyset)
-    _ ← Parser.next -- always Hint.enter
-    let dchildrs ← fusedDerive G Φ childrs -- handle children
-    let rsLeave ← MemoizeKatydids.leavesM ⟨l, rs, (Vector.map Regex.null dchildrs)⟩
-    fusedDerive G Φ rsLeave -- handle siblings
-  | Hint.enter => fusedDerive G Φ rs
-  | _ => return rs -- Hint.leave or Hint.eof
+  let mut drs := rs
+  if Vector.all rs Regex.unescapable then Parser.skip; return drs
+  let mut h := ← Parser.next
+  while h == Hint.value do
+    let enterSymbols    ← MemoizeKatydids.entersM ⟨l, drs⟩
+    let childrs ← Vector.mapM (xs := enterSymbols.val) (fun ⟨pred, ref⟩ => do
+      return if ← Φ pred Parser.token then G.lookup ref else emptyset)
+    let childbs ← Vector.map Regex.null <$> Fused.derive G Φ childrs
+    drs :=              ← MemoizeKatydids.leavesM ⟨l, drs, childbs⟩
+    h := ← Parser.next
+  if h == Hint.enter then Fused.derive G Φ rs else return drs
 \end{lstlisting}
-In Lean we use \lstinline{do} notation for Monads with \lstinline{←} to check for errors and handle the mutation of the parser and memoization state.
+We start each call to \fusedDerive with a check whether we can skip parsing the children, since the Vector \lstinline{rs} could be empty or only contain \lstinline{emptyset} elements.
+We then check if the \Hint is a \lstinline{value} or \lstinline{enter}, in which case we can either loop through all the values or recurse until a \lstinline{leave} \Hint is received.
 Handling this new traversal order requires the memoized functions (\lstinline{enterM} and \lstinline{leaveM}) to be adjusted to operate on a Vector of \Regex rather than a single \Regex.
 The new adjusted functions \lstinline{entersM} and \lstinline{leavesM} require the length of the Vector to also be memoized, hence the addition of \lstinline{l} in their dependent pairs parameters, which is constructed using \lstinline{⟨⟩}.
+We use Lean's notation for Monads (\lstinline{do}, \lstinline{←} and \lstinline{<$>}), to check for errors and handle the mutation of the parser and memoization state.
 Notice the predicate evaluation function \lstinline{Φ} is responsible for calling the \lstinline{token} method, so that it is only done if it is truly necessary.
-We also start each call to \fusedDerive with a check whether we can skip parsing the children, since the Vector \lstinline{rs} could be empty or only contain \lstinline{emptyset} elements.
 
 There are other optimizations not included here.
 The auto version adds one more optimization where it finds all constant strings in the predicates and creates another table from these strings to the child expressions \lstinline{childrs}.
 The Vector \lstinline{childrs} is also compressed before calling \fusedDerive.
 This is done by removing duplicates, \lstinline{emptyset}, and \lstinline{starAny}.
-The resulting Vector \lstinline{dchildrs} is then decompressed to match the original length of \lstinline{childrs} using a Vector of indices that the compression function emitted.
+The resulting Vector \lstinline{childbs} is then decompressed to match the original length of \lstinline{childrs} using a Vector of indices that the compression function emitted.
 
 \subsection{Supporting \JSONSchema}
 
@@ -1099,7 +1099,7 @@ The \supplementarymaterial includes a more extensive benchmark suite, recorded r
 The results of the benchmarks are shown in \Cref{figure_benchmarks}.
 We ran each grammar for multiple iterations.
 Zero iterations correspond to no memoization, while infinitely many iterations correspond to fully memoized \enter and \leave functions, with all possible cases precomputed. 
-For the other iterations, we recorded the average running time, while memoizing for that number of iterations.
+For the other iterations, we recorded the mean running time, while memoizing for that number of iterations.
 We observe that the longer the same grammar is memoized, the faster the algorithm becomes.
 Once the functions are fully memoized over all possible cases, the benchmarks indicate zero heap allocations.
 Notice that the JSON benchmarks are slower than the Protocol Buffer benchmarks for the same \lstinline{complex} grammar.
@@ -1268,37 +1268,36 @@ We also find that even though it is not the fastest library for the API gateway 
 %% TODO Walter: Actually run all benchmarks locally 3 times and regenerate these tables.
 %% TODO compress tables by adding vdots to tables: `\vdots & \vdots & \vdots & \vdots \\` and removing the uninteresting cases.
 
-%% TODO Walter: Remember to remove go-katydid-auto-json and go-katydid-mem-json
 \begin{table}
-\caption{API Gateway (generic) }
-\label{table_api_gateway_generic}
-% BEGIN Generated tabular for kind: valid and parsing excluded
+\caption{Filtering}
+\label{table_filtering}
+% BEGIN Generated tabular for kind: invalid and parsing included
 \begin{tabular}{ll|l|ll}
-\# & impl & lang & median ns/doc & mean ns/doc \\
+\# & impl & language & median ns/doc & mean ns/doc \\
 \hline
-0 & blaze & C++ & 252 & 2,118 \\
-1 & jsu-c (generated) & C++ & 274 & 2,256 \\
-2 & jsu-java (generated) & Java & 610 & 7,700 \\
-3 & ajv-bun & Javascript & 909 & 6,272 \\
-4 & jsu-js (generated) & Javascript & 1,112 & 8,865 \\
-5 & ajv & Javascript & 1,128 & 9,321 \\
-6 & boon & Rust & 1,566 & 8,488 \\
-7 & kmp & Kotlin & 2,599 & 16,086 \\
-8 & jsu-py (generated) & Python & 2,972 & 50,267 \\
-9 & corvus (generated) & C\# & 3,008 & 12,791 \\
-10 & katydid-auto-reflect & Golang & 3,682 & 22,075 \\
-11 & katydid-auto-json & Golang & 5,016 & 24,660 \\
-12 & networknt & Java & 5,427 & 49,825 \\
-13 & santhosh-tekuri & Golang & 5,813 & 43,685 \\
-14 & katydid-mem-reflect & Golang & 7,554 & 31,373 \\
-15 & katydid-mem-json & Golang & 8,609 & 35,230 \\
-16 & kaptinlin & Golang & 19,381 & 85,372 \\
-17 & jsv & Elixir & 23,264 & 168,698 \\
-18 & jsdotnet & C\# & 27,121 & 189,888 \\
-19 & opis & PHP & 35,419 & 168,559 \\
-20 & json\_schemer & Ruby & 100,656 & 387,382 \\
-21 & py-jsonschema & Python & 148,219 & 748,401 \\
-22 & hyperjump & Javascript & 277,520 & 1,157,245 \\
+0 & Katydid-Comp-Fused & Golang & 5,671 & 29,165 \\
+1 & Blaze & C++ & 6,115 & 21,608 \\
+2 & Ajv & Javascript (Bun) & 6,790 & 18,856 \\
+3 & Katydid-Memo-Fused & Golang & 7,778 & 34,086 \\
+4 & boon & Rust & 8,648 & 38,993 \\
+5 & networknt & Java & 9,113 & 50,166 \\
+6 & JSON Schema Utils & C++ (gen) & 9,210 & 37,071 \\
+7 & Ajv & Javascript & 9,592 & 28,834 \\
+8 & JSON Schema Utils & Javascript (gen) & 10,171 & 31,844 \\
+9 & Katydid-Comp-Steps & Golang & 11,592 & 51,971 \\
+10 & Katydid-Memo-Steps & Golang & 13,391 & 58,731 \\
+11 & JSON Schema Utils & Python (gen) & 15,416 & 72,001 \\
+12 & OptimumCode & Kotlin & 16,081 & 96,343 \\
+13 & JSON Schema Utils & Java (gen) & 16,791 & 92,581 \\
+14 & santhosh-tekuri & Golang & 17,622 & 112,710 \\
+15 & Corvus.JsonSchema & C\# (gen) & 18,762 & 97,015 \\
+16 & Opis & PHP & 24,051 & 236,022 \\
+17 & kaptinlin & Golang & 27,518 & 167,924 \\
+18 & json-everything & C\# & 36,413 & 208,266 \\
+19 & python-jsonschema & Python & 66,083 & 626,210 \\
+20 & JSV & Elixir & 92,605 & 331,605 \\
+21 & json\_schemer & Ruby & 106,819 & 685,251 \\
+22 & Hyperjump & Javascript & 215,167 & 348,541 \\
 \end{tabular}
 % END Generated tabular
 \end{table}
@@ -1307,71 +1306,67 @@ We also find that even though it is not the fastest library for the API gateway 
 \caption{API Gateway (specialized)}
 \label{table_api_gateway_specialized}
 % BEGIN Generated tabular for kind: valid and parsing included
-\begin{tabular}{ll|ll}
-\# & impl & median ns/doc & mean ns/doc \\
+\begin{tabular}{ll|l|ll}
+\# & impl & language & median ns/doc & mean ns/doc \\
 \hline
-0 & blaze & 4,501 & 13,365 \\
-1 & ajv-bun & 4,544 & 13,860 \\
-2 & go-katydid-auto-json & 5,016 & 24,660 \\
-3 & networknt & 5,427 & 49,825 \\
-4 & ajv & 5,500 & 20,916 \\
-5 & jsu-js & 6,793 & 21,733 \\
-6 & jsu-c & 6,998 & 22,563 \\
-7 & boon & 7,374 & 23,088 \\
-8 & go-katydid-mem-json & 8,609 & 35,230 \\
-9 & jsu-py & 9,273 & 63,364 \\
-10 & go-katydid-auto-reflect & 10,465 & 40,235 \\
-11 & go-katydid-mem-reflect & 13,970 & 50,240 \\
-12 & go-santhosh-tekuri & 14,523 & 64,466 \\
-13 & go-kaptinlin & 27,570 & 104,284 \\
-14 & kmp & 30,135 & 62,360 \\
-15 & jsv & 31,526 & 188,425 \\
-16 & jsu-java & 32,844 & 64,508 \\
-17 & opis & 37,540 & 175,868 \\
-18 & corvus & 40,592 & 83,548 \\
-19 & jsdotnet & 65,985 & 267,119 \\
-20 & json\_schemer & 115,354 & 408,625 \\
-21 & py-jsonschema & 153,251 & 763,186 \\
-22 & hyperjump & 281,827 & 1,170,058 \\
+0 & Blaze & C++ & 4,501 & 13,365 \\
+1 & Ajv & Javascript (Bun) & 4,544 & 13,860 \\
+2 & Katydid-Comp-Fused & Golang & 5,016 & 24,660 \\
+3 & networknt & Java & 5,427 & 49,825 \\
+4 & Ajv & Javascript & 5,500 & 20,916 \\
+5 & JSON Schema Utils & Javascript (gen) & 6,793 & 21,733 \\
+6 & JSON Schema Utils & C++ (gen) & 6,998 & 22,563 \\
+7 & boon & Rust & 7,374 & 23,088 \\
+8 & Katydid-Memo-Fused & Golang & 8,609 & 35,230 \\
+9 & JSON Schema Utils & Python (gen) & 9,273 & 63,364 \\
+10 & Katydid-Comp-Steps & Golang & 10,465 & 40,235 \\
+11 & Katydid-Memo-Steps & Golang & 13,970 & 50,240 \\
+12 & santhosh-tekuri & Golang & 14,523 & 64,466 \\
+13 & kaptinlin & Golang & 27,570 & 104,284 \\
+14 & OptimumCode & Kotlin & 30,135 & 62,360 \\
+15 & JSV & Elixir & 31,526 & 188,425 \\
+16 & JSON Schema Utils & Java (gen) & 32,844 & 64,508 \\
+17 & Opis & PHP & 37,540 & 175,868 \\
+18 & Corvus.JsonSchema & C\# (gen) & 40,592 & 83,548 \\
+19 & json-everything & C\# & 65,985 & 267,119 \\
+20 & json\_schemer & Ruby & 115,354 & 408,625 \\
+21 & python-jsonschema & Python & 153,251 & 763,186 \\
+22 & Hyperjump & Javascript & 281,827 & 1,170,058 \\
 \end{tabular}
 % END Generated tabular
 \end{table}
 
 \begin{table}
-\caption{Filtering}
-\label{table_filtering}
-% BEGIN Generated tabular for kind: invalid and parsing included
-\begin{tabular}{ll|ll}
+\caption{API Gateway (generic) }
+\label{table_api_gateway_generic}
+% BEGIN Generated tabular for kind: valid and parsing excluded
+\begin{tabular}{ll|l|ll}
 \# & impl & median ns/doc & mean ns/doc \\
 \hline
-0 & go-katydid-auto-json & 5,671 & 29,165 \\
-1 & blaze & 6,115 & 21,608 \\
-2 & ajv-bun & 6,790 & 18,856 \\
-3 & go-katydid-mem-json & 7,778 & 34,086 \\
-4 & boon & 8,648 & 38,993 \\
-5 & networknt & 9,113 & 50,166 \\
-6 & jsu-c & 9,210 & 37,071 \\
-7 & ajv & 9,592 & 28,834 \\
-8 & jsu-js & 10,171 & 31,844 \\
-9 & go-katydid-auto-reflect & 11,592 & 51,971 \\
-10 & go-katydid-mem-reflect & 13,391 & 58,731 \\
-11 & jsu-py & 15,416 & 72,001 \\
-12 & kmp & 16,081 & 96,343 \\
-13 & jsu-java & 16,791 & 92,581 \\
-14 & go-santhosh-tekuri & 17,622 & 112,710 \\
-15 & corvus & 18,762 & 97,015 \\
-16 & opis & 24,051 & 236,022 \\
-17 & go-kaptinlin & 27,518 & 167,924 \\
-18 & jsdotnet & 36,413 & 208,266 \\
-19 & py-jsonschema & 66,083 & 626,210 \\
-20 & jsv & 92,605 & 331,605 \\
-21 & json\_schemer & 106,819 & 685,251 \\
-22 & hyperjump & 215,167 & 348,541 \\
+0 & Blaze & C++ & 252 & 2,118 \\
+1 & JSON Schema Utils & C++ (gen) & 274 & 2,256 \\
+2 & JSON Schema Utils & Java (gen) & 610 & 7,700 \\
+3 & Ajv & Javascript (Bun) & 909 & 6,272 \\
+4 & JSON Schema Utils & Javascript (gen) & 1,112 & 8,865 \\
+5 & Ajv & Javascript & 1,128 & 9,321 \\
+6 & boon & Rust & 1,566 & 8,488 \\
+7 & OptimumCode & Kotlin & 2,599 & 16,086 \\
+8 & JSON Schema Utils & Python (gen) & 2,972 & 50,267 \\
+9 & Corvus.JsonSchema & C\# (gen) & 3,008 & 12,791 \\
+10 & Katydid-Comp-Steps & Golang & 3,682 & 22,075 \\
+11 & networknt & Java & 5,427 & 49,825 \\
+12 & santhosh-tekuri & Golang & 5,813 & 43,685 \\
+13 & Katydid-Memo-Steps & Golang & 7,554 & 31,373 \\
+14 & kaptinlin & Golang & 19,381 & 85,372 \\
+15 & JSV & Elixir & 23,264 & 168,698 \\
+16 & json-everything & C\# & 27,121 & 189,888 \\
+17 & Opis & PHP & 35,419 & 168,559 \\
+18 & json\_schemer & Ruby & 100,656 & 387,382 \\
+19 & python-jsonschema & Python & 148,219 & 748,401 \\
+20 & Hyperjump & Javascript & 277,520 & 1,157,245 \\
 \end{tabular}
 % END Generated tabular
 \end{table}
-
-
 
 \section{Related Work}
 \label{section_related}
