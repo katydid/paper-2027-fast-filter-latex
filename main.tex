@@ -1057,15 +1057,15 @@ The remaining failures were strictly isolated to test cases involving non-regula
 \label{section_benchmarks}
 
 The benchmarks are completed on variations of the Katydid algorithm in Golang.
-We include two variations of the Katydid algorithm: \emph{mem} and \emph{auto}.
-The \emph{mem} version of the algorithm, memoizes as the regular hedge grammar is exercised. 
-The \emph{auto} version of the algorithm prepopulates the memoization tables with all possibilities.
+We include two variations of the Katydid algorithm: \emph{Memo} and \emph{Comp}.
+The \emph{Memo} version of the algorithm, memoizes as the regular hedge grammar is exercised. 
+The \emph{Comp} version compiles the regular hedge grammar by prepopulating the memoization tables with all possibilities.
 We also include various implementations of the pull-based parser.
 We also include variations based on selecting different pull-based parser implementations.
 
 \subsection{Memoization Benchmarks}
 
-We start by benchmarking how memoization increases efficiency over time using the JSON and Protocol Buffer implementations of the \Parser.
+We start by benchmarking how memoization increases efficiency over time using the JSON and Protocol Buffer (Proto) implementations of the \Parser.
 Two regular hedge grammars (\lstinline{simple} and \lstinline{complex}) were chosen to filter a list of conferences:
 \begin{lstlisting}
 def simple: Grammar 2 (Pred String) :=
@@ -1083,13 +1083,13 @@ The \lstinline{simple} grammar filters for conferences within the Category of Co
 For each grammar, we randomly populated data structures and serialized them as Protocol Buffers and JSON.
 
 We ran the benchmarks using Golang version 1.24 on a 2024 MacBook Pro M4 with 48 GB of memory.
-Note, we also ran benchmarks back in 2016 and achieved similar sub microsecond results for similar grammars on older hardware.
+Note, we also ran benchmarks back in 2016 and achieved similar sub-microsecond results for similar grammars on older hardware.
 We conducted benchmarks over several iterations to evaluate how memoization improves filter efficiency with repeated execution.
 The \supplementarymaterial includes a more extensive benchmark suite, recorded runs, and explains how to reproduce the benchmarks.
 
 \begin{figure}[t]
 \begin{center}
-\includegraphics[width=\linewidth]{graphics/bargraph/bargraph.pdf}
+\includegraphics{graphics/bargraph/bargraph.pdf}
 \caption{Benchmarks}
 \Description[Short Summary]{Long Detailed Description} %% TODO Add a better description
 \label{figure_benchmarks}
@@ -1098,7 +1098,7 @@ The \supplementarymaterial includes a more extensive benchmark suite, recorded r
 
 The results of the benchmarks are shown in \Cref{figure_benchmarks}.
 We ran each grammar for multiple iterations.
-Zero iterations correspond to no memoization, while infinitely many iterations correspond to fully memoized \enter and \leave functions, with all possible cases precomputed. 
+\emph{NoMemo} corresponds to no memoization, while \emph{Comp} corresponds to fully memoized \enter and \leave functions, with all possible cases precompiled. 
 For the other iterations, we recorded the mean running time, while memoizing for that number of iterations.
 We observe that the longer the same grammar is memoized, the faster the algorithm becomes.
 Once the functions are fully memoized over all possible cases, the benchmarks indicate zero heap allocations.
@@ -1107,14 +1107,14 @@ This shift occurs because Protocol Buffers offer superior parsing speeds; our pr
 
 \subsection{\JSONSchema Benchmarks}
 
-Next we chose to conduct benchmarks against other validators, in this case for \JSONSchema.
-Our \JSONSchema benchmark suite significantly extends the suite developed by \citet{blaze}.
-We added:
+Next, we chose to conduct benchmarks against other validators.
+We chose \JSONSchema, since it is a schema language with a close relationship to regular hedge grammars and has many implementations to benchmark against.
+\citet{blaze} developer a benchmark suite for \JSONSchema that we significantly extended, by adding:
 \begin{itemize}
 \item Measurement of parse times;
 \item Schemas from \JSONSchema examples~\cite{jsonschemaexamples} and Ajv's~\cite{jsonschema_impl_ajv} benchmarks;
-\item Random generation of valid and invalid \JSONSchema documents for new schemas;
-\item The use cases Filtering and API Gateway (specialized), which was made possible by the addition of the measurement of parse times and the generation of invalid documents; and
+\item Random generation of valid and invalid \JSONSchema documents for these new schemas;
+\item The use cases Filtering and API Gateway (discard), which was made possible by the addition of the measurement of parse times and the generation of invalid documents; and
 \item Support for the \JSONSchema formats in all implementations, which is now possible, since Blaze recently added support.
 \end{itemize}
 
@@ -1123,13 +1123,13 @@ The benchmarks include implementations in various programming languages:
 \begin{itemize}
 \item Ajv~\cite{jsonschema_impl_ajv}: The popular Javascript implementation Ajv, including an implementation executed on the BUN~\cite{javascript_engine_bun} Javascript runtime for extra speed;
 \item Blaze~\cite{blaze}: A highly optimized C++ implementation that uses a custom field name hash function for faster string comparison;
-\item JSON Schema Utils (JSU)~\cite{jsonschema_impl_jsu} is a tool that generates code in several target languages: C, Java, Javascript, Perl or Python to validate a specific schema;
+\item JSON Schema Utils (JSU)~\cite{jsonschema_impl_jsu} is a tool that generates code in several target languages: C, Java, Javascript or Python to validate a specific schema;
 \item Corvus.JsonSchema~\cite{jsonschema_impl_corvus}: A tool that generates C\# for a specific schema;
-\item and libraries in other languages including: Golang, Ruby, Elixir, Kotlin and PHP.
+\item and libraries in other languages, including: Golang, Ruby, Elixir, Kotlin and PHP.
 \end{itemize}
 To guarantee cross-platform portability and reproducibility, each implementation is packaged with a dedicated Docker setup.
 %% TODO cite Docker.
-We also evaluate four variants of our Katydid library, differentiated by their memoization strategy (on-the-fly vs. prepopulated) and parsing target (online JSON vs. Golang reflection): go-katydid-mem-json, go-katydid-auto-json, go-katydid-mem-reflect, and go-katydid-auto-reflect.
+We also evaluate four variants of our Katydid library, differentiated by their memoization strategy (on-the-fly vs. compiled) and \Parser (fused JSON vs. two separate steps via Golang reflection): Katydid-Memo-Fused, Katydid-Comp-Fused, Katydid-Memo-Steps, and Katydid-Comp-Steps.
 Each implementation is warmed up by first validating all the documents for over a hundred iterations.
 This implies the CPU caches are warmed up, JIT has been triggered, and also that our memoized solution has a populated table.
 This is representative of the real-world situations of an API gateway or filtering through millions of records.
@@ -1221,53 +1221,37 @@ Ajv's benchmarks and
 also include the \JSONSchema for the conference example previously introduced.
 To evaluate the extended schema collection, we developed a random generator capable of producing both valid instances and non-conforming (invalid) documents containing at least one schema violation.
 For schemas utilizing the \lstinline{uniqueItems} constraint, we derived variants that omit this feature; this allows for isolated benchmarking of the remaining schema logic.
-We also add support for \JSONSchema formats to all implementations, that was not present in the previous benchmark, since Blaze did not support formats at the time, but has recently added support.
+We also added support for \JSONSchema formats to all implementations, which was not present in the previous benchmark suite, since Blaze did not support formats at the time, but has recently added support.
 See a summary of the schemas included in the \supplementarymaterial.
 %% TODO Walter: create summary table of schemas in supplementary material, remember to show uniqueItems and dynamicRef.
 
 While \citet{blaze} measures validation time, we introduce a distinct measurement for parsing time.
 This addition underscores that parsing is an integral component of the total validation overhead—a factor that becomes particularly significant when filtering through large volumes of non-matching documents.
-
-Another factor to consider is when parsing JSON, what are we parsing into.
-Will the JSON Object we parse into be reused after validating it.
-Most implementations first parse the JSON into a generic JSON Object, which might be what the user expects to use after validation.
-But it is also common for users to expect JSON to be deserialized into specialized structures that have field names and are statically typed, which are safer and faster to use.
-There would need to be an additional copy step that copies the generic structure into the specialized structure, which would be expensive compared to validation.
-Deserializing directly into the specialized structure and then validating this structure is only supported by Katydid and kaptinlin; we did not benchmark it.
-This provides a major advantage in API Gateway use case, since with this functionality, the user only needs to parse the JSON once, and no copies occur between generic and specialized structures.
-Katydid can abstract and validate specialized or generic deserialized JSON structures behind a reflect implementation of the pull-based parser interface.
-Katydid can also abstract away and validate serialized JSON, without allocating any object or, in fact, any heap allocations.
-This allows for significant flexibility, where validating serialized JSON is appropriate in the filtering use case, since the user will often not need the deserialized JSON.
+Whenever the data structure that the validator requires the JSON to be deserialized into is not reused, but rather discarded, we have to consider the parsing time as part of the validation time.
+These scenarios include:
+\begin{itemize}
+\item The API gateway is a separate service (and not a library) that only does schema validation and requires the next service to deserialize the JSON again;
+\item The user expects JSON to be deserialized into its own specialized statically typed data structures with specific fields, since they are faster and safer to use than a hash map;
+\item The user's target language is different than that of the validation library.
+\end{itemize}
+In all these scenarios, with varying degrees of difficulty, it is possible to copy from the validator's data structure rather than reparse the JSON.
+Despite this, we use parsing time as an approximation of copying time, since we do not have measurements for copying in all these scenarios, and we expect most users would rather reparse the JSON in these scenarios.
 
 Benchmarks were conducted on a 2024 MacBook Pro equipped with an M4 processor and 48 GB of memory.
-To ensure statistical stability, each benchmark was executed three times, with results reported as the mean execution time.
+To ensure statistical stability of benchmark runs, we take the mean of three execution times per schema and then report the median and mean over all the schemas per implementation.
 Our benchmarks are set up for three use-cases:
 \begin{itemize}
 \item API Gateway: Expects mostly valid documents that are validated for security purposes, for which we only validate valid documents collected by \cite{blaze} and valid documents generated by us for the new schemas we added. API Gateway branches into two other use cases:
   \begin{itemize}
-  \item generic reuse: We do not add parse time to validation time and ignore Katydid's validation of serialized JSON data, since it is not applicable, see \Cref{table_api_gateway_generic}, and
-  \item specialized: always add the parsing time, since we would need to reparse or copy the structure into another specialized structure after, see \Cref{table_api_gateway_specialized}.
+  \item reuse: We do not add parse time to validation time and ignore Katydid's validation of serialized JSON data, since it is not applicable, and
+  \item discard: always add the parsing time, since we would need to reparse or copy the structure.
   \end{itemize}
-\item Filtering through a database expects mostly invalid documents, so we generated only invalid documents for the new schemas we added, see \Cref{table_filtering}.
+\item Filtering through a database expects mostly invalid documents, so we generated only invalid documents for the new schemas we added.
 \end{itemize}
 For the filtering use, we always add the parse time to the validation time, since reuse happens so little, it is negligible.
 
-
-Threats to the validity of benchmarking results:
-\begin{itemize}
-\item Katydid, Ajv, Blaze, JSONSchemer, JSU, OptimumCode, networknt, py-jsonschema return booleans and not detailed errors. In the invalid case this gives them an advantage of not allocating memory over implementations that create descriptions of validations errors.
-\item When Blaze parses JSON, it also calculates hashes for field names, which allows it to do faster string comparisons. One could argue that this is part of the validation calculation that is happening at parse time, and we should always add parse time to validation time. One could also argue that this is just a custom implementation of a hash map and a perfectly generic dictionary.
-\item JSON Schema Utils and Corvus.JsonSchema generate code in the target language, which is a big advantage for inlining a lot of instructions. On the other hand, \citet{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema.
-\end{itemize}
-
-The results show that Katydid is the fastest library for the filtering use case. 
-We also find that even though it is not the fastest library for the API gateway use case, it is still competitive and the fastest Golang library.
-
-% TODO Walter: Check if this is true: While go-santhosh-tekuri was the most efficient external Go library, katydid demonstrated superior performance across all Go-centric evaluations.
-
 %% TODO Walter: Actually run all benchmarks locally 3 times and regenerate these tables.
 %% TODO compress tables by adding vdots to tables: `\vdots & \vdots & \vdots & \vdots \\` and removing the uninteresting cases.
-
 \begin{table}
 \caption{Filtering}
 \label{table_filtering}
@@ -1281,14 +1265,14 @@ We also find that even though it is not the fastest library for the API gateway 
 3 & Katydid-Memo-Fused & Golang & 7,778 & 34,086 \\
 4 & boon & Rust & 8,648 & 38,993 \\
 5 & networknt & Java & 9,113 & 50,166 \\
-6 & JSON Schema Utils & C++ (gen) & 9,210 & 37,071 \\
+6 & JSU & C++ (gen) & 9,210 & 37,071 \\
 7 & Ajv & Javascript & 9,592 & 28,834 \\
-8 & JSON Schema Utils & Javascript (gen) & 10,171 & 31,844 \\
+8 & JSU & Javascript (gen) & 10,171 & 31,844 \\
 9 & Katydid-Comp-Steps & Golang & 11,592 & 51,971 \\
 10 & Katydid-Memo-Steps & Golang & 13,391 & 58,731 \\
-11 & JSON Schema Utils & Python (gen) & 15,416 & 72,001 \\
+11 & JSU & Python (gen) & 15,416 & 72,001 \\
 12 & OptimumCode & Kotlin & 16,081 & 96,343 \\
-13 & JSON Schema Utils & Java (gen) & 16,791 & 92,581 \\
+13 & JSU & Java (gen) & 16,791 & 92,581 \\
 14 & santhosh-tekuri & Golang & 17,622 & 112,710 \\
 15 & Corvus.JsonSchema & C\# (gen) & 18,762 & 97,015 \\
 16 & Opis & PHP & 24,051 & 236,022 \\
@@ -1296,15 +1280,15 @@ We also find that even though it is not the fastest library for the API gateway 
 18 & json-everything & C\# & 36,413 & 208,266 \\
 19 & python-jsonschema & Python & 66,083 & 626,210 \\
 20 & JSV & Elixir & 92,605 & 331,605 \\
-21 & json\_schemer & Ruby & 106,819 & 685,251 \\
+21 & JSONSchemer & Ruby & 106,819 & 685,251 \\
 22 & Hyperjump & Javascript & 215,167 & 348,541 \\
 \end{tabular}
 % END Generated tabular
 \end{table}
 
 \begin{table}
-\caption{API Gateway (specialized)}
-\label{table_api_gateway_specialized}
+\caption{API Gateway (discard)}
+\label{table_api_gateway_discard}
 % BEGIN Generated tabular for kind: valid and parsing included
 \begin{tabular}{ll|l|ll}
 \# & impl & language & median ns/doc & mean ns/doc \\
@@ -1314,22 +1298,22 @@ We also find that even though it is not the fastest library for the API gateway 
 2 & Katydid-Comp-Fused & Golang & 5,016 & 24,660 \\
 3 & networknt & Java & 5,427 & 49,825 \\
 4 & Ajv & Javascript & 5,500 & 20,916 \\
-5 & JSON Schema Utils & Javascript (gen) & 6,793 & 21,733 \\
-6 & JSON Schema Utils & C++ (gen) & 6,998 & 22,563 \\
+5 & JSU & Javascript (gen) & 6,793 & 21,733 \\
+6 & JSU & C++ (gen) & 6,998 & 22,563 \\
 7 & boon & Rust & 7,374 & 23,088 \\
 8 & Katydid-Memo-Fused & Golang & 8,609 & 35,230 \\
-9 & JSON Schema Utils & Python (gen) & 9,273 & 63,364 \\
+9 & JSU & Python (gen) & 9,273 & 63,364 \\
 10 & Katydid-Comp-Steps & Golang & 10,465 & 40,235 \\
 11 & Katydid-Memo-Steps & Golang & 13,970 & 50,240 \\
 12 & santhosh-tekuri & Golang & 14,523 & 64,466 \\
 13 & kaptinlin & Golang & 27,570 & 104,284 \\
 14 & OptimumCode & Kotlin & 30,135 & 62,360 \\
 15 & JSV & Elixir & 31,526 & 188,425 \\
-16 & JSON Schema Utils & Java (gen) & 32,844 & 64,508 \\
+16 & JSU & Java (gen) & 32,844 & 64,508 \\
 17 & Opis & PHP & 37,540 & 175,868 \\
 18 & Corvus.JsonSchema & C\# (gen) & 40,592 & 83,548 \\
 19 & json-everything & C\# & 65,985 & 267,119 \\
-20 & json\_schemer & Ruby & 115,354 & 408,625 \\
+20 & JSONSchemer & Ruby & 115,354 & 408,625 \\
 21 & python-jsonschema & Python & 153,251 & 763,186 \\
 22 & Hyperjump & Javascript & 281,827 & 1,170,058 \\
 \end{tabular}
@@ -1337,36 +1321,45 @@ We also find that even though it is not the fastest library for the API gateway 
 \end{table}
 
 \begin{table}
-\caption{API Gateway (generic) }
-\label{table_api_gateway_generic}
+\caption{API Gateway (reuse) }
+\label{table_api_gateway_reuse}
 % BEGIN Generated tabular for kind: valid and parsing excluded
 \begin{tabular}{ll|l|ll}
 \# & impl & median ns/doc & mean ns/doc \\
 \hline
 0 & Blaze & C++ & 252 & 2,118 \\
-1 & JSON Schema Utils & C++ (gen) & 274 & 2,256 \\
-2 & JSON Schema Utils & Java (gen) & 610 & 7,700 \\
-3 & Ajv & Javascript (Bun) & 909 & 6,272 \\
-4 & JSON Schema Utils & Javascript (gen) & 1,112 & 8,865 \\
-5 & Ajv & Javascript & 1,128 & 9,321 \\
-6 & boon & Rust & 1,566 & 8,488 \\
-7 & OptimumCode & Kotlin & 2,599 & 16,086 \\
-8 & JSON Schema Utils & Python (gen) & 2,972 & 50,267 \\
-9 & Corvus.JsonSchema & C\# (gen) & 3,008 & 12,791 \\
+1 & JSU & C++ (gen) & 274 & 2,256 \\
+\vdots & \vdots & \vdots & \vdots \\
 10 & Katydid-Comp-Steps & Golang & 3,682 & 22,075 \\
-11 & networknt & Java & 5,427 & 49,825 \\
+\vdots & \vdots & \vdots & \vdots \\
 12 & santhosh-tekuri & Golang & 5,813 & 43,685 \\
 13 & Katydid-Memo-Steps & Golang & 7,554 & 31,373 \\
 14 & kaptinlin & Golang & 19,381 & 85,372 \\
-15 & JSV & Elixir & 23,264 & 168,698 \\
-16 & json-everything & C\# & 27,121 & 189,888 \\
-17 & Opis & PHP & 35,419 & 168,559 \\
-18 & json\_schemer & Ruby & 100,656 & 387,382 \\
-19 & python-jsonschema & Python & 148,219 & 748,401 \\
-20 & Hyperjump & Javascript & 277,520 & 1,157,245 \\
+\vdots & \vdots & \vdots & \vdots \\
 \end{tabular}
 % END Generated tabular
 \end{table}
+
+The results show that Katydid is the fastest library for the filtering use case, see \Cref{table_filtering}.
+We also find that Katydid is a very fast library for validation in the API gateway use case, where we include the parse time as part of validation time, see \Cref{table_api_gateway_discard}.
+Finally, we find that even though Katydid is not the fastest library for the API gateway (reuse) use case, it is still competitive and the fastest Golang library, see \Cref{table_api_gateway_reuse}.
+% TODO Walter: Check if this is true: While go-santhosh-tekuri was the most efficient external Go library, katydid demonstrated superior performance across all Go-centric evaluations.
+
+Threats to the validity of benchmarking results:
+\begin{itemize}
+\item Katydid, Ajv, Blaze, JSONSchemer, JSU, OptimumCode, networknt, python-jsonschema return booleans and not detailed errors. In the invalid case, this gives them an advantage of not allocating memory over implementations that create descriptions of validation errors.
+\item When Blaze parses JSON, it also calculates hashes for field names, which allows it to do faster string comparisons. One could argue that this is part of the validation calculation that is happening at parse time, and we should always add parse time to validation time. One could also argue that this is just a custom implementation of a hash map and a perfectly generic dictionary.
+\item JSU and Corvus.JsonSchema generate code in the target language, which is a big advantage for inlining a lot of instructions. On the other hand, \citet{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema.
+\end{itemize}
+
+Most implementations first parse the JSON into a generic JSON Object, which might be what the user expects to use after validation.
+Deserializing directly into the specialized structure and then validating this structure is only supported by Katydid and kaptinlin; we did not benchmark it.
+This provides a major advantage in API Gateway use case, since with this functionality, the user only needs to parse the JSON once, and no copies occur between generic and specialized structures.
+Katydid can abstract and validate specialized or generic deserialized JSON structures behind a reflect implementation of the pull-based parser interface.
+Katydid can also abstract away and validate serialized JSON, without allocating any object or, in fact, any heap allocations.
+This allows for significant flexibility, where validating serialized JSON is appropriate in the filtering use case, since the user will often not need the deserialized JSON.
+
+
 
 \section{Related Work}
 \label{section_related}

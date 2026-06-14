@@ -56,13 +56,15 @@ simple Proto  & 4391  & 449    & 239     & 221      & 154  \\
     ymin=0,
     ymax=20500,
     ylabel={nanoseconds/validation},
+    legend style={at={(0.545,0.99)},
+ legend columns=-1},
   ]
     \addplot[delim,fill] table[x=interations,y=Zero]{\mydata};
     \addplot[stringcolor,fill] table[x=interations,y=Mem100]{\mydata};
     \addplot[commentcolor,fill] table[x=interations,y=Mem1000]{\mydata};
     \addplot[tacticcolor,fill] table[x=interations,y=Mem10000]{\mydata};
     \addplot[string,fill] table[x=interations,y=Auto]{\mydata};
-    \legend{0, 100, 1000, 10000, infinity}
+    \legend{NoMemo, Memo100, Memo1000, Memo10000, Comp}
   \end{axis}
 \end{tikzpicture}
 
