@@ -267,13 +267,16 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
 % \received[revised]{12 March 2009}
 % \received[accepted]{5 June 2009}
 
+%% TODO Say something about Fused
 \begin{abstract}
 We present a high-performance filtering and schema-validation algorithm based on Brzozowski’s derivatives extended to regular hedge grammars for semi-structured data.
 Our algorithm inherits the expressiveness of regular hedge grammars to support a wide range of schema languages and serialization formats, such as \JSONSchema, \RelaxNG for XML and Protocol Buffers.
 High performance is achieved by refactoring the derivative algorithm to make it more amenable to memoization of hedges and the elimination of heap allocations.
 We verify the correctness of our memoization technique for regular hedge grammars in Lean.
 This is the first proof of correctness in an interactive theorem prover of a derivative algorithm for regular hedge grammars or schema languages.
-We benchmark an implementation of our memoization technique in Golang against several other \JSONSchema implementations, showing that we have created a competitive library for the API-gateway use case and the fastest library for the filtering use case by filtering millions of records per second.
+We benchmark an implementation of our memoization technique in Golang against several other \JSONSchema implementations.
+%% TODO: check that we are really the fastest, otherwise we say "... one of the fastest libraries ..."
+We end up with the fastest library in the filtering use case, since we fuse the derivative and parsing algorithms to avoid the creation of intermediate parsing data structures.
 \end{abstract}
 
 %%
@@ -290,7 +293,7 @@ These grammars form the foundation of schema languages such as \RelaxNG~\cite{ho
 They enable expressive constraints over ordered and unordered element sequences, nesting, repetition, and recursion.
 Performance is achieved in our Katydid\footnote{A Katydid is a leaf insect that camouflages (requires filtering) itself in trees (data structures)} algorithm, via a novel memoization technique.
 
-Outside our Katydid algorithm, there are two other derivative-based algorithms for schema validation: \RelaxNG~\cite{relaxng2001simple} and JSON members — a term we adopt for the procedure introduced by \citet{holstege2019application}.
+Outside our Katydid algorithm, there are two other derivative-based algorithms for schema validation: \RelaxNG~\cite{relaxng2001simple} and JSONmembers — a term we adopt for the procedure introduced by \citet{holstege2019application}.
 % holstege2019application> However, the current implementation performance numbers are not particularly compelling: the need to match types against an infinitude of specific values makes it difficult to find effective caching strategies, undermining the point of using derivatives as an implementation technique in the first place. 
 JSONMembers flattens the JSON object into a sequence of key-value pairs and takes the derivative given one key-value pair at a time.
 \citet{holstege2019application} explicitly notes that the performance is not compelling and it is difficult to find a memoization solution because the derivative is taken on an infinite input alphabet.
@@ -309,10 +312,9 @@ We refactor the derivative function into a composition of three steps: enter, ev
 The big improvement our algorithm makes over \RelaxNG is that it can optionally create a fully memoized table before seeing any input, and this table will take up finite space because our memoization technique is bounded, as we model a schema as a regular hedge grammar and not a BCFG.
 Our main contributions are:
 \begin{itemize}
-    \item The factorization of the derivative function enables memoization for regular hedge grammars that are alphabet independent and bounded in size for performant filtering;
+    \item The factorization of the derivative function for regular hedge grammars that enables alphabet independent memoization and bounds the size of the memoization table for performant filtering;
     \item Formal verification in Lean~\cite{lean4} that the implementation of the JSONmembers algorithm and Katydid's memoization algorithm faithfully matches the semantics of a regular hedge grammar;
-    \item A pull-based parser interface to handle any sequential data serialization format and allow for validating any serialization format with derivatives.
-    \item A fused~\cite{fusion} derivative and parsing algorithm that removes the overhead of the intermediate parsing data structures;
+    \item A fused~\cite{fusion} derivative and parsing algorithm that removes the overhead of creating intermediate parsing data structures;
     \item Abstraction of serialization formats behind a pull-based parser interface in Golang~\cite{golang}, that allows for regular hedge grammar validation of Protobufs, JSON, and reflected Golang structures; and
     \item A significant extension of the \JSONSchema benchmark suite developed by \citet{blaze}, which we run in Golang by first translating the \JSONSchema to regular hedge grammars.
 \end{itemize}
@@ -1224,7 +1226,7 @@ Ajv's benchmarks and
 also include the \JSONSchema for the conference example previously introduced.
 To evaluate the extended schema collection, we developed a random generator capable of producing both valid instances and non-conforming (invalid) documents containing at least one schema violation.
 For schemas utilizing the \lstinline{uniqueItems} constraint, we derived variants that omit this feature; this allows for isolated benchmarking of the remaining schema logic.
-We also added support for \JSONSchema formats to all implementations, which were not present in the previous benchmark suite, since Blaze did not support these formats at the time but has recently added support.
+We also enabled support for \JSONSchema's format predicates to all implementations, which were disabled in the previous benchmark suite, since Blaze only recently added support for format predicates.
 See a summary of the schemas included in the \supplementarymaterial.
 %% TODO Walter: create summary table of schemas in supplementary material, remember to show uniqueItems and dynamicRef.
 
@@ -1439,22 +1441,27 @@ The combination of field-value validation and structural validation is strictly 
 Moreover, to the best of our knowledge, these validators first deserialize the input structure prior to validation, leading to unnecessary heap allocations when validation fails.
 Although pragmatic and user-friendly, there is room for more efficiency considerations.
 
-\section{Future Work}
+\section{Conclusions and Future Work}
 \label{section_future}
 
 We provide the highly memoized Katydid algorithm for filtering millions of records per second.
-We benchmarked against \JSONSchema implementations.
-Future work includes benchmarking against \RelaxNG for XML validation.
-Our pull-based JSON parser could be further optimized using SIMD; a faster way of parsing JSON~\cite{simdjson}.
+%% TODO Walter: check that we are the fastest, otherwise "one of the fastest"
+We benchmarked against \JSONSchema implementations and found that we are fastest in the filtering use case, mainly because we used a fused algorithm that avoids creating intermediate parsing data structures.
 As far as we know, we provide the first verification, in an interactive theorem prover, of algorithms for the validation of regular hedge grammars using derivatives.
 We chose a generic representation of serialization formats and schema languages, a \Hedge and a symbolic regular hedge grammar, which makes this algorithm and verification applicable to any schema language that can be translated to these general types.
+
+In the future, benchmarking could be extended to include other validation languages, implementation languages, features and parsing could be further optimized.
+For example, implementing a JSON pull-based parser in Lean would open up the possibility of benchmarking and validating the Golang implementation against the Lean implementation.
+Our pull-based JSON parser could be further optimized using SIMD, a faster way of parsing JSON using specialized CPU instructions~\cite{simdjson}.
+Other languages to benchmark against include \RelaxNG for XML validation.
+People have figured out how to add non-regular features to regular expressions, such as back references~\cite{backreferences}.
+It is left as future work to figure out how to add \verb+uniqueItems+ to Katydid.
+
+In terms of correctness, there are ample opportunities for future work.
 It is still open to prove the correctness of the conversion algorithms from JSON~Schema~\cite{holstege2019application} and \RelaxNG to regular hedge grammars to produce fully verified validators of schema languages.
 We have not formally verified that the memoization table is bounded.
-It has been proven for regular expressions~\cite{symbolicfinite, brzozowski1964derivatives}, but requires extra work to prove the boundedness of the \lstinline{interleave} operator.
+Boundedness has been proven for regular expressions~\cite{symbolicfinite, brzozowski1964derivatives}, but requires extra work to prove the boundedness of the \lstinline{interleave} operator.
 We also plan to prove the correctness of the further optimizations from the Golang implementation, including the pull-based parser.
-This would also open up the possibility of benchmarking and validating the Go implementation against the Lean implementation.
-
-
 
 \section*{Supplementary Material}
 \label{supplementary_material}
