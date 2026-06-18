@@ -1230,17 +1230,25 @@ We also enabled support for \JSONSchema's format predicates to all implementatio
 See a summary of the schemas included in the \supplementarymaterial.
 %% TODO Walter: create summary table of schemas in supplementary material, remember to show uniqueItems and dynamicRef.
 
-While \citet{blaze} measures validation time, we introduce a distinct measurement for parsing time.
-This addition underscores that parsing is an integral component of the total validation overhead—a factor that becomes particularly significant when filtering through large volumes of non-matching documents.
-Whenever the data structure that the validator requires the JSON to be deserialized into is not reused but rather discarded, we have to consider the parsing time as part of the validation time.
-These scenarios include:
+% While \citet{blaze} measures validation time, we introduce a distinct measurement for parsing time.
+The benchmark suite of \cite{blaze} reports validation time for
+pre-parsed JSON documents.
+It does not report the time required to parse documents into the representation required by each validator.
+We extend the suite with a separate measurement of JSON parsing time.
+This allows us to benchmark the effective cost of validation depending on whether the parsed JSON is reused for later processing or discarded after validation.
+This distinction is particularly important when analyzing the case where a validator is being used to filter through large volumes of documents.
+% This addition underscores that parsing is an integral component of the total validation overhead—a factor that becomes particularly significant when filtering through large volumes of non-matching documents.
+Most of the documents will not match and will be discarded, and so the benchmark should include the overhead of parsing time, since this is an integral component of total validation time.
+Other cases where the parsed document is discarded include:
 \begin{itemize}
-\item The API gateway is a separate service (and not a library) that only does schema validation and requires the next service to deserialize the JSON again;
-\item The user expects JSON to be deserialized into its own specialized statically typed data structures with specific fields, since they are faster and safer to use than a hash map;
-\item The user's target language is different from that of the validation library.
+  \item Validation is performed by a separate API gateway service and downstream services must parse the JSON again;
+  \item The user code that follows validation expects JSON to be deserialized into its own specialized statically typed data structures with specific fields, since they are faster and safer to use than a hash map;
+  \item The user’s target language is different from that of the validation library.
 \end{itemize}
-In all these scenarios, with varying degrees of difficulty, it is possible to copy from the validator's data structure rather than reparse the JSON.
-Despite this, we use parsing time as an approximation of copying time, since we do not have measurements for copying in all these scenarios, and we expect most users would rather reparse the JSON in these scenarios.
+% In all these scenarios, with varying degrees of difficulty, it is possible to copy from the validator's data structure rather than reparse the JSON. 
+% Despite this, we use parsing time as an approximation of copying time, since we do not have measurements for copying in all these scenarios, and we expect most users would rather reparse the JSON in these scenarios.
+In some cases, copying or translating the validator's parsed JSON representation may not require reparsing.
+However, we use parsing time as an approximation of this additional cost, since it depends on the particular validator and we expect most users would rather reparse the JSON in these scenarios.
 
 Benchmarks were conducted on a 2024 MacBook Pro equipped with an M4 processor and 48 GB of memory.
 To ensure the statistical stability of benchmark runs, we take the mean of three execution times per schema and then report the median and mean over all the schemas per implementation.
@@ -1253,7 +1261,7 @@ Our benchmarks are set up for three use-cases:
   \end{itemize}
 \item Filtering through a database expects mostly invalid documents, so we generated only invalid documents for the new schemas we added.
 \end{itemize}
-For the filtering use, we always add the parse time to the validation time.
+For the filtering use case, we always add the parse time to the validation time.
 Since reuse happens so little, it is negligible.
 
 %% TODO Walter: Actually run all benchmarks locally 3 times and regenerate these tables.
