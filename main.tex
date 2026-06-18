@@ -433,7 +433,7 @@ inductive Regex (σ: Type) where
   | concat (r1 r2: Regex σ) | star (r1: Regex σ) | interleave (r1 r2: Regex σ)
 \end{lstlisting}
 We include the \lstinline{interleave} operator to handle semi-structured data, for example, unordered JSON members and XML attributes~\cite{hosoya2010foundations}.
-We also support the \lstinline{and} and \lstinline{complement} operators in our definitions and proofs in the \supplementarymaterial, but omit them here for brevity.
+We also support the \lstinline{and}, \lstinline{xor}, and \lstinline{complement} operators in our definitions and proofs in the \supplementarymaterial, but omit them here for brevity.
 We define additional operators as helper functions:
 \begin{lstlisting}
 def onlyif (cond: Prop) [Decidable cond] (r: Regex σ): Regex σ :=
@@ -1242,13 +1242,13 @@ Most of the documents will not match and will be discarded, and so the benchmark
 Other cases where the parsed document is discarded include:
 \begin{itemize}
   \item Validation is performed by a separate API gateway service and downstream services must parse the JSON again;
-  \item The user code that follows validation expects JSON to be deserialized into its own specialized statically typed data structures with specific fields, since they are faster and safer to use than a hash map;
-  \item The user’s target language is different from that of the validation library.
+  \item The consumer of the validation output expects the JSON to be deserialized into its own specialized statically typed data structures with specific fields, since they are faster and safer to use than a hash map;
+  \item The validation library's implementation language is different from the target language of the consumer.
 \end{itemize}
 % In all these scenarios, with varying degrees of difficulty, it is possible to copy from the validator's data structure rather than reparse the JSON. 
 % Despite this, we use parsing time as an approximation of copying time, since we do not have measurements for copying in all these scenarios, and we expect most users would rather reparse the JSON in these scenarios.
 In some cases, copying or translating the validator's parsed JSON representation may not require reparsing.
-However, we use parsing time as an approximation of this additional cost, since it depends on the particular validator and we expect most users would rather reparse the JSON in these scenarios.
+However, we use parsing time as an approximation of this additional cost, since we expect most users would rather reparse the JSON in these scenarios.
 
 Benchmarks were conducted on a 2024 MacBook Pro equipped with an M4 processor and 48 GB of memory.
 To ensure the statistical stability of benchmark runs, we take the mean of three execution times per schema and then report the median and mean over all the schemas per implementation.
@@ -1364,7 +1364,7 @@ Threats to the validity of benchmarking results:
 \item Katydid, Ajv, Blaze, JSONSchemer, JSU, OptimumCode, networknt, python-jsonschema return booleans and not detailed errors. In the invalid case, this gives them an advantage by not allocating memory over implementations that create descriptions of validation errors.
 \item When Blaze parses JSON, it also calculates hashes for field names, which allows it to perform faster string comparisons. One could argue that this is part of the validation calculation happening at parse time, and we should always add parse time to validation time. One could also argue that this is just a custom implementation of a hash map and a perfectly generic dictionary.
 \item JSU and Corvus.JsonSchema generate code in the target language, which is a big advantage for inlining many instructions. On the other hand, \citet{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema.
-\item The Regular expression library chosen by each implementation to handle \JSONSchema patterns can make a big difference, this is why Blaze also attempts a fast path for simple prefix or suffix regular expressions.
+\item The Regular expression library chosen by each implementation to handle \JSONSchema patterns can make a big difference, which is why Blaze and Katydid also attempt a fast path for simple prefix, suffix, and character set regular expressions.
 \end{itemize}
 
 Most implementations first parse the JSON into a generic JSON Object, which might be what the user expects to use after validation.
