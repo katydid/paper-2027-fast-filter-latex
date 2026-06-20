@@ -329,7 +329,7 @@ The benchmarks of this implementation demonstrate its ability to filter data at 
 The remainder of the paper is structured as follows. 
 \Cref{section_algorithm} explains the Katydid algorithm.
 \Cref{section_verification} presents formal verifications. 
-In \Cref{section_go}, we describe the Golang implementation, and in \Cref{section_benchmarks}, we provide benchmark results against other \JSONSchema implementations.
+In \Cref{section_go}, we describe the Golang implementation, which includes the generic pull-based parser, fused algorithm and \JSONSchema support, which we follow up in \Cref{section_benchmarks} with benchmark results against other \JSONSchema implementations.
 \Cref{section_related} covers related work, and \Cref{section_future} outlines the directions for future research.
 
 Definitions, proofs, as well as pseudocode for the Golang implementation are presented in the syntax of the Lean theorem prover~\cite{lean4} and are available in the \supplementarymaterial~\footnote{No part of the Lean code (including the formal proofs) or the Golang code was created with the aid of GenAI (LLMs).}.
@@ -354,8 +354,7 @@ To illustrate the application of Brzozowski's derivative algorithm to \JSONSchem
 \end{lstlisting}
 The schema requires a content field and an author object, the latter of which comprises a username and an optional email address; for example: \lstinline[language=json]|{"content": "Dragons", "author": {"username": "Khaleesi"}}|
 
-Note: there are technical details we are going to brush over in this section for the purpose of creating an intuition of the algorithm, which we will clarify in the following sections.
-%% TODO Walter: Point to section where  it is clarified and how it is clarified, rather than apologise - Paul
+Note: there are technical details we are going to brush over in this section for the purpose of creating an intuition of the algorithm, which we will clarify by explaining how we apply derivatives to regular hedge grammars in \Cref{section_algorithm} and how we fuse the algorithm with parsing in \Cref{section_go}.
 Brzozowski’s derivative algorithm for regular expressions takes a regular expression and a sequence of characters as input.
 To facilitate the derivation, we utilize the \emph{JSONmembers} algorithm—which flattens the JSON object into a sequence of key-value pairs: \lstinline[language=json]|[{"content": "Dragons"}, {"author": {"username": "Khaleesi"}}]|.
 Subsequently, the algorithm computes the derivative of the schema with respect to the first member.
@@ -369,20 +368,21 @@ Computing the derivative of the schema with respect to the first member, \lstinl
 We see that we have matched the content property, and only the author property is still required.
 
 We wish to use memoization to improve performance, as is done for regular expressions.
-In the case of regular expressions, the input alphabet of characters is small and has low variance, resulting in many successful lookups (hits) in the memoization table.
-%% TODO Walter: What exactly are the keys that go into enter and how they are independent of the alphabet - Paul
-%% The key is ... and 
-%% This is independent of the alphabet
-%% in the naive case it would be ..., which is dependent on the alphabet
-Unfortunately, the input alphabet of JSON values is large and unbounded; for example, the content of each blog post can differ, which will result in zero hits in the memoization table.
+In the case of regular expressions, the key that is memoized is the pair of the regular expression and an input alphabet character.
+The input alphabet is small and has low variance, resulting in many successful lookups (hits) in the memoization table.
+However, the JSONmember's algorithm above would use the schema and the full JSON member as the memoization key pair.
+This member contains the content of the blog post, which is large and unbounded and will result in zero hints in the memoization table.
+% Unfortunately, the input alphabet of JSON values is large and unbounded; for example, the content of each blog post can differ, which will result in zero hits in the memoization table.
+Our Katydid algorithm has two memoization tables, one is keyed on the schema and the other on a pair of the schema and a list of booleans.
+This makes the memoization key alphabet independent of the alphabet.
 
 We refactor the derivative function into a composition of three steps, two of which are memoized and alphabet independent.
-First, the \enter function extracts the relevant symbols from the regular hedge grammar.
-Next, we map the predicate over the symbols.
-Finally, the \leave function re-integrates the results back into the regular expression and computes the derivative.
-%% TODO Walter: It is not very clear what the third step is - Christiaan
-In the case of \JSONSchema, the first step (the \enter function) extracts a list of properties that we need to match, this includes the field name or predicate and accompanying child schema.
-The second step checks whether the input field name matches the field name or predicate collected by \enter and recurses down until a list of booleans is returned that indicates whether each field name and child schema successfully matched.
+First, the memoized \enter function extracts the relevant symbols from the schema, the key to our first memoization table.
+Next, in the second step, we map the predicate over the symbols.
+Then, in final step, the memoized \leave function re-integrates the results back into the regular expression and computes the derivative.
+This \leave function's is memoized in the second table, which is keyed on the pair of the schema and a list of boolean results.
+In the case of \JSONSchema, the first step (the \enter function) extracts a list of properties that we need to match, which includes the field name or predicate and accompanying child schema.
+The second step checks whether the input field name matches the field name or predicate collected by \enter and recurses down (calling \enter and \leave repeatedly) until a list of booleans is returned that indicates whether each field name and child schema successfully matched.
 Finally, the \leave function re-integrates the results (list of booleans) back into the schema and computes the derivative.
 The \enter and \leave functions are memoized, since they only depend on the schema and a list of booleans and do not depend on the input alphabet.
 
@@ -1486,6 +1486,9 @@ Full proofs in Lean, Golang implementation, and benchmarks are available at TODO
 %% Bibliography
 %%
 
+%% Ignore bibtex badness warnings
+\hbadness=99999
+\vbadness=99999
 %% Please use bibtex
 \bibliography{main_20260620}
 
