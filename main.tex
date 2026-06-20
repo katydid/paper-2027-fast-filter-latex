@@ -355,6 +355,7 @@ To illustrate the application of Brzozowski's derivative algorithm to \JSONSchem
 The schema requires a content field and an author object, the latter of which comprises a username and an optional email address; for example: \lstinline[language=json]|{"content": "Dragons", "author": {"username": "Khaleesi"}}|
 
 Note: there are technical details we are going to brush over in this section for the purpose of creating an intuition of the algorithm, which we will clarify in the following sections.
+%% TODO Walter: Point to section where  it is clarified and how it is clarified, rather than apologise - Paul
 Brzozowski’s derivative algorithm for regular expressions takes a regular expression and a sequence of characters as input.
 To facilitate the derivation, we utilize the \emph{JSONmembers} algorithm—which flattens the JSON object into a sequence of key-value pairs: \lstinline[language=json]|[{"content": "Dragons"}, {"author": {"username": "Khaleesi"}}]|.
 Subsequently, the algorithm computes the derivative of the schema with respect to the first member.
@@ -369,12 +370,17 @@ We see that we have matched the content property, and only the author property i
 
 We wish to use memoization to improve performance, as is done for regular expressions.
 In the case of regular expressions, the input alphabet of characters is small and has low variance, resulting in many successful lookups (hits) in the memoization table.
+%% TODO Walter: What exactly are the keys that go into enter and how they are independent of the alphabet - Paul
+%% The key is ... and 
+%% This is independent of the alphabet
+%% in the naive case it would be ..., which is dependent on the alphabet
 Unfortunately, the input alphabet of JSON values is large and unbounded; for example, the content of each blog post can differ, which will result in zero hits in the memoization table.
 
 We refactor the derivative function into a composition of three steps, two of which are memoized and alphabet independent.
 First, the \enter function extracts the relevant symbols from the regular hedge grammar.
 Next, we map the predicate over the symbols.
 Finally, the \leave function re-integrates the results back into the regular expression and computes the derivative.
+%% TODO Walter: It is not very clear what the third step is - Christiaan
 In the case of \JSONSchema, the first step (the \enter function) extracts a list of properties that we need to match, this includes the field name or predicate and accompanying child schema.
 The second step checks whether the input field name matches the field name or predicate collected by \enter and recurses down until a list of booleans is returned that indicates whether each field name and child schema successfully matched.
 Finally, the \leave function re-integrates the results (list of booleans) back into the schema and computes the derivative.
@@ -1481,6 +1487,6 @@ Full proofs in Lean, Golang implementation, and benchmarks are available at TODO
 %%
 
 %% Please use bibtex
-\bibliography{main}
+\bibliography{main_20260620}
 
 \end{document}
