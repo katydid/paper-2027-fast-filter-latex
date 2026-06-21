@@ -263,7 +263,7 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
 %% the work being presented. Separate the keywords with commas.
 \keywords{regular hedge grammar, high-performance filtering, schema validation, formal verification, Brzozowski derivative, Lean, RELAX NG, JSON Schema, Protocol Buffers.} 
 
-\received{1 July 2026}
+% \received{1 July 2026}
 % \received[revised]{12 March 2009}
 % \received[accepted]{5 June 2009}
 
@@ -1125,6 +1125,8 @@ We chose \JSONSchema, since it is a schema language with a close relationship to
 \item Measurement of parse times;
 \item Schemas from \JSONSchema examples~\cite{jsonschemaexamples} and Ajv's~\cite{jsonschema_impl_ajv} benchmarks;
 \item Random generation of valid and invalid \JSONSchema documents for these new schemas;
+\item A mutator to mutate the valid instances collected by \citet{blaze} into invalid instances;
+\item Correctness of the benchmark implementations, by checking that they not only accept valid schemas, but also reject invalid schemas, which resulted in reporting several bugs and updating them with their fixes;
 \item The use cases Filtering and API Gateway (discard), which was made possible by the addition of the measurement of parse times and the generation of invalid documents; and
 \item Support for the \JSONSchema formats in all implementations, which is now possible since Blaze recently added support.
 \end{itemize}
@@ -1212,6 +1214,7 @@ This is representative of the real-world situations of an API gateway or filteri
 % unreal-engine-uproject,
 % vercel,
 % yamllint.
+We developed a mutator that uses these valid instances as input to generate invalid instances, where one object field or array item is mutated, added, or removed, and the \JSONSchema library developed by ~\citet{jsonschema_impl_go-santhosh-tekuri} checks that it is truly invalid according to the schema.
 We removed the two schemas that use \lstinline{dynamicRef} and added schemas from the official \JSONSchema examples~\cite{jsonschemaexamples},
 % :
 % address,
@@ -1279,29 +1282,28 @@ Since reuse happens so little, it is negligible.
 \begin{tabular}{ll|l|ll}
 \# & impl & language & median ns/doc & mean ns/doc \\
 \hline
-0 & Katydid-Comp-Fused & Golang & 5,671 & 29,165 \\
-1 & Blaze & C++ & 6,115 & 21,608 \\
-2 & Ajv & Javascript (Bun) & 6,790 & 18,856 \\
-3 & Katydid-Memo-Fused & Golang & 7,778 & 34,086 \\
-4 & boon & Rust & 8,648 & 38,993 \\
-5 & networknt & Java & 9,113 & 50,166 \\
-6 & JSU & C++ (gen) & 9,210 & 37,071 \\
-7 & Ajv & Javascript & 9,592 & 28,834 \\
-8 & JSU & Javascript (gen) & 10,171 & 31,844 \\
-9 & Katydid-Comp-Steps & Golang & 11,592 & 51,971 \\
-10 & Katydid-Memo-Steps & Golang & 13,391 & 58,731 \\
-11 & JSU & Python (gen) & 15,416 & 72,001 \\
-12 & OptimumCode & Kotlin & 16,081 & 96,343 \\
-13 & JSU & Java (gen) & 16,791 & 92,581 \\
-14 & santhosh-tekuri & Golang & 17,622 & 112,710 \\
-15 & Corvus.JsonSchema & C\# (gen) & 18,762 & 97,015 \\
-16 & Opis & PHP & 24,051 & 236,022 \\
-17 & kaptinlin & Golang & 27,518 & 167,924 \\
-18 & json-everything & C\# & 36,413 & 208,266 \\
-19 & python-jsonschema & Python & 66,083 & 626,210 \\
-20 & JSV & Elixir & 92,605 & 331,605 \\
-21 & JSONSchemer & Ruby & 106,819 & 685,251 \\
-22 & Hyperjump & Javascript & 215,167 & 348,541 \\
+0 & Katydid-Comp-Fused & Golang & 1,431 & 10,790 \\
+1 & Ajv & Javascript (Bun) & 1,826 & 7,136 \\
+2 & Katydid-Memo-Fused & Golang & 2,322 & 15,900 \\
+3 & Blaze & C++ & 2,605 & 12,856 \\
+4 & JSU & Javascript (gen) & 2,763 & 10,527 \\
+5 & networknt & Java & 2,883 & 33,649 \\
+6 & boon & Rust & 3,221 & 39,628 \\
+7 & JSU & Python (gen) & 3,261 & 26,294 \\
+8 & Ajv & Javascript & 3,531 & 13,271 \\
+9 & JSU & C++ (gen) & 4,056 & 26,603 \\
+10 & Katydid-Comp-Steps & Golang & 5,157 & 30,992 \\
+11 & Katydid-Memo-Steps & Golang & 6,016 & 35,024 \\
+12 & santhosh-tekuri & Golang & 7,653 & 80,095 \\
+13 & JSV & Elixir & 10,333 & 378,828 \\
+14 & JSU & Java (gen) & 10,524 & 31,057 \\
+15 & OptimumCode & Kotlin & 10,707 & 137,469 \\
+16 & Corvus.JsonSchema & C\# (gen) & 12,929 & 44,653 \\
+17 & kaptinlin & Golang & 17,510 & 268,428 \\
+18 & json-everything & C\# & 27,116 & 678,602 \\
+19 & python-jsonschema & Python & 29,362 & 1,489,394 \\
+20 & JSONSchemer & Ruby & 38,674 & 753,137 \\
+21 & Hyperjump & Javascript & 172,105 & 505,527 \\
 \end{tabular}
 % END Generated tabular
 \end{table}
@@ -1313,29 +1315,28 @@ Since reuse happens so little, it is negligible.
 \begin{tabular}{ll|l|ll}
 \# & impl & language & median ns/doc & mean ns/doc \\
 \hline
-0 & Blaze & C++ & 4,501 & 13,365 \\
-1 & Ajv & Javascript (Bun) & 4,544 & 13,860 \\
-2 & Katydid-Comp-Fused & Golang & 5,016 & 24,660 \\
-3 & networknt & Java & 5,427 & 49,825 \\
-4 & Ajv & Javascript & 5,500 & 20,916 \\
-5 & JSU & Javascript (gen) & 6,793 & 21,733 \\
-6 & JSU & C++ (gen) & 6,998 & 22,563 \\
-7 & boon & Rust & 7,374 & 23,088 \\
-8 & Katydid-Memo-Fused & Golang & 8,609 & 35,230 \\
-9 & JSU & Python (gen) & 9,273 & 63,364 \\
-10 & Katydid-Comp-Steps & Golang & 10,465 & 40,235 \\
-11 & Katydid-Memo-Steps & Golang & 13,970 & 50,240 \\
-12 & santhosh-tekuri & Golang & 14,523 & 64,466 \\
-13 & kaptinlin & Golang & 27,570 & 104,284 \\
-14 & OptimumCode & Kotlin & 30,135 & 62,360 \\
-15 & JSV & Elixir & 31,526 & 188,425 \\
-16 & JSU & Java (gen) & 32,844 & 64,508 \\
-17 & Opis & PHP & 37,540 & 175,868 \\
-18 & Corvus.JsonSchema & C\# (gen) & 40,592 & 83,548 \\
-19 & json-everything & C\# & 65,985 & 267,119 \\
-20 & JSONSchemer & Ruby & 115,354 & 408,625 \\
-21 & python-jsonschema & Python & 153,251 & 763,186 \\
-22 & Hyperjump & Javascript & 281,827 & 1,170,058 \\
+0 & Katydid-Comp-Fused & Golang & 1,668 & 16,719 \\
+1 & Ajv & Javascript (Bun) & 1,684 & 8,458 \\
+2 & JSU & Javascript (gen) & 2,218 & 12,017 \\
+3 & Blaze & C++ & 2,298 & 13,404 \\
+4 & networknt & Java & 2,404 & 41,645 \\
+5 & Ajv & Javascript & 2,525 & 15,235 \\
+6 & boon & Rust & 2,785 & 35,706 \\
+7 & Katydid-Memo-Fused & Golang & 3,065 & 26,648 \\
+8 & JSU & C++ (gen) & 3,511 & 27,050 \\
+9 & JSU & Python (gen) & 3,691 & 39,111 \\
+10 & Katydid-Comp-Steps & Golang & 5,235 & 40,559 \\
+11 & Katydid-Memo-Steps & Golang & 6,813 & 48,668 \\
+12 & santhosh-tekuri & Golang & 7,667 & 70,781 \\
+13 & OptimumCode & Kotlin & 8,842 & 141,786 \\
+14 & JSU & Java (gen) & 9,716 & 31,069 \\
+15 & JSV & Elixir & 9,803 & 359,882 \\
+16 & Corvus.JsonSchema & C\# (gen) & 13,146 & 47,092 \\
+17 & kaptinlin & Golang & 16,466 & 271,770 \\
+18 & json-everything & C\# & 26,481 & 672,734 \\
+19 & python-jsonschema & Python & 44,347 & 1,366,555 \\
+20 & JSONSchemer & Ruby & 45,364 & 757,587 \\
+21 & Hyperjump & Javascript & 191,132 & 522,378 \\
 \end{tabular}
 % END Generated tabular
 \end{table}
@@ -1347,14 +1348,15 @@ Since reuse happens so little, it is negligible.
 \begin{tabular}{ll|l|ll}
 \# & impl & median ns/doc & mean ns/doc \\
 \hline
-0 & Blaze & C++ & 252 & 2,118 \\
-1 & JSU & C++ (gen) & 274 & 2,256 \\
+0 & JSU & C++ (gen) & 132 & 1,384 \\
+1 & Blaze & C++ & 141 & 1,192 \\
 \vdots & \vdots & \vdots & \vdots \\
-10 & Katydid-Comp-Steps & Golang & 3,682 & 22,075 \\
+10 & Katydid-Comp-Steps & Golang & 1,826 & 21,103 \\
 \vdots & \vdots & \vdots & \vdots \\
-12 & santhosh-tekuri & Golang & 5,813 & 43,685 \\
-13 & Katydid-Memo-Steps & Golang & 7,554 & 31,373 \\
-14 & kaptinlin & Golang & 19,381 & 85,372 \\
+12 & santhosh-tekuri & Golang & 3,044 & 49,856 \\
+13 & Katydid-Memo-Steps & Golang & 3,385 & 30,684 \\
+\vdots & \vdots & \vdots & \vdots \\
+15 & kaptinlin & Golang & 11,910 & 251,046 \\
 \vdots & \vdots & \vdots & \vdots \\
 \end{tabular}
 % END Generated tabular
@@ -1370,7 +1372,7 @@ Threats to the validity of benchmarking results:
 \item Katydid, Ajv, Blaze, JSONSchemer, JSU, OptimumCode, networknt, python-jsonschema return booleans and not detailed errors. In the invalid case, this gives them an advantage by not allocating memory over implementations that create descriptions of validation errors.
 \item When Blaze parses JSON, it also calculates hashes for field names, which allows it to perform faster string comparisons. One could argue that this is part of the validation calculation happening at parse time, and we should always add parse time to validation time. One could also argue that this is just a custom implementation of a hash map and a perfectly generic dictionary.
 \item JSU and Corvus.JsonSchema generate code in the target language, which is a big advantage for inlining many instructions. On the other hand, \citet{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema.
-\item The Regular expression library chosen by each implementation to handle \JSONSchema patterns can make a big difference, which is why Blaze and Katydid also attempt a fast path for simple prefix, suffix, and character set regular expressions.
+\item The Regular expression library chosen by each implementation to handle \JSONSchema patterns can make a big difference. We know that at least Blaze and Katydid also attempt a fast path for simple regular expressions like prefix, suffix, and character sets.
 \end{itemize}
 
 Most implementations first parse the JSON into a generic JSON Object, which might be what the user expects to use after validation.
