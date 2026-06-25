@@ -109,6 +109,7 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
 \newcommand{\Hint}{\link{Hint}{Hint}}
 \newcommand{\Parser}{\link{Parser}{class Parser}}
 \newcommand{\fusedDerive}{\link{fusedDerive}{def fusedDerive}}
+\newcommand{\RegexCompile}{\link{Regex.compile}{def Regex.compile}}
 
 %% Names
 \newcommand{\Lean}{%
@@ -329,7 +330,7 @@ They enable expressive constraints over ordered and unordered element sequences,
 
 We build on derivatives because they offer exactly the properties a high-throughput, verifiable filter needs.
 The derivative of a schema is itself a schema (\emph{residuality}), so intermediate states are first-class and memoization is natural, with no separate automaton to construct or maintain.
-Brzozowski's classical result that a regular expression has finitely many derivatives up to similarity~\cite{brzozowski1964derivatives} is what justifies a \emph{bounded} memoization table and underlies the lazy \DFA construction popularized by \citet{reexamined}.
+Regular expression have finitely many derivatives up to similarity~\cite{brzozowski1964derivatives} this includes the interleave~\cite{shuffle} operator and justifies a \emph{bounded} memoization table that underlies the lazy \DFA construction popularized by \citet{reexamined}.
 Derivatives also handle Boolean operators—intersection, complement, and negation—directly, which lets us model \JSONSchema's \lstinline[language=json]|"allOf"|, \lstinline[language=json]|"anyOf"|, and \lstinline[language=json]|"not"| without leaving the framework.
 Finally, a derivative-based algorithm is easier to verify than a bespoke validator: its structure is a small recursive function over the schema, which we exploit to give a machine-checked correctness proof.
 
@@ -1066,6 +1067,22 @@ The Vector \lstinline{childrs} is also compressed before calling \fusedDerive.
 This is done by removing duplicates, \lstinline{emptyset}, and \lstinline{starAny}.
 The resulting Vector \lstinline{childbs} is then decompressed to match the original length of \lstinline{childrs} using a Vector of indices that the compression function emitted.
 
+\subsection{Compiling the Memoization Table}
+
+The Go implementation's Comp variant is able to precompute the all entries in the bounded memoization tables of \enter and \leave without any input:
+\begin{lstlisting}[label=def Regex.compile]
+def Regex.compile [DecidableEq σ] [Hashable σ] [Monad m] [MemoizeKatydid m σ]
+  (r: Regex σ): m Unit := do
+  _ ← List.mapM (as := Regex.derivatives r) (fun r => do
+    _ ← MemoizeKatydid.enterM r
+    _ ← Vector.mapM (xs := (Vector.boolCombos (symcount r))) (fun bs => do
+      _ ← MemoizeKatydid.leaveM ⟨r, bs⟩))
+\end{lstlisting}
+This requires a list of all derivatives of a regular expression that is bounded up to similarity, see \lstinline{Regex.derivatives}.
+We have not formally verified that this list is bounded, but it has been proven by ~\citet{brzozowski1964derivatives}, formally verified by \citet{symbolicfinite} and proven for the interleave operator~\cite{shuffle}.
+In the case of \leave we also have to calculate the extra input parameter of all boolean combinations, see \lstinline{Vector.boolCombos}.
+We extend this compilation to the whole grammar by calling \RegexCompile for each of the finite list of production rules, to complete the fully precomputed bounded memoization table.
+
 \subsection{Supporting \JSONSchema}
 
 \citet{holstege2019application} explains how \JSONSchema can be converted to \emph{tagged-type regular expressions}.
@@ -1404,8 +1421,7 @@ Adapting the Katydid derivative to support \uniqueItems, ideally as a controlled
 
 In terms of correctness, there are ample opportunities for future work.
 It is still open to prove the correctness of the conversion algorithms from JSON~Schema~\cite{holstege2019application} and \RelaxNG to regular hedge grammars to produce fully verified validators of schema languages.
-We have not formally verified that the memoization table is bounded.
-Boundedness has been proven for regular expressions~\cite{symbolicfinite, brzozowski1964derivatives}, but extra work is required to prove the boundedness of the \lstinline{interleave} operator.
+We have informally argued that the memoization table is bounded and we leave it as future work to formally verify.
 We also plan to prove the correctness of the further optimizations from the Go implementation, including the pull-based parser.
 
 Together, these directions move toward fully verified, high-throughput validators for the semi-structured data formats that pervade modern data systems.
