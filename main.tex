@@ -144,24 +144,31 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
 \begin{acronym}
 \acro{BCFG}{Balanced Context Free Grammar}
 \acro{CFG}{Context Free Grammar}
+\acrodefplural{CFG}{Context Free Grammars}
 \acro{DFA}{Deterministic Finite Automaton}
+\acrodefplural{DFA}{Deterministic Finite Automata}
 \acro{DOM}{Document Object Model}
 \acro{DSL}{Domain Specific Language}
 \acro{IDL}{Interface Definition Language}
 \acro{JSON}{JavaScript Object Notation}
 \acro{SAX}{Simple API for XML}
 \acro{VPA}{Visibly Pushdown Automata}
+\acro{XML}{Extensible Markup Language}
+\acro{DTD}{Document type definition}
 \end{acronym}
 \newcommand{\BCFG}{\ac{BCFG}\xspace}
 \newcommand{\CFG}{\ac{CFG}\xspace}
-\newcommand{\CFGs}{\ac{CFG}s\xspace}
+\newcommand{\CFGs}{\acp{CFG}\xspace}
+\newcommand{\DTD}{\ac{DTD}\xspace}
 \newcommand{\DFA}{\ac{DFA}\xspace}
+\newcommand{\DFAs}{\acp{DFA}\xspace}
 \newcommand{\DOM}{\ac{DOM}\xspace}
 \newcommand{\DSL}{\ac{DSL}\xspace}
 \newcommand{\IDL}{\ac{IDL}\xspace}
 \newcommand{\JSON}{\ac{JSON}\xspace}
 \newcommand{\SAX}{\ac{SAX}\xspace}
 \newcommand{\VPA}{\ac{VPA}\xspace}
+\newcommand{\XML}{\ac{XML}\xspace}
 
 %% BEGIN: Define JSON syntax highlighting
 \definecolor{delim}{RGB}{20,105,176}
@@ -312,7 +319,7 @@ We end up with the fastest library in the filtering use case when considering me
 
 \section{Introduction}
 
-Filtering and validating semi-structured data such as XML, \JSON, and Protocol Buffers~\cite{protobuf} is a recurring task in high-throughput systems that process millions of records per second.
+Filtering and validating semi-structured data such as \XML, \JSON, and Protocol Buffers~\cite{protobuf} is a recurring task in high-throughput systems that process millions of records per second.
 We present our Katydid\footnote{A Katydid is a leaf insect that camouflages (requires filtering) itself in trees (data structures)} filtering algorithm,  designed for exactly this setting, achieving high performance via a novel memoization technique.
 
 Our approach is based on Brzozowski derivatives~\cite{brzozowski1964derivatives}, a classical technique for recognizing regular languages.
@@ -337,7 +344,7 @@ JSONmembers flattens the \JSON object into a sequence of key-value pairs and tak
 \citet{holstege2019application} explicitly notes that the performance is not compelling and it is difficult to find a memoization solution because the derivative is taken on an infinite input alphabet.
 
 \RelaxNG~\cite{relaxng2001simple} converts the schema into a \BCFG on the fly as it applies derivatives.
-The algorithm decomposes the derivative function into smaller components that can be memoized, exploiting the limited variation in XML element nodes.
+The algorithm decomposes the derivative function into smaller components that can be memoized, exploiting the limited variation in \XML element nodes.
 It implements memoization that only uses the schema and element names in the memoization table.
 The element names have a large alphabet but low variance, which results in many hits in the memoization table.
 However, this memoization strategy runs into similar problems because the text nodes have a large and highly variable string alphabet.
@@ -482,7 +489,7 @@ inductive Regex (σ: Type) where
   | emptyset | emptystr | symbol (s: σ) | or (r1 r2: Regex σ)
   | concat (r1 r2: Regex σ) | star (r1: Regex σ) | interleave (r1 r2: Regex σ)
 \end{lstlisting}
-We include the \lstinline{interleave} operator to handle semi-structured data, for example, unordered \JSON members and XML attributes~\cite{hosoya2010foundations}.
+We include the \lstinline{interleave} operator to handle semi-structured data, for example, unordered \JSON members and \XML attributes~\cite{hosoya2010foundations}.
 We also support the \lstinline{and}, \lstinline{xor}, and \lstinline{complement} operators in our definitions and proofs in the \supplementarymaterial, but we omit them here for brevity.
 We define additional operators as helper functions:
 \begin{lstlisting}
@@ -578,8 +585,8 @@ With the foundations of regular expressions in place, we now return to regular h
 
 \subsection{Regular Hedge Grammars}
 
-\emph{Regular hedge grammars} constitute the theoretical framework most applicable to XML~\cite{hosoya2010foundations} and other serialization formats.
-Any XML, \JSON or Protocol Buffers data can be viewed as a \Hedge and schema languages, such as \RelaxNG, DTD~\cite{dtd}, XMLSchema~\cite{xmlschema} and JSON~Schema~\cite{jsonschemafoundations} can all be translated to \emph{regular hedge grammars}~\cite{murata2005taxonomy} barring the \JSONSchema \uniqueItems operator, which is not regular~\cite{holstege2019application}.
+\emph{Regular hedge grammars} constitute the theoretical framework most applicable to \XML~\cite{hosoya2010foundations} and other serialization formats.
+Any \XML, \JSON or Protocol Buffers data can be viewed as a \Hedge and schema languages, such as \RelaxNG, \DTD~\cite{dtd}, XMLSchema~\cite{xmlschema} and JSON~Schema~\cite{jsonschemafoundations} can all be translated to \emph{regular hedge grammars}~\cite{murata2005taxonomy} barring the \JSONSchema \uniqueItems operator, which is not regular~\cite{holstege2019application}.
 
 A \emph{hedge} is an ordered list of unranked trees~\cite{tata} used to model semi-structured data formats. In Lean, we define a \Hedge inductively as follows:
 \begin{lstlisting}[label=Hedge]
@@ -646,9 +653,7 @@ def example_grammar_doc: Grammar 3 (Pred String) :=
     ])
 \end{lstlisting}
 Note, the \lstinline{Vector} of production rules is constructed with the macro \lstinline{#v[]}.
-It validates the XML snippet \lstinline{<doc><p><pcdata/></p><p><br/></p></doc>}.
-
-%We now proceed to describe the \RegexKatydidDerive function, the key to \GrammarKatydidDerive.
+It validates the \XML snippet \lstinline{<doc><p><pcdata/></p><p><br/></p></doc>}.
 
 \subsection{Katydid Algorithm for Regular Expressions}
 \label{section_enter_and_leave}
@@ -969,12 +974,8 @@ Before discussing the fusion, we have to explain the pull-based parser.
 \subsection{Pull-Based Parser}
 
 We designed a pull-based parser interface to be lazy enough to parse only what is required and generic enough to handle any sequential serialized data format.
-We base our design on a survey of serialization formats conducted by ~\citet{survey}.
-
-\SAX~\cite{brownell2002sax2} event-based parsers have been used to parse XML, where the parser pushes events to a callback function.
-This avoids the need to create a parsing data structure, which allocates a lot of unnecessary memory if the user is filtering or only needs access to a limited number of values.
-A pull-based parser also avoids the need to create a parsing data structure; instead, it asks the parser for the event without the need for a callback function.
-Instead of parsing the serialized data into a \Hedge data structure in memory, we implement instances of a pull-based parser interface.
+A pull-based parser avoids the need to create an intermediate parsing data structure, in our case a \Hedge, which enables our fused derivative algorithm, in \Cref{subsection_fused}.
+A pull-based parser operates like a \SAX~\cite{brownell2002sax2} event-based parser, but instead of pushing events to a callback function, it requires methods to be called for parsing to progress:
 \begin{lstlisting}[label=class Parser]
 class Parser (m: Type -> Type u) (α: outParam Type) where
   next: m Hint
@@ -994,6 +995,7 @@ inductive Token where
   | int64 (value: Int64) | float64 (value: Float64Bits) | decimal (value: String)
   | nanoseconds (value: Int64) | datetime (value: String) | tag (value: String) 
 \end{lstlisting}
+We base our set of token kinds on a survey of serialization formats conducted by ~\citet{survey}.
 We also introduce a \lstinline{skip} method to skip the parsing of children, which is efficient in the case of Protocol Buffers.
 
 Consider the following \Hedge representation of the \JSON example discussed earlier:
@@ -1021,6 +1023,7 @@ This allows us to emulate an unfused version of the algorithm for benchmarking p
 Unfortunately, this parser makes many heap allocations.
 
 \subsection{Fused Katydid Algorithm}
+\label{subsection_fused}
 
 We create an algorithm that fuses~\cite{fusion} the derivative and parsing algorithms to avoid creating an intermediate \Hedge data structure, which avoids unnecessary allocations and copying.
 This fused algorithm requires a \lstinline{FusedKatydid} class that extends both the \MemoizeKatydid and \Parser classes:
@@ -1119,8 +1122,7 @@ The benchmarks are completed on variations of the Katydid algorithm in Go.
 We include two variations of the Katydid algorithm: \emph{Memo} and \emph{Comp}.
 The \emph{Memo} version of the algorithm memoizes as the regular hedge grammar is exercised. 
 The \emph{Comp} version compiles the regular hedge grammar by prepopulating the memoization tables with all possibilities.
-We also include various implementations of the pull-based parser.
-We also include variations based on selecting different pull-based parser implementations.
+We also include various implementations of the pull-based parser: Fused \JSON, Fused Proto and Steps, where Steps represents first deserializing and then parsing the deserialized structure using Go reflection.
 All benchmarks were run on a 2024 MacBook Pro M4 with 48 GB of memory.
 
 \subsection{Memoization Benchmarks}
@@ -1167,155 +1169,41 @@ This shift occurs because Protocol Buffers offer superior parsing speeds; our pr
 \subsection{\JSONSchema Benchmarks}
 
 We chose \JSONSchema to conduct benchmarks against other validators, since it is a schema language with a close relationship to regular hedge grammars and has many implementations to benchmark against.
-\citet{blaze} developed a benchmark suite for \JSONSchema that we significantly extended by adding:
+\citet{blaze} developed a benchmark suite for \JSONSchema.
+They collected schemas from the \JSONSchema Store~\cite{schemastore} and then crawled \GitHub for valid \JSON documents for each of these schemas.
+We significantly extended this benchmark suite by adding:
 \begin{itemize}
 \item Measurement of parse times;
-\item Schemas from \JSONSchema examples~\cite{jsonschemaexamples} and Ajv's~\cite{jsonschema_impl_ajv} benchmarks;
+\item Schemas from \JSONSchema examples~\cite{jsonschemaexamples}, Ajv's~\cite{jsonschema_impl_ajv} benchmarks, and the conference example previously introduced, resulting in a total of 45 unique schemas, see a summary in the \supplementarymaterial;
 \item Random generation of valid and invalid \JSONSchema documents for these new schemas;
 \item A mutator to mutate the valid instances collected by \citet{blaze} into invalid instances;
 \item Correctness of the benchmark implementations, by checking that they not only accept valid schemas, but also reject invalid schemas, which resulted in reporting several bugs and updating them with their fixes;
-\item The use cases Filtering and API Gateway (discard), which was made possible by the addition of the measurement of parse times and the generation of invalid documents; and
-\item Support for the \JSONSchema \format in all implementations, which is now possible since Blaze recently added support.
+\item Support for \JSONSchema \format in all implementations.
 \end{itemize}
-
-Outside of Katydid, the benchmarks include 18 implementations in various programming languages:
+We also extend the benchmark suite of \cite{blaze} with use cases that include parse times and invalid documents, for a total of three use cases:
 \begin{itemize}
-\item Ajv~\cite{jsonschema_impl_ajv}: The popular Javascript implementation Ajv, including an implementation executed on the BUN~\cite{javascript_engine_bun} Javascript runtime for extra speed;
-\item Blaze~\cite{blaze}: A highly optimized C++ implementation that uses a custom field name hash function for faster string comparison;
-\item JSON Schema Utils (JSU)~\cite{jsonschema_impl_jsu} is a tool that generates code in several target languages: C, Java, Javascript or Python to validate a specific schema (we left out the Perl version);
-\item Corvus.JsonSchema~\cite{jsonschema_impl_corvus}: A tool that generates C\# for a specific schema;
-\item and libraries in other languages, including: Go, Ruby, Elixir, Kotlin, and PHP.
+\item Filtering: where a user searching through a large database for a few records, expects mostly invalid documents. We benchmark against only invalid documents and include parsing time.
+\item API Gateway (reuse): validates documents for security purposes, where mostly valid documents are expected. We benchmark against only valid documents and exclude parsing time.
+\item API Gateway (discard): The same as API Gateway (reuse), but we include parsing time.
 \end{itemize}
-We did not benchmark implementations that do not support \format.
-We also ignored implementations that were failing to validate three or more schemas, did not respond to error reports, and were not in contention for winning the benchmark.
-To guarantee cross-platform portability and reproducibility, each implementation is packaged with a dedicated Docker~\cite{docker} setup.
-We also evaluate four variants of our Katydid library, differentiated by their memoization strategy (on-the-fly vs. compiled) and \Parser (fused \JSON vs. two separate steps via Go reflection): Katydid-Memo-Fused, Katydid-Comp-Fused, Katydid-Memo-Steps, and Katydid-Comp-Steps.
-Each implementation is warmed up by first validating all the documents for over a hundred iterations.
-This implies the CPU caches are warmed up, JIT has been triggered, and also that our memoized solution has a populated table.
-This is representative of the real-world situations of an API gateway or filtering through millions of records.
-% The original benchmark suite included the following implementations: 
-% ajv~\cite{jsonschema_impl_ajv} (Javascript),
-% ajv-bun~\cite{jsonschema_impl_ajv} (Javascript executed on the BUN~\cite{javascript_engine_bun} engine),
-% blaze~\cite{blaze} (C++),
-% boon~\cite{jsonschema_impl_boon} (Rust),
-% corvus~\cite{jsonschema_impl_corvus} (generated C\#),
-% go-santhosh-tekuri~\cite{jsonschema_impl_go-santhosh-tekuri} (Go),
-% hyperjump~\cite{jsonschema_impl_hyperjump} (Javascript),
-% jsdotnet~\cite{jsonschema_impl_jsdotnet} (C\#),
-% json\_schemer~\cite{jsonschema_impl_json_schemer} (Ruby),
-% jsoncons~\cite{jsonschema_impl_jsoncons} (C++),
-% jsu-c~\cite{jsonschema_impl_jsu} (generated C),
-% jsu-java~\cite{jsonschema_impl_jsu} (generated Java),
-% jsu-js~\cite{jsonschema_impl_jsu} (generated Javascript),
-% jsu-pl~\cite{jsonschema_impl_jsu} (generated Perl),
-% jsu-py~\cite{jsonschema_impl_jsu} (generated Python),
-% JSV~\cite{jsonschema_impl_JSV} (Elixir),
-% kmp~\cite{jsonschema_impl_kmp} (Kotlin),
-% networknt~\cite{jsonschema_impl_networknt} (Java)
-% opis~\cite{jsonschema_impl_opis} (PHP),
-% py-jsonschema~\cite{jsonschema_impl_py-jsonschema} (Python),
-% schemasafe~\cite{jsonschema_impl_schemasafe} (Javascript).
-% We added the following third-party libraries:
-% rapidjson~\cite{jsonschema_impl_rapidjson} (C++),
-% go-google~\cite{jsonschema_impl_go-google} (Go),
-% go-json-schema-spec~\cite{jsonschema_impl_go-json-schema-spec} (Go),
-% go-kaptinlin~\cite{jsonschema_impl_go-kaptinlin} (Go).
-% The benchmark suite includes alternative Go libraries as well as an event-based C++ parser to serve as baselines for our pull-based implementation.
-
-\citet{blaze} collected schemas from the \JSONSchema Store~\cite{schemastore} and then crawled \GitHub for valid \JSON documents for each of these schemas.
-% :
-% ansible-meta,
-% aws-cdk,
-% babelrc,
-% clang-format,
-% cmake-presets,
-% code-climate,
-% cql2,
-% cspell,
-% cypress,
-% deno,
-% dependabot,
-% draft-04,
-% fabric-mod,
-% geojson,
-% gitpod-configuration,
-% helm-chart-lock,
-% importmap,
-% jasmine,
-% jsconfig,
-% jshintrc,
-% krakend,
-% lazygit,
-% lerna,
-% nest-cli,
-% omnisharp,
-% openapi,
-% pre-commit-hooks,
-% pulumi,
-% semantic-release,
-% stale,
-% stylecop,
-% tmuxinator,
-% ui5,
-% ui5-manifest,
-% unreal-engine-uproject,
-% vercel,
-% yamllint.
-We developed a mutator that uses these valid instances as input to generate invalid instances, where one object field or array item is mutated, added, or removed, and the \JSONSchema library developed by ~\citet{jsonschema_impl_go-santhosh-tekuri} checks that it is truly invalid according to the schema.
-We removed the two schemas that use \dynamicRef and four schemas that had regular expression incompatibilities with multiple implementations.
-We added schemas from the official \JSONSchema examples~\cite{jsonschemaexamples},
-% :
-% address,
-% blogpost,
-% calendar,
-% devicetype,
-% health-record,
-% job-posting,
-% movie,
-% userprofile.
-Ajv's benchmarks and
-% cosmicrealms~\cite{jsonschema_impl_ajv},
-% : 
-% complex~\cite{jsonschema_jsck},
-% medium~\cite{jsonschema_jsck},
-% advanced~\cite{jsonschema_zschema},
-% basic~\cite{jsonschema_zschema}.
-also include the \JSONSchema for the conference example previously introduced.
-To evaluate the extended schema collection, we developed a random generator capable of producing both valid instances and non-conforming (invalid) documents containing at least one schema violation.
-For schemas utilizing the \uniqueItems constraint, we derived variants that omit this feature; this allows for isolated benchmarking of the remaining schema logic.
-We also enabled support for \JSONSchema's \format predicates to all implementations, which were disabled in the previous benchmark suite, since Blaze only recently added support for \format predicates.
-In total, we have 45 schemas, each of which has a valid and an invalid data set.
-See a summary of the schemas included in the \supplementarymaterial.
-
-The benchmark suite of \cite{blaze} reports validation time for
-pre-parsed \JSON documents.
-However, they do not report the time required to parse documents into the representation required by each validator.
-We extend the suite with a separate measurement of \JSON parsing time allowing us to benchmark the effective cost of validation depending on whether the parsed \JSON is reused for later processing or discarded after validation.
-This is important when analyzing validators filtering large volumes of documents, since most documents will not match and be discarded. 
-Therefore the benchmark should include the parsing time overhead that is an integral component of total validation time.
+We extended the suite with a separate measurement of \JSON parsing time, allowing us to benchmark the effective cost of validation depending on whether the parsed \JSON is reused for later processing or discarded after validation, see API Gateway (discard) use case.
+This is important when analyzing validators filtering large volumes of documents, since most documents will not match and be discarded, see Filtering use case. 
+Therefore, the benchmark should include the parsing time overhead that is an integral component of total validation time.
 Other cases where the parsed document is discarded include:
 \begin{itemize}
-  \item Validation is performed by a separate API gateway service and downstream services must parse the \JSON again;
+  \item Validation is performed by a separate API gateway service, and downstream services must parse the \JSON again;
   \item The consumer of the validation output expects the \JSON to be deserialized into its own specialized statically typed data structures with specific fields, since they are faster and safer to use than a hash map;
   \item The validation library's implementation language is different from the target language of the consumer.
 \end{itemize}
-% In all these scenarios, with varying degrees of difficulty, it is possible to copy from the validator's data structure rather than reparse the JSON. 
-% Despite this, we use parsing time as an approximation of copying time, since we do not have measurements for copying in all these scenarios, and we expect most users would rather reparse the JSON in these scenarios.
 In some cases, copying or translating the validator's parsed \JSON representation may not require reparsing.
 However, we use parsing time as an approximation of this additional cost, since we expect most users would rather reparse the \JSON in these scenarios.
 
+Outside of Katydid, the benchmarks include 18 implementations in various programming languages.
+Each implementation is warmed up by first validating all the documents for over a hundred iterations.
+This implies the CPU caches are warmed up, JIT has been triggered, and also that our memoized solution has a populated table.
+This is representative of the real-world situations of an API gateway or filtering through petabytes of records.
 To ensure the statistical stability of benchmark runs, we take the mean of three execution times per the mean of all instances per schema and then report the median and mean over all the schemas per implementation.
-Our benchmarks are set up for three use-cases:
-\begin{itemize}
-\item API Gateway: Expects mostly valid documents that are validated for security purposes, for which we only validate valid documents collected by \cite{blaze} and valid documents generated by us for the new schemas we added. API Gateway branches into two other use cases:
-  \begin{itemize}
-  \item reuse: We do not add parse time to validation time and ignore Katydid's validation of serialized \JSON data, since it is not applicable; and
-  \item discard: always add the parsing time, since we would need to reparse or copy the structure.
-  \end{itemize}
-\item Filtering through a database expects mostly invalid documents, so we generated only invalid documents for the new schemas we added.
-\end{itemize}
-For the filtering use case, we always add the parse time to the validation time.
-Since reuse happens so little, it is negligible.
+Details of how implementations were chosen can be found in the \supplementarymaterial.
 
 %% TODO Walter: Actually run all benchmarks locally 3 times and regenerate these tables.
 \begin{table}
@@ -1415,15 +1303,12 @@ Threats to the validity of benchmarking results:
 \item When Blaze parses \JSON, it also calculates hashes for field names, which allows it to perform faster string comparisons. One could argue that this is part of the validation calculation happening at parse time, and we should always add parse time to validation time. One could also argue that this is just a custom implementation of a hash map and a perfectly generic dictionary.
 \item JSU and Corvus.JsonSchema generate code in the target language, which is a big advantage for inlining many instructions. On the other hand, \citet{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema.
 \item The Regular expression library chosen by each implementation to handle \JSONSchema patterns can make a big difference. We know that at least Blaze and Katydid also attempt a fast path for simple regular expressions like prefix, suffix, and character sets.
-\item Two very large schemas required the Katydid-Comp to fallback to the Katydid-Memo, since the list of booleans that needed to be calculated for the \leave table was larger than 20, which would require calculating more than a million combinations.
+\item Two very large schemas required the Katydid-Comp to fallback to the Katydid-Memo, since the list of booleans that needed to be calculated for the \leave table was larger than twenty, which would require calculating more than a million combinations.
 \end{itemize}
 
-Most implementations first parse the \JSON into a generic \JSON Object, which might be what the user expects to use after validation.
-Deserializing directly into the specialized structure and then validating this structure is only supported by Katydid and kaptinlin; we did not benchmark it.
-This provides a major advantage in the API Gateway use case since, with this functionality, the user only needs to parse the \JSON once, and no copies occur between generic and specialized structures.
-Katydid can abstract and validate specialized or generic deserialized \JSON structures behind a reflect implementation of the pull-based parser interface.
-Katydid can also abstract away and validate serialized \JSON without allocating any object or, in fact, any heap allocations.
-This allows for significant flexibility, as validating serialized \JSON is appropriate in the filtering use case since the user will often not need the deserialized \JSON.
+A use case we did not benchmark is deserializing directly into the specialized structure and then validating this structure.
+This is only supported by Katydid and kaptinlin~\cite{jsonschema_impl_go-kaptinlin}, but this provides a major advantage in the API Gateway use case since, with this functionality, the user only needs to parse the \JSON once, and no copies occur between generic and specialized structures.
+Katydid achieves this by implementing a reflection-based pull-based parser, which shows its significant flexibility.
 
 \section{Related Work}
 \label{section_related}
@@ -1443,9 +1328,9 @@ This implies that some validation preprocessing happens during parse time.
 
 We found our original inspiration for using derivatives to filter semi-structured data from \RelaxNG~\cite{relaxng2001simple}, which converts their regular hedge grammar to a \BCFG on the fly while taking the derivative.
 A \BCFG is a \CFG where every production rule is enclosed by matching terminals.
-These terminals function like XML opening and closing tags, ensuring that each rule is explicitly delimited.
+These terminals function like \XML opening and closing tags, ensuring that each rule is explicitly delimited.
 This avoids the left-recursion issues that arise when applying derivatives to \CFGs~\cite{might2011parsing} and enables the use of a simple derivative algorithm based on regular expressions with reference lookups.
-\RelaxNG also includes additional operators, such as \emph{interleave}, to model semi-structured XML content, in particular, the unordered nature of attributes.
+\RelaxNG also includes additional operators, such as \emph{interleave}, to model semi-structured \XML content, in particular, the unordered nature of attributes.
 They also rely on memoization for efficiency by decomposing the derivative function into multiple smaller functions: \lstinline{startTagOpenDeriv}, \lstinline{attsDeriv}, \lstinline{startTagCloseDeriv}, \lstinline{endTagDeriv}, and \lstinline{textDeriv}.
 Except for \lstinline{textDeriv}, all functions are memoized; memoizing \lstinline{textDeriv} is impractical due to the large and highly variable text-node alphabet.
 This shortcoming is avoided by the Katydid algorithm, which never relies on the input alphabet for memoization, while still remaining applicable to leaf nodes.
@@ -1467,17 +1352,17 @@ Applying \lstinline{startTagOpenDeriv} to \lstinline{<head>} yields
 \lstinline{after (optional (symbol ("<div>", 0))) (symbol ("<body>", 0))},
 which still retains the \lstinline{<body>} symbol.
 In contrast, Katydid propagates only \lstinline{optional (symbol ("<div>", 0))} to the children, leading to more frequent memoization table hits.
-Overall, \RelaxNG provides an elegant and efficient approach to XML validation, albeit theoretically slightly less efficient than the Katydid algorithm.
+Overall, \RelaxNG provides an elegant and efficient approach to \XML validation, albeit theoretically slightly less efficient than the Katydid algorithm.
 
 Derivative-based validation is not the only automata-theoretic route to schema validation. 
 The semantics, complexity, and expressive power of \JSONSchema have been formalized~\cite{jsonschemafoundations} to find that most operators are expressible using tree automata, except for non-regular operators, such as the \uniqueItems operator, which could be used to specify perfectly balanced binary trees.
 A classical alternative is to compile the schema to element automata or hedge/tree automata and validate by running the compiled machine over the document. 
-In the XML setting, \citet{murata2005taxonomy} gives depth-first validation algorithms for regular tree grammars based on compiled automata and shows that these scans are linear in document size for fixed schemas while being implementable over either tree-based or event-based APIs. 
+In the \XML setting, \citet{murata2005taxonomy} gives depth-first validation algorithms for regular tree grammars based on compiled automata and shows that these scans are linear in document size for fixed schemas while being implementable over either tree-based or event-based APIs. 
 More specifically,~\citet{hosoya2002validation} presented a validation algorithm that utilizes attribute-element automata that explicitly incorporate both element and attribute transitions. 
-From a complexity perspective, this approach by~\citet{hosoya2002validation} offers a linear-time membership for deterministic compiled automata, polynomial-time uniform membership in the automaton-as-input setting, and good compatibility with event-driven XML parsing. 
+From a complexity perspective, this approach by~\citet{hosoya2002validation} offers a linear-time membership for deterministic compiled automata, polynomial-time uniform membership in the automaton-as-input setting, and good compatibility with event-driven \XML parsing. 
 Its main trade-off against derivatives is that it shifts work toward compilation, determinization, and automaton manipulation, whereas derivatives keep the runtime representation closer to the source schema and can exploit laziness and memoization on the actually visited part of the state space.
 
-\VPA~\cite{alur2004visibly} were also considered, as they have been used successfully for complex XML processing~\cite{mozafari2012high} as well as for fast filtering~\cite{kumar2007visibly}.
+\VPA~\cite{alur2004visibly} were also considered, as they have been used successfully for complex \XML processing~\cite{mozafari2012high} as well as for fast filtering~\cite{kumar2007visibly}.
 These automata include a stack and a call and return function, which we could apply to regular hedge grammars.
 We can construct a \VPA lazily by memoizing derivatives.
 These memoization tables would also be larger and result in fewer hits because of the large input alphabet and variance in the labels of the text nodes, similar to \RelaxNG, but the state space would be bounded.
@@ -1512,7 +1397,7 @@ We chose a generic representation of serialization formats and schema languages,
 In the future, benchmarking could be extended to include other validation languages, implementation languages, features, and parsing could be further optimized.
 For example, implementing a \JSON pull-based parser in Lean would open up the possibility of benchmarking and validating the Go implementation against the Lean implementation.
 Our pull-based \JSON parser could be further optimized using SIMD, a faster way of parsing \JSON using specialized CPU instructions~\cite{simdjson}.
-Other languages to benchmark against include \RelaxNG for XML validation.
+Other languages to benchmark against include \RelaxNG for \XML validation.
 Regular expression matchers have been extended with non-regular features while keeping much of the matching machinery—for example, backreferences~\cite{backreferences}.
 The same question arises for hedge grammars: \JSONSchema's \uniqueItems (and modern \dynamicRef) are not regular~\cite{holstege2019application, jsonschemafoundations}, and validating \dynamicRef is PSPACE-complete~\cite{modernjsonschema}.
 Adapting the Katydid derivative to support \uniqueItems, ideally as a controlled, memoization-friendly extension, is left as future work.
