@@ -2,8 +2,8 @@
 
 \documentclass[acmsmall,%
   screen,%
-  % review,%% TODO make sure review is turned on before submitting, it turns line numbers on
-  % anonymous,%% TODO make sure anonymous is set before submitting and that there are no mentions of our names.
+  review,%% TODO make sure review is turned on before submitting, it turns line numbers on
+  anonymous,%% TODO make sure anonymous is set before submitting and that there are no mentions of our names.
   nonacm%
 ]{acmart}
 
@@ -355,7 +355,7 @@ The table grows with inputs that have new element names or deeper recursion.
 
 We restructure the derivative function to have memoization that is alphabet independent.
 We restructure the derivative function into a composition of three steps—enter, evaluate predicates, and leave—of which the first and last are memoized and alphabet independent.
-The big improvement our algorithm makes over \RelaxNG is that it can optionally create a fully memoized table before seeing any input, and this table will take up finite space because our memoization technique is bounded, as we model a schema as a regular hedge grammar and not a \BCFG.
+The big improvement our algorithm makes over \RelaxNG is that it can optionally create a fully memoized table before seeing any input, and this table will take up finite space because our memoization technique is bounded, see \Cref{subsection_compile}.
 Our main contributions are:
 \begin{itemize}
     \item The factorization of the derivative function for regular hedge grammars enables alphabet independent memoization and bounds the size of the memoization table for performant filtering;
@@ -972,6 +972,24 @@ Simple extensions include a comprehensive predicate library, while simple optimi
 The optimization that is considered a major contribution is the fusion of the derivative and parsing algorithms.
 Before discussing the fusion, we have to explain the pull-based parser.
 
+\subsection{Compiling the Memoization Table}
+\label{subsection_compile}
+
+The Go implementation's Comp variant can precompute all entries in the bounded memoization tables of \enter and \leave without any input:
+\begin{lstlisting}[label=def Regex.compile]
+def Regex.compile [DecidableEq σ] [Hashable σ] [Monad m] [MemoizeKatydid m σ]
+  (r: Regex σ): m Unit := do
+  _ ← List.mapM (as := Regex.derivatives r) (fun r => do
+    _ ← MemoizeKatydid.enterM r
+    _ ← Vector.mapM (xs := (Vector.boolCombos (symcount r))) (fun bs => do
+      _ ← MemoizeKatydid.leaveM ⟨r, bs⟩))
+\end{lstlisting}
+This requires a list of all derivatives of a regular expression that is bounded up to similarity, see \lstinline{Regex.derivatives}.
+We have not formally verified that this list is bounded, but it has been proven by ~\citet{brzozowski1964derivatives}, formally verified by \citet{symbolicfinite}, and proven for the interleave operator~\cite{shuffle}.
+In the case of \leave, we also have to calculate the extra input parameter of all boolean combinations, see \lstinline{Vector.boolCombos}.
+The rest of the boundedness is verified using Lean's termination checker.
+We extend this compilation to the whole grammar by calling \RegexCompile for each of the finite list of production rules, to complete the fully precomputed bounded memoization table.
+
 \subsection{Pull-Based Parser}
 
 We designed a pull-based parser interface to be lazy enough to parse only what is required and generic enough to handle any sequential serialized data format.
@@ -1066,22 +1084,6 @@ This avoids lots of predicate evaluations for field names.
 The Vector \lstinline{childrs} is also compressed before calling \fusedDerive.
 This is done by removing duplicates, \lstinline{emptyset}, and \lstinline{starAny}.
 The resulting Vector \lstinline{childbs} is then decompressed to match the original length of \lstinline{childrs} using a Vector of indices that the compression function emitted.
-
-\subsection{Compiling the Memoization Table}
-
-The Go implementation's Comp variant is able to precompute the all entries in the bounded memoization tables of \enter and \leave without any input:
-\begin{lstlisting}[label=def Regex.compile]
-def Regex.compile [DecidableEq σ] [Hashable σ] [Monad m] [MemoizeKatydid m σ]
-  (r: Regex σ): m Unit := do
-  _ ← List.mapM (as := Regex.derivatives r) (fun r => do
-    _ ← MemoizeKatydid.enterM r
-    _ ← Vector.mapM (xs := (Vector.boolCombos (symcount r))) (fun bs => do
-      _ ← MemoizeKatydid.leaveM ⟨r, bs⟩))
-\end{lstlisting}
-This requires a list of all derivatives of a regular expression that is bounded up to similarity, see \lstinline{Regex.derivatives}.
-We have not formally verified that this list is bounded, but it has been proven by ~\citet{brzozowski1964derivatives}, formally verified by \citet{symbolicfinite} and proven for the interleave operator~\cite{shuffle}.
-In the case of \leave we also have to calculate the extra input parameter of all boolean combinations, see \lstinline{Vector.boolCombos}.
-We extend this compilation to the whole grammar by calling \RegexCompile for each of the finite list of production rules, to complete the fully precomputed bounded memoization table.
 
 \subsection{Supporting \JSONSchema}
 
@@ -1421,7 +1423,7 @@ Adapting the Katydid derivative to support \uniqueItems, ideally as a controlled
 
 In terms of correctness, there are ample opportunities for future work.
 It is still open to prove the correctness of the conversion algorithms from JSON~Schema~\cite{holstege2019application} and \RelaxNG to regular hedge grammars to produce fully verified validators of schema languages.
-We have informally argued that the memoization table is bounded and we leave it as future work to formally verify.
+We have shown that the memoization table is bounded, but we leave it as future work to formally verify.
 We also plan to prove the correctness of the further optimizations from the Go implementation, including the pull-based parser.
 
 Together, these directions move toward fully verified, high-throughput validators for the semi-structured data formats that pervade modern data systems.
