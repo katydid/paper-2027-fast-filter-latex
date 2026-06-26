@@ -354,7 +354,7 @@ Also, the memoization technique is unbounded in the number of entries to be memo
 The table grows with inputs that have new element names or deeper recursion.
 
 We restructure the derivative function to have memoization that is alphabet independent.
-We restructure the derivative function into a composition of three steps—enter, evaluate predicates, and leave—of which the first and last are memoized and alphabet independent.
+We restructure the derivative function into a composition of three stages—\enter, evaluate predicates, and \leave—of which the first and last are memoized and alphabet independent.
 The big improvement our algorithm makes over \RelaxNG is that it can optionally create a fully memoized table before seeing any input, and this table will take up finite space because our memoization technique is bounded, see \Cref{subsection_compile}.
 Our main contributions are:
 \begin{itemize}
@@ -441,7 +441,7 @@ For the first derivative in our example, \enter extracts two predicate/schema pa
   \lstinline[language=json]|{"type": "string"}| schema; and
   \item the \lstinline[language=json]|"author"| field predicate and the referenced \lstinline[language=json]|"user-profile"| schema.
 \end{itemize}
-In the second stage the input object is evaluated against these predicates and the algorithm is recursively applied to the schemas, to produce a boolean Vector. 
+In the second stage the input object is evaluated against these predicates and the algorithm is recursively applied to the schemas, to produce a boolean vector. 
 For our example \lstinline[language=json]|{"content": "Dragons"}|, the predicate/schema pairs evaluate to: \lstinline{[true, false]}. 
 The first boolean is \lstinline{true} because the field name is \lstinline[language=json]|"content"| and the value \lstinline[language=json]|"Dragons"| is a string type. 
 The second boolean is \lstinline{false} because the field name is not \lstinline[language=json]|"author"|.
@@ -451,7 +451,7 @@ The \leave function is well suited to memoization, since the input object values
 In our example, the input objects \lstinline[language=json]|{"content": "Dragons"}| and \lstinline[language=json]|{"content": "Eggs"}| both produce \lstinline{[true, false]} when evaluated on the predicates and so the memoization entry for \leave is reused.
 The factored derivative function is iteratively applied to the rest of the input to also end up with an empty schema, which matches the empty object, so the input is accepted.
 The Katydid algorithm moves high-variance input data out of memoized keys.
-Input objects are used only during predicate evaluation, but the memoization keys in \enter and \leave are alphabet independent, since they depend only on the schema argument and a boolean Vector.
+Input objects are used only during predicate evaluation, but the memoization keys in \enter and \leave are alphabet independent, since they depend only on the schema argument and a boolean vector.
 
 \section{The Katydid Algorithm}\label{section_algorithm}
 
@@ -1088,20 +1088,19 @@ The \JSON \lstinline[language=json]|{"a": ["b", "c"]}| is represented as the fol
 The objects and arrays are tagged with labels to help us support JSON~Schema's \lstinline[language=json]|{"type": "object"}| and \lstinline[language=json]|{"type": "array"}|. The arrays are indexed, which makes them behave similarly to objects with field names.
 Finally, the \Hedge is parameterized over the \Token type.
 
-We can translate the \jsonlink{"small jsonschema for a blogpost"}{jsonschema_blogpost} into a regular hedge grammar:
+We can translate the \jsonlink{"small jsonschema for a blogpost"}{jsonschema_blogpost} example into a regular hedge grammar:
 \begin{lstlisting}
-def example_tagged_grammar_blogpost : Grammar 7 JSONSchema.Pred := Grammar.mk
+def example_translated_jsonschema : Grammar 7 Pred := Grammar.mk
   (start := (symbol (Pred.tagEq "object", 4)))
-  (prods := #v[emptystr, starAny, symbol (Pred.string, 0), symbol (Pred.email, 0),
-               (interleave (symbol (Pred.strEq "content", 2))
-                           (symbol (Pred.strEq "author", 5))),
-               (symbol (Pred.tagEq "object", 6)),
-               (interleave (symbol (Pred.strEq "username", 2))
-                          (optional (symbol (Pred.strEq "email", 3))))])
+  (prods := #v[emptystr, starAny, symbol (Pred.string, 0), symbol (Pred.email, 0)
+    , (interleave (symbol (Pred.strEq "content", 2))
+                  (optional (symbol (Pred.strEq "author", 5))))
+    , (symbol (Pred.tagEq "object", 6))
+    , (interleave (symbol (Pred.strEq "username", 2))
+                  (optional (symbol (Pred.strEq "email", 3))))])
 \end{lstlisting}
-%% TODO Walter: Check this is actually what the schema is translated to ^^
 
-Most operators translate seamlessly; in particular, \lstinline[language=json]|"anyOf"|, \lstinline[language=json]|"allOf"| and \lstinline[language=json]|"not"|.
+Most operators translate seamlessly; in particular, \lstinline[language=json]|"anyOf"|, \lstinline[language=json]|"allOf"|, \lstinline[language=json]|"oneOf"| and \lstinline[language=json]|"not"|.
 Others posed a challenge: \lstinline[language=json]|"dependentRequired"|, overlapping \lstinline[language=json]|"patternProperties"| and \lstinline[language=json]|"additionalProperties"|.
 For example, if the \lstinline[language=json]|"additionalProperties"| field is not set, it defaults to true, which means other fields are allowed.
 Therefore, we need to add an extra constraint that matches any fields that were not already defined:
@@ -1110,7 +1109,7 @@ star (symbol (Pred.not (Pred.or (Pred.strEq "content") (Pred.strEq "author"))), 
 \end{lstlisting}
 %% TODO Walter: Check this is actually what the schema is translated to ^^
 
-We evaluated our translation against the \JSONSchema \verb+draft4+ test suite.
+We evaluated our translation against the \JSONSchema Draft4 test suite.
 Out of 924 total test cases, our implementation successfully passed 838.
 The failures were strictly isolated to test cases involving the unsupported features: \remoteRef and \uniqueItems.
 We also tested that our translation found all valid instances of the benchmarks valid and invalid instances invalid.
@@ -1124,7 +1123,7 @@ The benchmarks are completed on variations of the Katydid algorithm in Go.
 We include two variations of the Katydid algorithm: \emph{Memo} and \emph{Comp}.
 The \emph{Memo} version of the algorithm memoizes as the regular hedge grammar is exercised. 
 The \emph{Comp} version compiles the regular hedge grammar by prepopulating the memoization tables with all possibilities.
-We also include various implementations of the pull-based parser: Fused \JSON, Fused Proto and Steps, where Steps represents first deserializing and then parsing the deserialized structure using Go reflection.
+We also include various implementations of the pull-based parser: Fused \JSON, Fused Proto and Steps, where we first deserialize into a Go structure and then parse the deserialized structure using Go reflection.
 All benchmarks were run on a 2024 MacBook Pro M4 with 48 GB of memory.
 
 \subsection{Memoization Benchmarks}
@@ -1215,28 +1214,26 @@ Details of how implementations were chosen can be found in the \supplementarymat
 \begin{tabular}{ll|l|ll}
 \# & impl & language & median ns/doc & mean ns/doc \\
 \hline
-0 & Katydid-Comp-Fused & Go & 1,431 & 10,790 \\
-1 & Ajv & Javascript (Bun) & 1,826 & 7,136 \\
-2 & Katydid-Memo-Fused & Go & 2,322 & 15,900 \\
-3 & Blaze & C++ & 2,605 & 12,856 \\
-4 & JSU & Javascript (gen) & 2,763 & 10,527 \\
-5 & networknt & Java & 2,883 & 33,649 \\
-6 & boon & Rust & 3,221 & 39,628 \\
-7 & JSU & Python (gen) & 3,261 & 26,294 \\
-8 & Ajv & Javascript & 3,531 & 13,271 \\
-9 & JSU & C++ (gen) & 4,056 & 26,603 \\
-10 & Katydid-Comp-Steps & Go & 5,157 & 30,992 \\
-11 & Katydid-Memo-Steps & Go & 6,016 & 35,024 \\
-12 & santhosh-tekuri & Go & 7,653 & 80,095 \\
-13 & JSV & Elixir & 10,333 & 378,828 \\
-14 & JSU & Java (gen) & 10,524 & 31,057 \\
-15 & OptimumCode & Kotlin & 10,707 & 137,469 \\
-16 & Corvus.JsonSchema & C\# (gen) & 12,929 & 44,653 \\
-17 & kaptinlin & Go & 17,510 & 268,428 \\
-18 & json-everything & C\# & 27,116 & 678,602 \\
-19 & python-jsonschema & Python & 29,362 & 1,489,394 \\
-20 & JSONSchemer & Ruby & 38,674 & 753,137 \\
-21 & Hyperjump & Javascript & 172,105 & 505,527 \\
+1 & Katydid-Comp-Fused & Golang & 1,416 & 10,029 \\
+2 & Katydid-Memo-Fused & Golang & 1,516 & 11,094 \\
+3 & Ajv & Javascript (Bun) & 2,122 & 7,337 \\
+4 & Blaze & C++ & 2,709 & 12,853 \\
+5 & JSU & Javascript (gen) & 2,733 & 10,531 \\
+6 & networknt & Java & 2,989 & 32,383 \\
+7 & boon & Rust & 3,322 & 38,180 \\
+8 & JSU & Python (gen) & 3,349 & 25,195 \\
+9 & Ajv & Javascript & 3,466 & 13,052 \\
+10 & JSU & C++ (gen) & 4,191 & 25,924 \\
+11 & santhosh-tekuri & Golang & 8,364 & 78,903 \\
+12 & JSU & Java (gen) & 10,301 & 30,195 \\
+13 & OptimumCode & Kotlin & 10,360 & 132,313 \\
+14 & JSV & Elixir & 11,997 & 369,631 \\
+15 & Corvus.JsonSchema & C\# (gen) & 13,084 & 42,618 \\
+16 & kaptinlin & Golang & 18,381 & 261,596 \\
+17 & json-everything & C\# & 29,705 & 683,088 \\
+18 & python-jsonschema & Python & 30,044 & 1,455,085 \\
+19 & JSONSchemer & Ruby & 40,890 & 715,202 \\
+20 & Hyperjump & Javascript & 214,007 & 624,645 \\
 \end{tabular}
 % END Generated tabular
 \end{table}
@@ -1248,12 +1245,12 @@ Details of how implementations were chosen can be found in the \supplementarymat
 \begin{tabular}{ll|l|ll}
 \# & impl & median ns/doc & mean ns/doc \\
 \hline
-0 & JSU & C++ (gen) & 132 & 1,384 \\
-1 & Blaze & C++ & 141 & 1,192 \\
-10 & Katydid-Comp-Steps & Go & 1,826 & 21,103 \\
-12 & santhosh-tekuri & Go & 3,044 & 49,856 \\
-13 & Katydid-Memo-Steps & Go & 3,385 & 30,684 \\
-15 & kaptinlin & Go & 11,910 & 251,046 \\
+1 & JSU & C++ (gen) & 143 & 1,386 \\
+2 & Blaze & C++ & 150 & 1,200 \\
+11 & Katydid-Comp-Steps & Golang & 1,702 & 19,674 \\
+12 & Katydid-Memo-Steps & Golang & 2,068 & 22,001 \\
+14 & santhosh-tekuri & Golang & 2,612 & 49,657 \\
+16 & kaptinlin & Golang & 11,974 & 244,765 \\
 \vdots & \vdots & \vdots & \vdots \\
 \multicolumn{5}{c}{This is an excerpt of the full table in the  \supplementarymaterial} \\
 \end{tabular}
@@ -1273,6 +1270,7 @@ Threats to the validity of benchmarking results:
 \item When Blaze parses \JSON, it also calculates hashes for field names, which allows it to perform faster string comparisons. One could argue that this is part of the validation calculation happening at parse time, and we should always add parse time to validation time. One could also argue that this is just a custom implementation of a hash map and a perfectly generic dictionary.
 \item JSU and Corvus.JsonSchema generate code in the target language, which is a big advantage for inlining many instructions. On the other hand, \citet{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema.
 \item The Regular expression library chosen by each implementation to handle \JSONSchema patterns can make a big difference. We know that at least Blaze and Katydid also attempt a fast path for simple regular expressions like prefix, suffix, and character sets.
+\item The implementation language also skews results, see for example the big difference in performance between various versions of JSU.
 \item Very large schemas required the Katydid-Comp to fallback to the Katydid-Memo, since the Vector of booleans that needed to be calculated for the \leave table was larger than twenty, which would require calculating more than a million combinations. The fallback rarely happens, as it was only triggered by two of the benchmark schemas and none of the test suite cases.
 \end{itemize}
 
