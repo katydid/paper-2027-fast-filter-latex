@@ -396,7 +396,7 @@ We will describe the algorithm in more detail in \Cref{section_algorithm} and  \
 To illustrate the application of Brzozowski's derivative algorithm to \JSONSchema, we use a simplified blog post schema~\cite{jsonschemaexamples}:
 \begin{lstlisting}[language=json,label=jsonschema_blogpost]
 { "title": "small jsonschema for a blogpost",
-  "type":"object", "additionalProperties":false, "required": ["content", "author"],
+  "type":"object", "additionalProperties":false, "required": ["content"],
   "properties": {
     "content": { "type":"string" },
     "author": { "$ref":"#/definitions/user-profile" } },
@@ -406,7 +406,7 @@ To illustrate the application of Brzozowski's derivative algorithm to \JSONSchem
       "username": { "type":"string" },
       "email": { "type":"string", "format":"email" } } } } }
 \end{lstlisting}
-The schema requires a content field and an author object.
+The schema requires a content field and an optional author object.
 The author object must contain a username and may contain an email address. 
 For example: \lstinline[language=json]|{"content": "Dragons", "author": {"username": "Khaleesi"}}|
 
@@ -418,15 +418,14 @@ For this example we will use the flattened input: \lstinline[language=json]|[{"c
 
 We first take the derivative of the schema with respect to the first object, \lstinline[language=json]|{"content": "Dragons"}|. 
 \begin{lstlisting}[language=json]
-{ "type": "object", "additionalProperties": false, "required": ["author"], 
+{ "type": "object", "additionalProperties": false, 
   "properties": { "author": { "$ref":"#/definitions/user-profile" } } ... }
 \end{lstlisting}
-
-The only requried field left is \lstinline[language=json]|"author"|. 
-We next take the deriviative of the residual schema with respect to the remaining object \lstinline[language=json]|{"author": {"username": "Khaleesi"}}|. 
-Since the key in this object is \lstinline[language=json]|"author"|, the referenced \lstinline[language=json]|"user-profile"| schema is used. 
-We take the derivative of \lstinline[language=json]|{"username": "Khaleesi"}| with respect to the \texttt{user-profile} schema and the result is a residual schema with no required fields. 
-There are no more objects to process in the input and the empty object is valid against the residual schama and so the input is accepted.
+Only the author field left is \lstinline[language=json]|"author"|. 
+We next take the derivative of the residual schema with respect to the remaining key-value pair \lstinline[language=json]|{"author": {"username": "Khaleesi"}}|. 
+The result is an empty schema, \lstinline[language=json]
+|{ "type": "object", "additionalProperties": false}|.
+There are no more key-value pairs to process in the input and the empty object is valid against the residual schema and so the input is accepted.
 
 Memoization of the derivative can improve performance if later calls reuse memoization keys that have already been stored. 
 For JSONMembers, the memoization key is a pair of the schema and a key-value pair. 
@@ -435,67 +434,24 @@ Therefore memoization keys do not get reused and memoization is not effective.
 For the first derivative in our example schema, the input objects \lstinline[language=json]|{"content": "Dragons"}| and \lstinline[language=json]|{"content": "Eggs"}| result in the same residual schema but have different memoization keys.
 
 The Katydid algorithm makes memoization effective by factoring the derivative into three stages: \enter, predicate evaluation, and \leave. 
-The \enter function is well suited to memoization because its only argument is the schema and is alphabet independent. 
-For the first derivative in our example, \enter constructs two predicates for an input object:
+The \enter function is well suited to memoization because its only argument is the schema. 
+For the first derivative in our example, \enter extracts two predicate/schema pairs from the schema:
 \begin{itemize}
-  \item the key is named \lstinline[language=json]|"content"|, and its value
-        \lstinline[language=json]|{"type": "string"}|;
-  \item the key is named \lstinline[language=json]|"author"|, and its value
-        satisfies the referenced \lstinline[language=json]|"user-profile"| schema.
+  \item the \lstinline[language=json]|"content"| field predicate and
+  \lstinline[language=json]|{"type": "string"}| schema; and
+  \item the \lstinline[language=json]|"author"| field predicate and the referenced \lstinline[language=json]|"user-profile"| schema.
 \end{itemize}
-
-In the second stage the input object is evaluated against these predicates to produce a boolean Vector. 
-For our example \lstinline[language=json]|{"content": "Dragons"}|, the predicates evaluate to: \lstinline{[true, false]}. 
+In the second stage the input object is evaluated against these predicates and the algorithm is recursively applied to the schemas, to produce a boolean Vector. 
+For our example \lstinline[language=json]|{"content": "Dragons"}|, the predicate/schema pairs evaluate to: \lstinline{[true, false]}. 
 The first boolean is \lstinline{true} because the field name is \lstinline[language=json]|"content"| and the value \lstinline[language=json]|"Dragons"| is a string type. 
 The second boolean is \lstinline{false} because the field name is not \lstinline[language=json]|"author"|.
 The \leave function then combines the schema argument with this boolean Vector to compute the residual schema. 
-In our example the first predicate succeeds and so \leave returns the schema in which only \lstinline[language=json]|"author"| remains required.
-The \leave function is well suited to memoization.
-The input object values do not appear in the cache key, which means it is also alphabet independent.
+In our example the first predicate succeeds and so \leave returns the schema in which only the \lstinline[language=json]|"author"| field remains.
+The \leave function is well suited to memoization, since the input object values do not appear in the cache key.
 In our example, the input objects \lstinline[language=json]|{"content": "Dragons"}| and \lstinline[language=json]|{"content": "Eggs"}| both produce \lstinline{[true, false]} when evaluated on the predicates and so the memoization entry for \leave is reused.
+The factored derivative function is iteratively applied to the rest of the input to also end up with an empty schema, which matches the empty object, so the input is accepted.
 The Katydid algorithm moves high-variance input data out of memoized keys.
-Input objects are used only during predicate evaluation, but the memoization keys in \enter and \leave are alphabet indepedent, since they depend only on the schema argument and a boolean Vector.
-
-%% TODO Walter/Paul we still need to continue rewriting from here
-
-Returning to our example, the author member still needs to be matched.
-The input that is left to validate is \lstinline[language=json]|[{"author": {"username": "Khaleesi"}}]|.
-We can complete the validation using our new Katydid algorithm.
-We start by applying \enter to extract the properties:
-\begin{lstlisting}[language=json]
-[{"author": { "$ref": "#/definitions/user-profile" }}]    
-\end{lstlisting}
-In the second step, we check which properties match the \lstinline[language=json]|"author"| field name and look up any references, which gives us the following singleton list:
-\begin{lstlisting}[language=json]
-[{ "type": "object", "additionalProperties": false, "required": ["username"],
-   "properties": { "username": {"type":"string"},
-                   "email": {"type":"string", "format":"email"}}}]
-\end{lstlisting}
-We recurse down and apply the \enter function again, giving us the following two properties:
-\begin{lstlisting}[language=json]
-[{"username": {"type": "string"}}, {"email": {"type":"string", "format":"email"}}]
-\end{lstlisting}
-We apply the second step, evaluating the predicates using the \lstinline[language=json]|"username"| field name, and get the following schemas to evaluate on the children:
-\begin{lstlisting}[language=json]
-[{"type": "string"}, {"not": {}}]
-\end{lstlisting}
-We matched the \lstinline[language=json]|"username"| field, but not the \lstinline[language=json]|"email"| field, so we pass down the second element as the schema that matches nothing \lstinline[language=json]|{"not": {}}|.
-We are at the bottom of the JSON input, so we evaluate the string \lstinline[language=json]|"Khaleesi"| against the predicates, which results in the list \lstinline[language=json]|[true, false]|.
-Now we can apply the final step, the \leave function, reintegrate the results, and take the derivative.
-We apply the derivative, with the knowledge that the username property matched and the email property did not:
-\begin{lstlisting}[language=json]
-[{ "type": "object", "additionalProperties": false, "required": [],
-   "properties": { "email": {"type":"string", "format":"email"}}}]
-\end{lstlisting}
-We have no more input, and we recurse back up again, but we first need to check whether this schema matches the input by checking whether the resulting schema matches the empty object.
-We check the nullability of each schema in the list, which results in \lstinline[language=json]|[true]| since the schema has no more required fields and the email was optional.
-Again we can apply the \leave function given the parent schema and the nullability results:
-\begin{lstlisting}[language=json]
-{ "type": "object", "additionalProperties": false, "required": [], 
-  "properties": {}, "definitions": { ... } }
-\end{lstlisting}
-We check whether the final schema matches the empty object, which it does.
-This means the input is valid given this schema.
+Input objects are used only during predicate evaluation, but the memoization keys in \enter and \leave are alphabet independent, since they depend only on the schema argument and a boolean Vector.
 
 \section{The Katydid Algorithm}\label{section_algorithm}
 
@@ -769,7 +725,7 @@ Usually, \Lean can automatically detect that a function will terminate, but in s
 Unfortunately, JSONmembers memoizes parameters with high variance, because the parameters are alphabet dependent and the \JSON member alphabet has high variance.
 Katydid avoids this problem by handling the \lstinline{symbol} case within the \lstinline{nodePred} predicate.
 
-Whilst the aim is to implement and verify a memoized variant, we first present its foundation, the non-memoized version of Katydid:
+While the aim is to implement and verify a memoized variant, we first present its foundation, the non-memoized version of Katydid:
 \begin{lstlisting}[label=def Grammar.Katydid.derive]
 def Grammar.Katydid.derive (G: Grammar n φ) (Φ: φ → α → Bool)
   (r: Regex (φ × Ref n)) (node: Node α): Regex (φ × Ref n) :=
@@ -992,7 +948,7 @@ def Regex.compile [DecidableEq σ] [Hashable σ] [Monad m] [MemoizeKatydid m σ]
       _ ← MemoizeKatydid.leaveM ⟨r, bs⟩))
 \end{lstlisting}
 We make the assumption that \lstinline{Regex.derivatives} calculates a list of all derivatives of a regular expression that is bounded up to similarity.
-We have not formally verified that this list is bounded, but it has been proven by ~\citet{brzozowski1964derivatives}, formally verified by \citet{symbolicfinite}, and proven for the interleave operator~\cite{shuffle}.
+We have not formally verified that this list is bounded, but it has been proven for regular expressions by ~\citet{brzozowski1964derivatives}, formally verified by \citet{symbolicfinite}, and proven for the interleave operator~\cite{shuffle}.
 In the case of \leave, we also have to calculate the extra input parameter of all boolean combinations, see \lstinline{Vector.boolCombos}.
 The rest of the boundedness is verified using Lean's termination checker.
 We extend this compilation to the whole grammar by calling \RegexCompile for each of the finite list of production rules, to complete the fully precomputed bounded memoization table.
@@ -1103,7 +1059,7 @@ Handling this new traversal order requires the memoized functions (\lstinline{en
 The newly adjusted functions \lstinline{entersM} and \lstinline{leavesM} require the length of the Vector to also be memoized; hence, the addition of \lstinline{l} in their dependent pair parameters, which is constructed using \lstinline{⟨⟩}.
 We use Lean's notation for Monads (\lstinline{do}, \lstinline{←} and \lstinline{<$>}), to check for errors and handle the mutation of the parser and memoization state.
 Notice that the predicate evaluation function \lstinline{Φ} is responsible for calling the \lstinline{token} method so that it is only done if it is truly necessary.
-Note that \fusedDerive is declared \lstinline{partial}, since termination has not been proven.
+Note that \fusedDerive is declared \lstinline{partial}, since even though it has been proven that calling \lstinline{next} always decreases the size of the parser for hedges, the \Parser class requires more properties to make proving termination in the general case possible.
 
 There are other optimizations not included here.
 For field names, Katydid finds all strings in predicates, such as equal, in \lstinline{drs} and creates a table from the product of these strings and \lstinline{drs} to \lstinline{childrs}.
@@ -1306,7 +1262,8 @@ Details of how implementations were chosen can be found in the \supplementarymat
 
 %% TODO Walter: maybe we can still make the mean faster
 The results show that Katydid has the fastest median latency for the filtering use case; see \Cref{table_filtering}.
-Katydid achieves similar results in the API gateway (discard) use case, which we include in the \supplementarymaterial.
+Katydid achieves similar results in the API Gateway (discard) use case, which we include in the \supplementarymaterial.
+%% TODO Walter: check the results in API gateway (discard) use case are truly similar
 We also find that even though Katydid is not the fastest library for the API gateway (reuse) use case, it is still competitive and the fastest Go library; see \Cref{table_api_gateway_reuse}.
 % TODO Walter: Check if this is true: While go-santhosh-tekuri was the most efficient external Go library, katydid demonstrated superior performance across all Go-centric evaluations.
 
@@ -1316,7 +1273,7 @@ Threats to the validity of benchmarking results:
 \item When Blaze parses \JSON, it also calculates hashes for field names, which allows it to perform faster string comparisons. One could argue that this is part of the validation calculation happening at parse time, and we should always add parse time to validation time. One could also argue that this is just a custom implementation of a hash map and a perfectly generic dictionary.
 \item JSU and Corvus.JsonSchema generate code in the target language, which is a big advantage for inlining many instructions. On the other hand, \citet{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema.
 \item The Regular expression library chosen by each implementation to handle \JSONSchema patterns can make a big difference. We know that at least Blaze and Katydid also attempt a fast path for simple regular expressions like prefix, suffix, and character sets.
-\item Two very large schemas required the Katydid-Comp to fallback to the Katydid-Memo, since the list of booleans that needed to be calculated for the \leave table was larger than twenty, which would require calculating more than a million combinations.
+\item Very large schemas required the Katydid-Comp to fallback to the Katydid-Memo, since the Vector of booleans that needed to be calculated for the \leave table was larger than twenty, which would require calculating more than a million combinations. The fallback rarely happens, as it was only triggered by two of the benchmark schemas and none of the test suite cases.
 \end{itemize}
 
 A use case we did not benchmark is deserializing directly into the specialized structure and then validating this structure.
