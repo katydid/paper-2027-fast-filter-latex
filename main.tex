@@ -452,7 +452,7 @@ The \leave function then combines the schema argument with this boolean Vector t
 In our example the first predicate succeeds and so \leave returns the schema in which only \lstinline[language=json]|"author"| remains required.
 The \leave function is well suited to memoization.
 The input object values do not appear in the cache key, which means it is also alphabet independent.
-In our example, the input objects \lstinline[language=json]|{"content": "Dragons"}| and \lstinline[language=json]|{"content": "Eggs"}| both produce lstinline{[true, false]} when evaluated on the predicates and so the memoization entry for \leave is reused.
+In our example, the input objects \lstinline[language=json]|{"content": "Dragons"}| and \lstinline[language=json]|{"content": "Eggs"}| both produce \lstinline{[true, false]} when evaluated on the predicates and so the memoization entry for \leave is reused.
 The Katydid algorithm moves high-variance input data out of memoized keys.
 Input objects are used only during predicate evaluation, but the memoization keys in \enter and \leave are alphabet indepedent, since they depend only on the schema argument and a boolean Vector.
 
@@ -979,6 +979,31 @@ We had to redeclare the well-founded induction call using a membership relation:
 This gave us the hypothesis we needed to prove termination.
 We encountered a similar termination issue when propagating memoization soundness, which required redefining \lstinline{List.foldlM} to both propagate soundness and track that each child is an element of the children list.
 
+\subsection{Compiling the Memoization Table}
+\label{subsection_compile}
+
+All entries in the memoization tables of \enter and \leave can be precomputed without any input:
+\begin{lstlisting}[label=def Regex.compile]
+def Regex.compile [DecidableEq σ] [Hashable σ] [Monad m] [MemoizeKatydid m σ]
+  (r: Regex σ): m Unit := do
+  _ ← List.mapM (as := Regex.derivatives r) (fun r => do
+    _ ← MemoizeKatydid.enterM r
+    _ ← Vector.mapM (xs := (Vector.boolCombos (symcount r))) (fun bs => do
+      _ ← MemoizeKatydid.leaveM ⟨r, bs⟩))
+\end{lstlisting}
+We make the assumption that \lstinline{Regex.derivatives} calculates a list of all derivatives of a regular expression that is bounded up to similarity.
+We have not formally verified that this list is bounded, but it has been proven by ~\citet{brzozowski1964derivatives}, formally verified by \citet{symbolicfinite}, and proven for the interleave operator~\cite{shuffle}.
+In the case of \leave, we also have to calculate the extra input parameter of all boolean combinations, see \lstinline{Vector.boolCombos}.
+The rest of the boundedness is verified using Lean's termination checker.
+We extend this compilation to the whole grammar by calling \RegexCompile for each of the finite list of production rules, to complete the fully precomputed bounded memoization table.
+% \Delta = Regex.derivatives
+% enter_keys = |\Delta|
+% maxs = max symcount \Delta
+% leaves_keys <= n * 2^maxs
+% total <= Num_prods * (max enter_keys + max leaves_keys)
+The size of the \enter and \leave memoization tables combined is at most
+$\sum_{r \in R}{|\Delta_r| + 2^{\max{|s(\Delta_r)|}}}$, where $R$ is \lstinline{G.prods} $\cup$ \lstinline{G.start}, $\Delta$ the list \lstinline{Regex.derivatives} and $s$ the function \symcount.
+
 \section{Go Implementation}
 \label{section_go}
 
@@ -991,24 +1016,6 @@ To be precise about scope: the \enter/\leave memoization and its correctness are
 Simple extensions include a comprehensive predicate library, while simple optimizations include smart constructors that simplify regular expressions and compute nullability and hashes for comparisons.
 The optimization that is considered a major contribution is the fusion of the derivative and parsing algorithms.
 Before discussing the fusion, we have to explain the pull-based parser.
-
-\subsection{Compiling the Memoization Table}
-\label{subsection_compile}
-
-The Go implementation's Comp variant can precompute all entries in the bounded memoization tables of \enter and \leave without any input:
-\begin{lstlisting}[label=def Regex.compile]
-def Regex.compile [DecidableEq σ] [Hashable σ] [Monad m] [MemoizeKatydid m σ]
-  (r: Regex σ): m Unit := do
-  _ ← List.mapM (as := Regex.derivatives r) (fun r => do
-    _ ← MemoizeKatydid.enterM r
-    _ ← Vector.mapM (xs := (Vector.boolCombos (symcount r))) (fun bs => do
-      _ ← MemoizeKatydid.leaveM ⟨r, bs⟩))
-\end{lstlisting}
-This requires a list of all derivatives of a regular expression that is bounded up to similarity, see \lstinline{Regex.derivatives}.
-We have not formally verified that this list is bounded, but it has been proven by ~\citet{brzozowski1964derivatives}, formally verified by \citet{symbolicfinite}, and proven for the interleave operator~\cite{shuffle}.
-In the case of \leave, we also have to calculate the extra input parameter of all boolean combinations, see \lstinline{Vector.boolCombos}.
-The rest of the boundedness is verified using Lean's termination checker.
-We extend this compilation to the whole grammar by calling \RegexCompile for each of the finite list of production rules, to complete the fully precomputed bounded memoization table.
 
 \subsection{Pull-Based Parser}
 
@@ -1279,39 +1286,6 @@ Details of how implementations were chosen can be found in the \supplementarymat
 \end{table}
 
 \begin{table}
-\caption{API Gateway (discard)}
-\label{table_api_gateway_discard}
-% BEGIN Generated tabular for kind: valid and parsing included
-\begin{tabular}{ll|l|ll}
-\# & impl & language & median ns/doc & mean ns/doc \\
-\hline
-0 & Katydid-Comp-Fused & Go & 1,668 & 16,719 \\
-1 & Ajv & Javascript (Bun) & 1,684 & 8,458 \\
-2 & JSU & Javascript (gen) & 2,218 & 12,017 \\
-3 & Blaze & C++ & 2,298 & 13,404 \\
-4 & networknt & Java & 2,404 & 41,645 \\
-5 & Ajv & Javascript & 2,525 & 15,235 \\
-6 & boon & Rust & 2,785 & 35,706 \\
-7 & Katydid-Memo-Fused & Go & 3,065 & 26,648 \\
-8 & JSU & C++ (gen) & 3,511 & 27,050 \\
-9 & JSU & Python (gen) & 3,691 & 39,111 \\
-10 & Katydid-Comp-Steps & Go & 5,235 & 40,559 \\
-11 & Katydid-Memo-Steps & Go & 6,813 & 48,668 \\
-12 & santhosh-tekuri & Go & 7,667 & 70,781 \\
-13 & OptimumCode & Kotlin & 8,842 & 141,786 \\
-14 & JSU & Java (gen) & 9,716 & 31,069 \\
-15 & JSV & Elixir & 9,803 & 359,882 \\
-16 & Corvus.JsonSchema & C\# (gen) & 13,146 & 47,092 \\
-17 & kaptinlin & Go & 16,466 & 271,770 \\
-18 & json-everything & C\# & 26,481 & 672,734 \\
-19 & python-jsonschema & Python & 44,347 & 1,366,555 \\
-20 & JSONSchemer & Ruby & 45,364 & 757,587 \\
-21 & Hyperjump & Javascript & 191,132 & 522,378 \\
-\end{tabular}
-% END Generated tabular
-\end{table}
-
-\begin{table}
 \caption{API Gateway (reuse)}
 \label{table_api_gateway_reuse}
 % BEGIN Generated tabular for kind: valid and parsing excluded
@@ -1332,8 +1306,8 @@ Details of how implementations were chosen can be found in the \supplementarymat
 
 %% TODO Walter: maybe we can still make the mean faster
 The results show that Katydid has the fastest median latency for the filtering use case; see \Cref{table_filtering}.
-We also find that Katydid is a very fast library for validation in the API gateway use case, where we include the parse time as part of the validation time; see \Cref{table_api_gateway_discard}.
-Finally, we find that even though Katydid is not the fastest library for the API gateway (reuse) use case, it is still competitive and the fastest Go library; see \Cref{table_api_gateway_reuse}.
+Katydid achieves similar results in the API gateway (discard) use case, which we include in the \supplementarymaterial.
+We also find that even though Katydid is not the fastest library for the API gateway (reuse) use case, it is still competitive and the fastest Go library; see \Cref{table_api_gateway_reuse}.
 % TODO Walter: Check if this is true: While go-santhosh-tekuri was the most efficient external Go library, katydid demonstrated superior performance across all Go-centric evaluations.
 
 Threats to the validity of benchmarking results:
@@ -1443,7 +1417,6 @@ Adapting the Katydid derivative to support \uniqueItems, ideally as a controlled
 
 In terms of correctness, there are ample opportunities for future work.
 It is still open to prove the correctness of the conversion algorithms from JSON~Schema~\cite{holstege2019application} and \RelaxNG to regular hedge grammars to produce fully verified validators of schema languages.
-We have shown that the memoization table is bounded, but we leave it as future work to formally verify.
 We also plan to prove the correctness of the further optimizations from the Go implementation, including the pull-based parser.
 
 Together, these directions move toward fully verified, high-throughput validators for the semi-structured data formats that pervade modern data systems.
