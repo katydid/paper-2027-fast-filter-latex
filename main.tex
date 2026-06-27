@@ -23,8 +23,8 @@
 %% the commands and values with those provided to you when you
 %% complete the rights form.
 \setcopyright{acmlicensed}
-\copyrightyear{2018}
-\acmYear{2018}
+\copyrightyear{2026}
+\acmYear{2026}
 \acmDOI{XXXXXXX.XXXXXXX}
 
 %% TODO: Get Submission ID
@@ -110,8 +110,6 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
 \newcommand{\Parser}{\link{Parser}{class Parser}}
 \newcommand{\fusedDerive}{\link{fusedDerive}{def fusedDerive}}
 \newcommand{\RegexCompile}{\link{Regex.compile}{def Regex.compile}}
-
-%% Names
 \newcommand{\Lean}{%
   Lean\xspace%
 }
@@ -140,8 +138,9 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
   \lstinline[language=json]|"remoteRef"|\xspace%
 }
 
-\usepackage[nolist,nohyperlinks]{acronym}
-% package glossaries is in the allowed list of accepted packages https://authors.acm.org/proceedings/production-information/accepted-latex-packages
+%% Acronyms
+
+\usepackage[nolist,nohyperlinks]{acronym} % package acronym is in the allowed list of accepted packages https://authors.acm.org/proceedings/production-information/accepted-latex-packages
 \begin{acronym}
 \acro{BCFG}{Balanced Context Free Grammar}
 \acro{CFG}{Context Free Grammar}
@@ -208,9 +207,6 @@ escapeinside={/*!}{!*/}, % https://tex.stackexchange.com/questions/413891/hyperl
 
 %% Used for Cref to create capatilized references to Section and Fig.
 \usepackage[nameinlink]{cleveref}
-
-%% Only used for checkmark and cross in table
-\usepackage{pifont}\newcommand{\cmark}{\ding{51}}\newcommand{\xmark}{\ding{55}}
 
 %%%%% END: Author aditions to style %%%%%%
 
@@ -307,7 +303,7 @@ High performance is achieved by refactoring the derivative algorithm to make it 
 We verify in Lean that our memoization technique is correct: our memoized filtering and validation algorithm is equivalent to the denotational semantics of regular hedge grammars.
 This is the first proof of correctness in an interactive theorem prover of a derivative algorithm for regular hedge grammars or schema languages.
 We fuse the parsing and derivative algorithms to avoid the creation of intermediate parsing data structures.
-We benchmark an implementation of our memoization technique combined with fusion in Go against several other \JSONSchema implementations.
+Benchmarking is done on an implementation of our memoization technique combined with fusion, in Go, against several other \JSONSchema implementations.
 %% TODO: check that we are really the fastest, otherwise we say "... one of the fastest libraries ..." % Perhaps: fastest library by median latency
 %% TODO Walter: check if we can make ours faster
 We end up with the fastest library in the filtering use case when considering median latency, providing evidence that derivatives is a competitive approach for validation, even for semi-structured data.
@@ -330,13 +326,13 @@ They enable expressive constraints over ordered and unordered element sequences,
 
 We build on derivatives because they offer exactly the properties a high-throughput, verifiable filter needs.
 The derivative of a schema is itself a schema (\emph{residuality}), so intermediate states are first-class and memoization is natural, with no separate automaton to construct or maintain.
-Regular expression have finitely many derivatives up to similarity~\cite{brzozowski1964derivatives} this includes the interleave~\cite{shuffle} operator and justifies a \emph{bounded} memoization table that underlies the lazy \DFA construction popularized by \citet{reexamined}.
+Regular expressions have finitely many derivatives up to similarity~\cite{brzozowski1964derivatives, symbolicfinite}, which includes the interleave operator~\cite{shuffle} and justifies a \emph{bounded} memoization table that underlies the lazy \DFA construction popularized by \citet{reexamined}.
 Derivatives also handle Boolean operators—intersection, complement, and negation—directly, which lets us model \JSONSchema's \lstinline[language=json]|"allOf"|, \lstinline[language=json]|"anyOf"|, and \lstinline[language=json]|"not"| without leaving the framework.
 Finally, a derivative-based algorithm is easier to verify than a bespoke validator: its structure is a small recursive function over the schema, which we exploit to give a machine-checked correctness proof.
 
 Because our algorithm operates on regular hedge grammars rather than any single schema language, it applies uniformly across schema languages and serialization formats—\RelaxNG, \JSONSchema, and Protocol Buffers.
 Our main contribution beyond prior derivative validators is that we build a high-performance \emph{filtering} library, not merely a validator: filtering through large volumes of mostly non-matching records is a use case for which existing \JSONSchema validators are not designed, and it is where fusing derivation with parsing pays off.
-Derivative-based recognition is, moreover, competitive in practice: \citet{nonbacktracking} built a derivative-based, non-backtracking engine that ships as a regex backend in .NET~7, demonstrating that derivatives can be fast on real-world workloads.
+Derivative-based recognition is, moreover, competitive in practice: \citet{nonbacktracking} built a derivative-based, non-backtracking engine that ships as a regex backend in .NET~7, demonstrating that derivatives can be fast on real-world workloads, at least in the string case.
 We extend this evidence from flat strings to tree-shaped, semi-structured data.
 
 Outside our Katydid algorithm, there are two other derivative-based algorithms for schema validation: \RelaxNG~\cite{relaxng2001simple} and JSONmembers — a term we adopt for the procedure introduced by \citet{holstege2019application}.
@@ -355,14 +351,14 @@ The table grows with inputs that have new element names or deeper recursion.
 
 We restructure the derivative function to have memoization that is alphabet independent.
 We restructure the derivative function into a composition of three stages—\enter, evaluate predicates, and \leave—of which the first and last are memoized and alphabet independent.
-The big improvement our algorithm makes over \RelaxNG is that it can optionally create a fully memoized table before seeing any input, and this table will take up finite space because our memoization technique is bounded, see \Cref{subsection_compile}.
+The big improvement our algorithm makes over \RelaxNG is that it can optionally create a fully memoized table before seeing any input, and the number of entries in the table is bounded, see \Cref{subsection_compile}.
 Our main contributions are:
 \begin{itemize}
     \item The factorization of the derivative function for regular hedge grammars enables alphabet independent memoization and bounds the size of the memoization table for performant filtering;
-    \item Formal verification in Lean~\cite{lean4} that the implementation of the JSONmembers algorithm and Katydid's memoization algorithm faithfully match the semantics of a regular hedge grammar;
+    \item Formal verification in Lean~\cite{lean4} that our implementation of the JSONmembers algorithm and Katydid's memoization algorithm faithfully match the semantics of a regular hedge grammar;
     \item A fused~\cite{fusion} derivative and parsing algorithm that removes the overhead of creating intermediate parsing data structures;
     \item Abstraction of serialization formats behind a pull-based parser interface in Go~\cite{golang} that allows for regular hedge grammar validation of Protocol Buffers, \JSON, and reflected Go structures; and
-    \item A significant extension of the \JSONSchema benchmark suite developed by \citet{blaze}, which we run in Go by first translating the \JSONSchema to regular hedge grammars.
+    \item A significant extension of the \JSONSchema benchmark suite developed by \citet{blaze}, which we use to benchmark our Go implementation of Katydid.
 \end{itemize}
 % fusion> We have accomplished our goal of removing the intermediate data structures by transforming the numerous recursive traversals into a single one. This process is called fusion
 
@@ -370,14 +366,12 @@ The original requirement of this work was schema-based filtering at scale in a p
 To meet production-level performance requirements, we implemented the memoization technique in Go~\cite{golang} with a strong emphasis on avoiding heap allocations.
 The benchmarks of this implementation demonstrate its ability to filter data at high speeds and that it competes with other \JSONSchema validators.
 
-% \subsection{Outline}
-
 Definitions, proofs, as well as pseudocode for the Go implementation are presented in the syntax of the Lean theorem prover~\cite{lean4} and are available in the \supplementarymaterial~\footnote{No part of the Lean code (including the formal proofs) or the Go code was created with the aid of GenAI (LLMs).}.
 Lean tutorials are available online~\cite{learnlean}.
 To help readers less familiar with Lean, we recall some conventions close to where they are used.
 We deliberately chose to state our definitions and theorems in Lean rather than in parallel mathematical notation.
 This keeps a single source of truth and avoids duplication: the statements in the paper are exactly the ones checked by the theorem prover, so there is no informal-to-formal transcription gap for the reader to second-guess and no risk that a hand-written version subtly diverges from what was actually proven.
-Throughout, we use only standard axioms and the Lean standard library, although we did use the \lstinline{aesop}~\cite{aesop} tactic and rewrite search to find some proofs, before excluding all dependencies entirely.
+We only use the Lean standard library, standard axioms, and the code is \lstinline{sorry} free.
 
 The remainder of the paper is structured as follows. 
 \Cref{section_algorithm} explains the Katydid algorithm.
@@ -413,8 +407,8 @@ For example: \lstinline[language=json]|{"content": "Dragons", "author": {"userna
 Brzozowski's derivative algorithm for regular expressions consumes one input symbol and returns a residual regular expression.
 The \emph{JSONMembers} algorithm of \citet{holstege2019application} is a derivative-based validation algorithm for \JSONSchema that adapts this idea from strings to \JSON objects.
 By flattening the \JSON object into a list of key-value pairs (members),
-the input symbols are now key-value pairs and the derivative of a schema with respect to an input symbol is a residual schema.
-For this example we will use the flattened input: \lstinline[language=json]|[{"content": "Dragons"}, {"author": {"username": "Khaleesi"}}]|.
+the input symbols are now key-value pairs, and the derivative of a schema with respect to an input symbol is a residual schema.
+For this example, we will use the flattened input: \lstinline[language=json]|[{"content": "Dragons"}, {"author": {"username": "Khaleesi"}}]|.
 
 We first take the derivative of the schema with respect to the first object, \lstinline[language=json]|{"content": "Dragons"}|. 
 \begin{lstlisting}[language=json]
@@ -424,13 +418,13 @@ We first take the derivative of the schema with respect to the first object, \ls
 Only the author field left is \lstinline[language=json]|"author"|. 
 We next take the derivative of the residual schema with respect to the remaining key-value pair \lstinline[language=json]|{"author": {"username": "Khaleesi"}}|. 
 The result is an empty schema, \lstinline[language=json]
-|{ "type": "object", "additionalProperties": false}|.
-There are no more key-value pairs to process in the input and the empty object is valid against the residual schema and so the input is accepted.
+|{"type": "object", "additionalProperties": false}|.
+There are no more key-value pairs to process in the input, and the empty object is valid against the residual schema, so the input is accepted.
 
 Memoization of the derivative can improve performance if later calls reuse memoization keys that have already been stored. 
 For JSONMembers, the memoization key is a pair of the schema and a key-value pair. 
 Values such as titles, usernames, timestamps, identifiers, and text fields vary from one input object to the next. 
-Therefore memoization keys do not get reused and memoization is not effective. 
+Therefore, memoization keys do not get reused, and memoization is not effective. 
 For the first derivative in our example schema, the input objects \lstinline[language=json]|{"content": "Dragons"}| and \lstinline[language=json]|{"content": "Eggs"}| result in the same residual schema but have different memoization keys.
 
 The Katydid algorithm makes memoization effective by factoring the derivative into three stages: \enter, predicate evaluation, and \leave. 
@@ -441,12 +435,12 @@ For the first derivative in our example, \enter extracts two predicate/schema pa
   \lstinline[language=json]|{"type": "string"}| schema; and
   \item the \lstinline[language=json]|"author"| field predicate and the referenced \lstinline[language=json]|"user-profile"| schema.
 \end{itemize}
-In the second stage the input object is evaluated against these predicates and the algorithm is recursively applied to the schemas, to produce a boolean vector. 
+In the second stage, the input object is evaluated against these predicates, and the algorithm is recursively applied to the schemas to produce a boolean vector. 
 For our example \lstinline[language=json]|{"content": "Dragons"}|, the predicate/schema pairs evaluate to: \lstinline{[true, false]}. 
-The first boolean is \lstinline{true} because the field name is \lstinline[language=json]|"content"| and the value \lstinline[language=json]|"Dragons"| is a string type. 
+The first boolean is \lstinline{true} because the field name is \lstinline[language=json]|"content"| and the value \lstinline[language=json]|"Dragons"| is of string type. 
 The second boolean is \lstinline{false} because the field name is not \lstinline[language=json]|"author"|.
 The \leave function then combines the schema argument with this boolean Vector to compute the residual schema. 
-In our example the first predicate succeeds and so \leave returns the schema in which only the \lstinline[language=json]|"author"| field remains.
+In our example, the first predicate succeeds, so \leave returns the schema in which only the \lstinline[language=json]|"author"| field remains.
 The \leave function is well suited to memoization, since the input object values do not appear in the cache key.
 In our example, the input objects \lstinline[language=json]|{"content": "Dragons"}| and \lstinline[language=json]|{"content": "Eggs"}| both produce \lstinline{[true, false]} when evaluated on the predicates and so the memoization entry for \leave is reused.
 The factored derivative function is iteratively applied to the rest of the input to also end up with an empty schema, which matches the empty object, so the input is accepted.
@@ -563,7 +557,7 @@ With the foundations of regular expressions in place, we now return to regular h
 \subsection{Regular Hedge Grammars}
 
 \emph{Regular hedge grammars} constitute the theoretical framework most applicable to \XML~\cite{hosoya2010foundations} and other serialization formats.
-Any \XML, \JSON or Protocol Buffers data can be viewed as a \Hedge and schema languages, such as \RelaxNG, \DTD~\cite{dtd}, XMLSchema~\cite{xmlschema} and JSON~Schema~\cite{jsonschemafoundations} can all be translated to \emph{regular hedge grammars}~\cite{murata2005taxonomy} barring the \JSONSchema \uniqueItems operator, which is not regular~\cite{holstege2019application}.
+Any \XML, \JSON, or Protocol Buffers data can be viewed as a \Hedge, and schema languages such as \RelaxNG, \DTD~\cite{dtd}, XMLSchema~\cite{xmlschema}, and JSON~Schema~\cite{jsonschemafoundations} can all be translated to \emph{regular hedge grammars}~\cite{murata2005taxonomy}, barring the \JSONSchema \uniqueItems operator, which is not regular~\cite{holstege2019application}.
 
 A \emph{hedge} is an ordered list of unranked trees~\cite{tata} used to model semi-structured data formats. In Lean, we define a \Hedge inductively as follows:
 \begin{lstlisting}[label=Hedge]
@@ -709,8 +703,8 @@ With the \RegexKatydidDerive algorithm defined, let us move on to its role in re
 
 \subsection{Derivative of a Regular Hedge Grammar}
 
-\citet{holstege2019application} applied a derivative algorithm to JSON~Schema, we refer to this as the JSONmembers algorithm.
-They treat the derivative of a regular hedge grammar similar to the derivative of a regular expression, but with special handling for the \lstinline{symbol} case:
+\citet{holstege2019application} applied a derivative algorithm to JSON~Schema; we refer to this as the JSONmembers algorithm.
+They treat the derivative of a regular hedge grammar similarly to the derivative of a regular expression, but with special handling for the \lstinline{symbol} case:
 \begin{lstlisting}[label=def Grammar.JSONmembers.derive]
 def Grammar.JSONmembers.derive (G: Grammar n φ) (Φ: φ → α → Bool)
   (r: Regex (φ × Ref n)) (node: Node α): Regex (φ × Ref n) := match r with
@@ -722,10 +716,10 @@ def Grammar.JSONmembers.derive (G: Grammar n φ) (Φ: φ → α → Bool)
   termination_by (node, r)
 \end{lstlisting}
 Usually, \Lean can automatically detect that a function will terminate, but in some cases, the termination needs to be proved via \lstinline{termination_by}.
-Unfortunately, JSONmembers memoizes parameters with high variance, because the parameters are alphabet dependent and the \JSON member alphabet has high variance.
+Unfortunately, JSONmembers memoizes parameters with high variance because the parameters are alphabet dependent and the \JSON member alphabet has high variance.
 Katydid avoids this problem by handling the \lstinline{symbol} case within the \lstinline{nodePred} predicate.
 
-While the aim is to implement and verify a memoized variant, we first present its foundation, the non-memoized version of Katydid:
+While the aim is to implement and verify a memoized variant, we first present its foundation: the non-memoized version of Katydid.
 \begin{lstlisting}[label=def Grammar.Katydid.derive]
 def Grammar.Katydid.derive (G: Grammar n φ) (Φ: φ → α → Bool)
   (r: Regex (φ × Ref n)) (node: Node α): Regex (φ × Ref n) :=
@@ -741,7 +735,7 @@ Since regular expressions and labels are both predicates, their conjunction prov
 Also observe that \RegexKatydidDerive takes a partially applied predicate, where the \lstinline{α} has already been applied.
 This is done to make termination obvious to the checker since \GrammarKatydidDerive is the function that destructs the \Node.
 
-Both \JSONmembersRuleDerive and \GrammarKatydidDerive can be used to either validate a hedge against a regular hedge grammar or to filter a list of hedges:
+Both \JSONmembersRuleDerive and \GrammarKatydidDerive can be used to validate a hedge against a regular hedge grammar or to filter a list of hedges:
 \begin{lstlisting}
 def validate (G: Grammar n φ) (Φ: φ → α → Bool) (nodes: Hedge α): Bool :=
   Regex.null (List.foldl (derive G Φ) G.start nodes)
@@ -761,7 +755,7 @@ class Memoize [DecidableEq α] [Hashable α] {β: α -> Type} (f: (a: α) → β
 The return type is expressed as a \lstinline{Subtype}, \lstinline|{ b: β a // b = f a }|, which has a value \lstinline{b} and a property that the value is equal to the output value of the original non-memoized function \lstinline{f}.
 Other formalizations~\cite{formalmem} additionally have an invariant that input and output values have to be stored, but the \lstinline{Memoize} class allows various caching strategies, including limited space strategies.
 
-We define memoized versions of the derivative, validate, and filter functions for both regular expressions and regular hedge grammars, in \supplementarymaterial.
+We define memoized versions of the derivative, validate, and filter functions for both regular expressions and regular hedge grammars in \supplementarymaterial.
 Here is a filter type signature as an example:
 \begin{lstlisting}[label=def Grammar.Memoize.filter]
 def Grammar.Memoize.filter [DecidableEq φ] [Hashable φ] [Monad m]
@@ -780,8 +774,8 @@ This class allows one to specify a memoization strategy appropriate to the use c
 We adopt a strategy that records every invocation in a \lstinline{State} Monad.
 
 The memoized functions are updated to use monads and to propagate soundness via the \lstinline{Subtype}; otherwise, they are a one-to-one translation of the non-memoized functions.
-Propagating soundness required redefining some standard library functions (including \lstinline{List.foldlM},  \lstinline{Vector.mapM} and \lstinline{List.filterM}) to also propagate soundness.
-As part of the refactoring with monads, we replace the predicate \lstinline{nodePred}, passed to \RegexKatydidDerive, and give it the type \lstinline{σ → m Bool} to ensure the recursive use of memoization.
+Propagating soundness required redefining some standard library functions (including \lstinline{List.foldlM}, \lstinline{Vector.mapM}, and \lstinline{List.filterM}) to also propagate soundness.
+As part of the refactoring with monads, we replace the predicate \lstinline{nodePred} passed to \RegexKatydidDerive and give it the type \lstinline{σ → m Bool} to ensure the recursive use of memoization.
 
 \section{Verification}
 \label{section_verification}
@@ -942,23 +936,23 @@ All entries in the memoization tables of \enter and \leave can be precomputed wi
 \begin{lstlisting}[label=def Regex.compile]
 def Regex.compile [DecidableEq σ] [Hashable σ] [Monad m] [MemoizeKatydid m σ]
   (r: Regex σ): m Unit := do
-  _ ← List.mapM (as := Regex.derivatives r) (fun r => do
+  for r in Regex.derivatives r do
     _ ← MemoizeKatydid.enterM r
-    _ ← Vector.mapM (xs := (Vector.boolCombos (symcount r))) (fun bs => do
-      _ ← MemoizeKatydid.leaveM ⟨r, bs⟩))
+    for bools in Vector.boolCombos (symcount r) do
+      _ ← MemoizeKatydid.leaveM ⟨r, bools⟩
 \end{lstlisting}
-We make the assumption that \lstinline{Regex.derivatives} calculates a list of all derivatives of a regular expression that is bounded up to similarity.
-We have not formally verified that this list is bounded, but it has been proven for regular expressions by ~\citet{brzozowski1964derivatives}, formally verified by \citet{symbolicfinite}, and proven for the interleave operator~\cite{shuffle}.
+\lstinline{Regex.derivatives} calculates a list of all dissimilar derivatives of a regular expression.
+We have not formally verified that this list is finite, but it has been proven for regular expressions by ~\citet{brzozowski1964derivatives}, formally verified by \citet{symbolicfinite}, and proven for the interleave operator~\cite{shuffle}.
 In the case of \leave, we also have to calculate the extra input parameter of all boolean combinations, see \lstinline{Vector.boolCombos}.
-The rest of the boundedness is verified using Lean's termination checker.
-We extend this compilation to the whole grammar by calling \RegexCompile for each of the finite list of production rules, to complete the fully precomputed bounded memoization table.
+The fact that the memoization table has a bounded size is verified by Lean's termination checker.
+We extend this compilation to the whole grammar by calling \RegexCompile for each of the finite list of production rules, to complete the fully precomputed memoization table.
 % \Delta = Regex.derivatives
 % enter_keys = |\Delta|
 % maxs = max symcount \Delta
 % leaves_keys <= n * 2^maxs
 % total <= Num_prods * (max enter_keys + max leaves_keys)
-The size of the \enter and \leave memoization tables combined is at most
-$\sum_{r \in R}{|\Delta_r| + 2^{\max{|s(\Delta_r)|}}}$, where $R$ is \lstinline{G.prods} $\cup$ \lstinline{G.start}, $\Delta$ the list \lstinline{Regex.derivatives} and $s$ the function \symcount.
+As a result, the size of the \enter and \leave memoization tables combined is at most
+$\sum_{r \in R}{|\Delta_r| + 2^{\max{|s(\Delta_r)|}}}$, where $R$ is \lstinline{G.prods} $\cup$ \lstinline|{G.start}|, $\Delta_r$ the list \lstinline{Regex.derivatives r} and $s$ the function \symcount.
 
 \section{Go Implementation}
 \label{section_go}
@@ -1016,7 +1010,7 @@ def exampleParse [p: Parser m Token] [MonadExcept String m] [Monad m]: m Unit :=
   assertEq Hint.value (<- p.next); assertEq (Token.string "content") (<- p.token)
   assertEq Hint.enter (<- p.next); assertEq Hint.leave (<- p.next)
   assertEq Hint.leave (<- p.next) -- leave blogpost
-  assertEq Hint.eof (<- p.next)
+  assertEq Hint.eof   (<- p.next)
 \end{lstlisting}
 
 We built pull-based parsers for \JSON and Protocol Buffers that are optimized to avoid any allocation on the heap.
@@ -1034,7 +1028,7 @@ class FusedKatydid (m: Type → Type u) (σ: Type) (α: Type)
   [DecidableEq σ] [Hashable σ] extends
   Monad m, MonadExcept String m, Parser m α, MemoizeKatydids m σ
 \end{lstlisting}
-We created an alternative to the \MemoizeKatydid called \lstinline{MemoizeKatydids} that is exactly the same, except that it handles Vectors of regular expressions instead of single regular expressions.
+We created an alternative to the \MemoizeKatydid class called \lstinline{MemoizeKatydids} that handles Vectors of regular expressions instead of single regular expressions.
 This was necessary since the fused algorithm uses the \Parser, which is an online parser and therefore performs no backtracking, requiring the order of \Hedge traversal to be refactored:
 \begin{lstlisting}[label=def fusedDerive]
 partial def Grammar.Fused.derive
@@ -1057,13 +1051,12 @@ We start each call to \fusedDerive with a check to determine whether we can skip
 We then check if the \Hint is a \lstinline{value} or \lstinline{enter}, in which case we can either loop through all the values or recurse until a \lstinline{leave} \Hint is received.
 Handling this new traversal order requires the memoized functions (\lstinline{enterM} and \lstinline{leaveM}) to be adjusted to operate on a Vector of \Regex rather than a single \Regex.
 The newly adjusted functions \lstinline{entersM} and \lstinline{leavesM} require the length of the Vector to also be memoized; hence, the addition of \lstinline{l} in their dependent pair parameters, which is constructed using \lstinline{⟨⟩}.
-We use Lean's notation for Monads (\lstinline{do}, \lstinline{←} and \lstinline{<$>}), to check for errors and handle the mutation of the parser and memoization state.
+We use Lean's notation for Monads (\lstinline{do}, \lstinline{←} and \lstinline{<$>}, \lstinline{while}, \lstinline{return}), to check for errors and handle the mutation of the parser and memoization state.
 Notice that the predicate evaluation function \lstinline{Φ} is responsible for calling the \lstinline{token} method so that it is only done if it is truly necessary.
-Note that \fusedDerive is declared \lstinline{partial}, since even though it has been proven that calling \lstinline{next} always decreases the size of the parser for hedges, the \Parser class requires more properties to make proving termination in the general case possible.
+We define \fusedDerive using \lstinline{partial}, since we have not proven that it terminates.
 
 There are other optimizations not included here.
-For field names, Katydid finds all strings in predicates, such as equal, in \lstinline{drs} and creates a table from the product of these strings and \lstinline{drs} to \lstinline{childrs}.
-This avoids lots of predicate evaluations for field names.
+Evaluating the predicates can be expensive, but we optimize the many string equalities with various hash map strategies.
 The Vector \lstinline{childrs} is also compressed before calling \fusedDerive.
 This is done by removing duplicates, \lstinline{emptyset}, and \lstinline{starAny}.
 The resulting Vector \lstinline{childbs} is then decompressed to match the original length of \lstinline{childrs} using a Vector of indices that the compression function emitted.
@@ -1100,19 +1093,18 @@ def example_translated_jsonschema : Grammar 7 Pred := Grammar.mk
                   (optional (symbol (Pred.strEq "email", 3))))])
 \end{lstlisting}
 
-Most operators translate seamlessly; in particular, \lstinline[language=json]|"anyOf"|, \lstinline[language=json]|"allOf"|, \lstinline[language=json]|"oneOf"| and \lstinline[language=json]|"not"|.
+Most operators translate seamlessly, such as \lstinline[language=json]|"anyOf"|, \lstinline[language=json]|"allOf"|, \lstinline[language=json]|"oneOf"|, and \lstinline[language=json]|"not"|.
 Others posed a challenge: \lstinline[language=json]|"dependentRequired"|, overlapping \lstinline[language=json]|"patternProperties"| and \lstinline[language=json]|"additionalProperties"|.
 For example, if the \lstinline[language=json]|"additionalProperties"| field is not set, it defaults to true, which means other fields are allowed.
 Therefore, we need to add an extra constraint that matches any fields that were not already defined:
 \begin{lstlisting}
-star (symbol (Pred.not (Pred.or (Pred.strEq "content") (Pred.strEq "author"))), 1))
+star (symbol (Pred.not (Pred.or (Pred.strEq "content") (Pred.strEq "author")), 1))
 \end{lstlisting}
-%% TODO Walter: Check this is actually what the schema is translated to ^^
 
 We evaluated our translation against the \JSONSchema Draft4 test suite.
 Out of 924 total test cases, our implementation successfully passed 838.
 The failures were strictly isolated to test cases involving the unsupported features: \remoteRef and \uniqueItems.
-We also tested that our translation found all valid instances of the benchmarks valid and invalid instances invalid.
+We also tested whether our translation found all valid and invalid instances of the benchmarks, respectively valid and invalid.
 We leave it as future work to support more versions of \JSONSchema.
 
 \section{Benchmarks}
@@ -1123,7 +1115,7 @@ The benchmarks are completed on variations of the Katydid algorithm in Go.
 We include two variations of the Katydid algorithm: \emph{Memo} and \emph{Comp}.
 The \emph{Memo} version of the algorithm memoizes as the regular hedge grammar is exercised. 
 The \emph{Comp} version compiles the regular hedge grammar by prepopulating the memoization tables with all possibilities.
-We also include various implementations of the pull-based parser: Fused \JSON, Fused Proto and Steps, where we first deserialize into a Go structure and then parse the deserialized structure using Go reflection.
+We also include various implementations of the pull-based parser: Fused \JSON, Fused Proto, and a Go reflection based parser that first deserializes into a Go structure and then parses that structure using Go reflection.
 All benchmarks were run on a 2024 MacBook Pro M4 with 48 GB of memory.
 
 \subsection{Memoization Benchmarks}
@@ -1199,14 +1191,14 @@ Other cases where the parsed document is discarded include:
 In some cases, copying or translating the validator's parsed \JSON representation may not require reparsing.
 However, we use parsing time as an approximation of this additional cost, since we expect most users would rather reparse the \JSON in these scenarios.
 
-Outside of Katydid, the benchmarks include 18 implementations in various programming languages.
+We benchmark the compiled Katydid version against 18 implementations in various programming languages.
+In the API Gateway (reuse) benchmarks we use the unfused version of Katydid with the reflection based parser, since this is the only way that reuse would be possible.
 Each implementation is warmed up by first validating all the documents for over a hundred iterations.
 This implies the CPU caches are warmed up, JIT has been triggered, and also that our memoized solution has a populated table.
 This is representative of the real-world situations of an API gateway or filtering through petabytes of records.
 To ensure the statistical stability of benchmark runs, we take the mean of three execution times per the mean of all instances per schema and then report the median and mean over all the schemas per implementation.
 Details of how implementations were chosen can be found in the \supplementarymaterial.
 
-%% TODO Walter: Actually run all benchmarks locally 3 times and regenerate these tables.
 \begin{table}
 \caption{Filtering}
 \label{table_filtering}
@@ -1214,26 +1206,25 @@ Details of how implementations were chosen can be found in the \supplementarymat
 \begin{tabular}{ll|l|ll}
 \# & impl & language & median ns/doc & mean ns/doc \\
 \hline
-1 & Katydid-Comp-Fused & Golang & 1,416 & 10,029 \\
-2 & Katydid-Memo-Fused & Golang & 1,516 & 11,094 \\
-3 & Ajv & Javascript (Bun) & 2,122 & 7,337 \\
-4 & Blaze & C++ & 2,709 & 12,853 \\
-5 & JSU & Javascript (gen) & 2,733 & 10,531 \\
-6 & networknt & Java & 2,989 & 32,383 \\
-7 & boon & Rust & 3,322 & 38,180 \\
-8 & JSU & Python (gen) & 3,349 & 25,195 \\
-9 & Ajv & Javascript & 3,466 & 13,052 \\
-10 & JSU & C++ (gen) & 4,191 & 25,924 \\
-11 & santhosh-tekuri & Golang & 8,364 & 78,903 \\
-12 & JSU & Java (gen) & 10,301 & 30,195 \\
-13 & OptimumCode & Kotlin & 10,360 & 132,313 \\
-14 & JSV & Elixir & 11,997 & 369,631 \\
-15 & Corvus.JsonSchema & C\# (gen) & 13,084 & 42,618 \\
-16 & kaptinlin & Golang & 18,381 & 261,596 \\
-17 & json-everything & C\# & 29,705 & 683,088 \\
-18 & python-jsonschema & Python & 30,044 & 1,455,085 \\
-19 & JSONSchemer & Ruby & 40,890 & 715,202 \\
-20 & Hyperjump & Javascript & 214,007 & 624,645 \\
+1 & Katydid & Golang & 1,361 & 9,568 \\
+2 & Ajv-Bun & Javascript (gen) & 1,928 & 6,970 \\
+3 & Blaze & C++ & 2,645 & 12,729 \\
+4 & JSU & Javascript (gen) & 2,728 & 10,341 \\
+5 & networknt & Java & 3,000 & 32,474 \\
+6 & boon & Rust & 3,173 & 36,697 \\
+7 & JSU & Python (gen) & 3,336 & 25,231 \\
+8 & Ajv & Javascript (gen) & 3,572 & 12,629 \\
+9 & JSU & C++ (gen) & 4,139 & 25,724 \\
+10 & santhosh-tekuri & Golang & 7,993 & 78,244 \\
+11 & OptimumCode & Kotlin & 10,232 & 132,604 \\
+12 & JSU & Java (gen) & 10,310 & 30,663 \\
+13 & JSV & Elixir & 11,732 & 369,538 \\
+14 & Corvus & C\# (gen) & 12,813 & 42,210 \\
+15 & kaptinlin & Golang & 18,551 & 267,674 \\
+16 & json-everything & C\# & 28,390 & 695,042 \\
+17 & py-jsonschema & Python & 29,846 & 1,446,531 \\
+18 & JSONSchemer & Ruby & 41,906 & 728,676 \\
+19 & Hyperjump & Javascript & 212,527 & 621,062 \\
 \end{tabular}
 % END Generated tabular
 \end{table}
@@ -1245,12 +1236,12 @@ Details of how implementations were chosen can be found in the \supplementarymat
 \begin{tabular}{ll|l|ll}
 \# & impl & median ns/doc & mean ns/doc \\
 \hline
-1 & JSU & C++ (gen) & 143 & 1,386 \\
-2 & Blaze & C++ & 150 & 1,200 \\
-11 & Katydid-Comp-Steps & Golang & 1,702 & 19,674 \\
-12 & Katydid-Memo-Steps & Golang & 2,068 & 22,001 \\
-14 & santhosh-tekuri & Golang & 2,612 & 49,657 \\
-16 & kaptinlin & Golang & 11,974 & 244,765 \\
+1 & JSU & C++ (gen) & 136 & 1,397 \\
+2 & Blaze & C++ & 148 & 1,187 \\
+4 & Ajv & Javascript (Bun) & 329 & 2,836 \\
+11 & Katydid & Golang & 1,691 & 18,289 \\
+13 & santhosh-tekuri & Golang & 2,889 & 50,588 \\
+15 & kaptinlin & Golang & 12,466 & 247,007 \\
 \vdots & \vdots & \vdots & \vdots \\
 \multicolumn{5}{c}{This is an excerpt of the full table in the  \supplementarymaterial} \\
 \end{tabular}
@@ -1262,16 +1253,15 @@ The results show that Katydid has the fastest median latency for the filtering u
 Katydid achieves similar results in the API Gateway (discard) use case, which we include in the \supplementarymaterial.
 %% TODO Walter: check the results in API gateway (discard) use case are truly similar
 We also find that even though Katydid is not the fastest library for the API gateway (reuse) use case, it is still competitive and the fastest Go library; see \Cref{table_api_gateway_reuse}.
-% TODO Walter: Check if this is true: While go-santhosh-tekuri was the most efficient external Go library, katydid demonstrated superior performance across all Go-centric evaluations.
 
 Threats to the validity of benchmarking results:
 \begin{itemize}
-\item Katydid, Ajv, Blaze, JSONSchemer, JSU, OptimumCode, networknt, python-jsonschema return booleans and not detailed errors. In the invalid case, this gives them an advantage by not allocating memory over implementations that create descriptions of validation errors.
+\item Katydid, Ajv, Blaze, JSONSchemer, JSU, OptimumCode, networknt, py-jsonschema return booleans and not detailed errors. In the invalid case, this gives them an advantage by not allocating memory over implementations that create descriptions of validation errors.
 \item When Blaze parses \JSON, it also calculates hashes for field names, which allows it to perform faster string comparisons. One could argue that this is part of the validation calculation happening at parse time, and we should always add parse time to validation time. One could also argue that this is just a custom implementation of a hash map and a perfectly generic dictionary.
-\item JSU and Corvus.JsonSchema generate code in the target language, which is a big advantage for inlining many instructions. On the other hand, \citet{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema.
+\item JSU, AJV and Corvus generate code in the target language, which is a big advantage for inlining many instructions. On the other hand, \citet{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema.
 \item The Regular expression library chosen by each implementation to handle \JSONSchema patterns can make a big difference. We know that at least Blaze and Katydid also attempt a fast path for simple regular expressions like prefix, suffix, and character sets.
 \item The implementation language also skews results, see for example the big difference in performance between various versions of JSU.
-\item Very large schemas required the Katydid-Comp to fallback to the Katydid-Memo, since the Vector of booleans that needed to be calculated for the \leave table was larger than twenty, which would require calculating more than a million combinations. The fallback rarely happens, as it was only triggered by two of the benchmark schemas and none of the test suite cases.
+\item Very large schemas required the compiled version of Katydid to fallback to the memoized version, since the Vector of booleans that needed to be calculated for the \leave table was larger than twenty, which would require calculating more than a million combinations. There is work to be done to eliminate the impossible cases, since many of the predicates are disjoint. The fallback rarely happens, as it was only triggered by two of the benchmark schemas and none of the test suite cases. 
 \end{itemize}
 
 A use case we did not benchmark is deserializing directly into the specialized structure and then validating this structure.
@@ -1356,7 +1346,7 @@ Although pragmatic and user-friendly, there is room for more efficiency consider
 
 We provide the highly memoized Katydid algorithm for filtering millions of records per second.
 %% TODO Walter: check that we are the fastest, otherwise "one of the fastest"
-We benchmarked against \JSONSchema implementations and found that we are fastest in the filtering use case, mainly because we used a fused algorithm that avoids creating intermediate parsing data structures.
+We benchmarked against \JSONSchema implementations and found that we are the fastest in the filtering use case, mainly because we used a fused algorithm that avoids creating intermediate parsing data structures.
 As far as we know, we provide the first verification, in an interactive theorem prover, of algorithms for the validation of regular hedge grammars using derivatives.
 We chose a generic representation of serialization formats and schema languages, a \Hedge and a symbolic regular hedge grammar, which makes this algorithm and verification applicable to any schema language that can be translated to these general types.
 
