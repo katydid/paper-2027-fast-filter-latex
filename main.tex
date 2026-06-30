@@ -423,26 +423,6 @@ Values such as titles, usernames, timestamps, identifiers, and text fields vary 
 Therefore, memoization keys do not get reused, and memoization is not effective. 
 For the first derivative in our example schema, the input objects \lstinline[language=json]|{"content": "Dragons"}| and \lstinline[language=json]|{"content": "Eggs"}| result in the same residual schema but have different memoization keys.
 The Katydid algorithm makes memoization effective by factoring the derivative into three stages: \enter, predicate evaluation, and \leave. 
-% \begin{figure}[t]
-% \centering
-% \begin{tikzpicture}[>=Stealth,
-%   box/.style={draw, rounded corners, align=center, inner sep=4pt, font=\small},
-%   key/.style={font=\scriptsize\itshape, text=gray, align=center}]
-%   \node[box]     (enter) {\textsf{enter}\\ $B \mapsto [(p_1, s_1), (p_2, s_2)]$};
-%   \node[box, right=10mm of enter] (eval)  {evaluate};
-%   \node[box, right=10mm of eval]  (leave) {\textsf{leave}\\$(B, [\mathsf{true}, \mathsf{false}]) \mapsto B'$};
-%   \node[key, below=2mm of enter] {cache key: $B$\\(alphabet-independent)};
-%   \node[key, below=2mm of leave] {cache key: $(B,\ \text{Bool Vector})$\\(alphabet-independent)};
-%   \node[box, fill=black!4, above=9mm of eval] (inp) {input node \texttt{\{content:"Dragons"\}}};
-%   \draw[->] (enter) -- (eval);
-%   \draw[->] (eval) -- (leave);
-%   \draw[->] (inp) -- (eval);
-%   \node[font=\scriptsize, above=1mm of inp] {the \emph{only} stage that reads input data};
-% \end{tikzpicture}
-% \caption{The \textsf{enter}/evaluate/\textsf{leave} factorisation on one node of the blog post schema. High-variance input data enters only at the middle stage; the two memoised stages are keyed solely by the schema $r$ and a Boolean Vector, which is what makes the caches alphabet independent.}
-% \Description[enter evaluate leave factorisation]{A left-to-right pipeline: schema r, then enter producing a Vector of symbols, then evaluate producing a Boolean Vector from the input node, then leave producing the residual schema. Only the evaluate stage reads the input node.}
-% \label{fig:enter-leave}
-% \end{figure}
 The \enter function is well suited to memoization because its only argument is the schema. 
 For the first derivative in our example, \enter extracts two predicate/schema pairs from the schema:
 \begin{itemize}
@@ -450,18 +430,16 @@ For the first derivative in our example, \enter extracts two predicate/schema pa
   \lstinline[language=json]|{"type": "string"}| schema; and
   \item the \lstinline[language=json]|"author"| field predicate and the referenced \lstinline[language=json]|"user-profile"| schema.
 \end{itemize}
-After extracting these predicates, the input object is evaluated against them, and the algorithm is recursively applied to the schemas to produce a Boolean Vector. 
+After extracting these predicates, the input object is evaluated against them, and the algorithm is recursively applied to the schemas to produce a boolean Vector. 
 For our example \lstinline[language=json]|{"content": "Dragons"}|, the predicate/schema pairs evaluate to: \lstinline{[true, false]}. 
-The first Boolean is \lstinline{true} because the field name is \lstinline[language=json]|"content"| and the value \lstinline[language=json]|"Dragons"| is of string type. 
-The second Boolean is \lstinline{false} because the field name is not \lstinline[language=json]|"author"|.
-The \leave function then combines the schema argument with this Boolean Vector to compute the residual schema. 
+The first boolean is \lstinline{true} because the field name is \lstinline[language=json]|"content"| and the value \lstinline[language=json]|"Dragons"| is of string type. 
+The second boolean is \lstinline{false} because the field name is not \lstinline[language=json]|"author"|.
+The \leave function then combines the schema argument with this boolean Vector to compute the residual schema. 
 In our example, the first predicate succeeds, so \leave returns the schema in which only the \lstinline[language=json]|"author"| field remains.
 The \leave function is well suited to memoization, since the input object values do not appear in the cache key.
-%In our example, the input objects \lstinline[language=json]|{"content": "Dragons"}| and \lstinline[language=json]|{"content": "Eggs"}| both produce \lstinline{[true, false]} when evaluated on the predicate/schema pairs, and so the memoization entry for \leave is reused~(Figure~\ref{fig:memo-tables}).
-In our example, \lstinline[language=json]|{"content": "Dragons"}| and \lstinline[language=json]|{"content": "Eggs"}| share a single leave entry~(Figure~\ref{fig:memo-tables}). 
-%since the input values never enter the cache key.
-\begin{figure}[t]
-\centering
+In our example, the input objects \lstinline[language=json]|{"content": "Dragons"}| and \lstinline[language=json]|{"content": "Eggs"}| both produce \lstinline{[true, false]} when evaluating the predicate/schema pairs, and so the memoization entry for \leave is reused, see \Cref{fig:memo-tables}.
+No input value ever appears in the keys.
+\begin{figure}
 \small
 \begin{tabular}{@{}ll@{}}
 \toprule
@@ -472,8 +450,6 @@ key: schema & value: predicate/schema pairs\\
 blogpost & [(\lstinline[language=json]|"content"|,...), (\lstinline[language=json]|"author"|,...)]\\
 user-profile & [(\lstinline[language=json]|"username"|,...), (\lstinline[language=json]|"email"|,...)]\\
 \vdots & \vdots \\
-% type:string & [(\ \lstinline[language=json]|{"type":"string"}|,\ \lstinline[language=json]|{}|)] \\
-% type:email & [(\ \lstinline[language=json]|{"format":"email"}|,\ \lstinline[language=json]|{}|)] \\
 \bottomrule
 \end{tabular}
 \hspace{8mm}
@@ -481,21 +457,21 @@ user-profile & [(\lstinline[language=json]|"username"|,...), (\lstinline[languag
 \toprule
 \multicolumn{2}{@{}l}{\textbf{\textsf{leave} table}\quad(key: schema/Vector pairs)}\\
 \midrule
-key (schema, $\overrightarrow{Bool}$) & value: residual schema\\
+key (schema, $\overrightarrow{boolean}$) & value: residual schema\\
 \midrule
 (blogpost, [\lstinline{true}, \lstinline{false}]) & optional \lstinline[language=json]|"author"|\\
 (user-profile, [\lstinline{true}, \lstinline{false}]) & optional \lstinline[language=json]|"email"|\\
 \vdots & \vdots \\
 \bottomrule
 \end{tabular}
-\caption{The two bounded memoisation tables. Because predicate evaluation happens before the key is formed, the distinct inputs \texttt{\{content:"Dragons"\}} and \texttt{\{content:"Eggs"\}} both produce the Boolean Vector $[\mathsf{true}, \mathsf{false}]$ and therefore \emph{share} the single \textsf{leave} entry $(blogpost, [\mathsf{true}, \mathsf{false}])$. No input value ever appears in a key.}
-\Description[Two memoisation tables]{The enter table maps a Schema to its Vector of predicate/schema pairs. The leave table maps a pair of a Schema and a Boolean Vector to a residual Schema. Two different inputs that evaluate to the same Boolean Vector share a single leave entry.}
+\caption{The bounded memoization tables for \enter and \leave}
+\Description[Two memoization tables]{The enter table maps a Schema to its Vector of predicate/schema pairs. The leave table maps a pair of a Schema and a boolean Vector to a residual Schema. Two different inputs that evaluate to the same boolean Vector share a single leave entry.}
 \label{fig:memo-tables}
 \end{figure}
 
 The factored derivative function is iteratively applied to the rest of the input to also end up with an empty schema, which matches the empty object, so the input is accepted.
 The Katydid algorithm moves high-variance input data out of memoized keys.
-Input objects are used only during predicate evaluation, but the memoization keys in \enter and \leave are alphabet independent, since they depend only on the schema argument and a Boolean Vector.
+Input objects are used only during predicate evaluation, but the memoization keys in \enter and \leave are alphabet independent, since they depend only on the schema argument and a boolean Vector.
 
 \section{The Katydid Algorithm}\label{section_algorithm}
 
@@ -520,7 +496,7 @@ def optional (r: Regex σ) := or r emptystr
 def starAny: Regex σ := complement emptyset
 def contains (r: Regex σ) := concat starAny (concat r starAny)
 \end{lstlisting}
-Note that \lstinline{cond} is an instance of \lstinline{Decidable}, which makes it possible to use it as if it were a Boolean in an if expression's condition.
+Note that \lstinline{cond} is an instance of \lstinline{Decidable}, which makes it possible to use it as if it were a boolean in an if expression's condition.
 These extra operators and helper functions are used by both \RelaxNG and \JSONSchema, as well as in our examples and benchmarks.
 
 \subsection{Derivative of a Regular Expression}
@@ -713,7 +689,7 @@ The next step is to evaluate all the symbols by applying \lstinline{Vector.map �
 If care is not taken, this could trigger a heap allocation in Go, which is costly in the context of this algorithm.
 There are several ways to avoid this heap allocation.
 In Go, one can pre-allocate a reusable buffer.
-In Lean, we define an alternative to the memoized \enter function, \lstinline{IfExpr.enter}, which returns a nested if expression over the symbols and all possible Boolean \lstinline{Vector} combinations.
+In Lean, we define an alternative to the memoized \enter function, \lstinline{IfExpr.enter}, which returns a nested if expression over the symbols and all possible boolean \lstinline{Vector} combinations.
 The definitions and proofs are available in the \supplementarymaterial.
 The drawback of \lstinline{IfExpr.enter} is an exponential blow-up in the space required for memoization.
 
@@ -942,7 +918,7 @@ theorem derive_commutes (G: Grammar n φ) Φ [DecidableRel Φ]
   Rule.denote G Φ (derive G (decideRel Φ) r node)
   = Lang.derive (Rule.denote G Φ r) node
 \end{lstlisting}
-Note that we use \decideRel to convert a decidable relation that returns a property to a decidable predicate that returns a Boolean:
+Note that we use \decideRel to convert a decidable relation that returns a property to a decidable predicate that returns a boolean:
 \begin{lstlisting}[label=def decideRel]
 def decideRel (p : α → β → Prop) [DecidableRel p]: α → β → Bool :=
   fun a b => decide (p a b)
@@ -995,7 +971,7 @@ def Regex.compile [DecidableEq σ] [Hashable σ] [Monad m] [MemoizeKatydid m σ]
 \end{lstlisting}
 \lstinline{Regex.derivatives} calculates a list of all dissimilar derivatives of a regular expression.
 We have not formally verified that this list is finite, but it has been proven for regular expressions by ~\citet{brzozowski1964derivatives}, formally verified by \citet{symbolicfinite}, and proven for the interleave operator~\cite{shuffle}.
-In the case of \leave, we also have to calculate the extra input parameter for all Boolean combinations; see \lstinline{Vector.boolCombos}.
+In the case of \leave, we also have to calculate the extra input parameter for all boolean combinations; see \lstinline{Vector.boolCombos}.
 Lean's notation for Monads (\lstinline{do}, \lstinline{←}) updates the memoization tables and includes support for imperative \lstinline{for} loops.
 The fact that the memoization table, as computed by \lstinline{Regex.compile}, has a bounded size is verified by Lean's termination checker.
 We extend this compilation to the whole grammar by calling \RegexCompile for each of the finite list of production rules to complete the fully precomputed memoization table.
@@ -1005,7 +981,8 @@ We extend this compilation to the whole grammar by calling \RegexCompile for eac
 % leaves_keys <= n * 2^maxs
 % total <= Num_prods * (max enter_keys + max leaves_keys)
 As a result, the combined number of entries in the \enter and \leave memoization tables is at most
-$\sum_{r \in R}{|\Delta_r| + 2^{\max{(|\Delta_r|_s)}}}$, where $R$ is \lstinline{G.prods} $\cup$ \lstinline|{G.start}|, $\Delta_r$ is the list \lstinline{Regex.derivatives r}, and $||_s$ is the function \symcount.
+$\sum_{r \in R}{|\Delta_r| + 2^{\mathsf{maxs}(\Delta_r)}}$, 
+where $R$ is \lstinline{G.prods} $\cup$ \lstinline|{G.start}|, $\Delta_r$ is the list \lstinline{Regex.derivatives r}, and $\mathsf{maxs}$ is the maximum \symcount.
 
 \section{Go Implementation}
 \label{section_go}
@@ -1313,12 +1290,12 @@ Finally, we find that even though Katydid is not the fastest library for the API
 
 Threats to the validity of benchmarking results:
 \begin{itemize}
-\item Katydid, Ajv, Blaze, JSONSchemer, JSU, OptimumCode, networknt, py-jsonschema return Booleans and not detailed errors. In the invalid case, this gives them an advantage by not allocating memory over implementations that create descriptions of validation errors.
+\item Katydid, Ajv, Blaze, JSONSchemer, JSU, OptimumCode, networknt, py-jsonschema return booleans and not detailed errors. In the invalid case, this gives them an advantage by not allocating memory over implementations that create descriptions of validation errors.
 \item When Blaze parses \JSON, it also calculates hashes for field names, which allows it to perform faster string comparisons. One could argue that this is part of the validation calculation happening at parse time, and we should always add parse time to validation time. One could also argue that this is just a custom implementation of a hash map and a perfectly generic dictionary, which would be reused.
 \item JSU, AJV and Corvus generate code in the target language, which is a big advantage for inlining many instructions. On the other hand, \citet{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema in the API Gateway use cases, but this might not be viable, depending on the exact nature of the Filtering use case.
 \item The Regular expression library chosen by each implementation to handle \JSONSchema patterns can make a big difference. We know that at least Blaze and Katydid attempt a fast path for simple regular expressions like prefix, suffix, and character sets.
 \item The implementation language also skews results; see, for example, the big difference in performance between various versions of JSU.
-\item Very large schemas required the Comp version of Katydid to fall back to the Memo version since the Vector of Booleans that needed to be calculated for the \leave table was larger than twenty, which would require calculating more than a million combinations. There is work to be done to eliminate the impossible cases since many of the predicates are disjoint. The fallback rarely happens, though, as it was only triggered by two of the benchmark schemas and none of the test suite cases. 
+\item Very large schemas required the Comp version of Katydid to fall back to the Memo version since the Vector of booleans that needed to be calculated for the \leave table was larger than twenty, which would require calculating more than a million combinations. There is work to be done to eliminate the impossible cases since many of the predicates are disjoint. The fallback rarely happens, though, as it was only triggered by two of the benchmark schemas and none of the test suite cases. 
 \end{itemize}
 
 A use case we did not benchmark is deserializing directly into the user-defined data structure and then validating this structure.

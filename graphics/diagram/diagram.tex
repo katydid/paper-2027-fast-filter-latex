@@ -23,13 +23,13 @@ stringstyle=\color{stringcolor}
 \begin{document}
 
 \begin {tikzpicture}[-latex, auto, node distance =2 cm and 5cm, on grid, semithick, state/.style={rectangle, draw, black, text=black, minimum width=1 cm}]
-\node[state] (R) {\lstinline{Rule}};
-\node[state] (DR) [below =of R] {derived \lstinline{Rule}};
-\node[state] (S) [right =of R] {\lstinline{Lang}};
-\node[state] (DS) [right =of DR] {derived \lstinline{Lang} };
-\path (R) edge  node[left] { \lstinline{Grammar.derive} } (DR);
-\path (DR) edge  node[below =0.15 cm] { \lstinline{Rule.denote} } (DS);
-\path (R) edge  node[above =0.15 cm] { \lstinline{Rule.denote} } (S);
+\node[state] (R) {\lstinline{r: Regex (φ × Ref n)}};
+\node[state] (DR) [below =of R] {\lstinline{r'}};
+\node[state] (S) [right =of R] {$\llbracket$\lstinline{r}$\rrbracket$};
+\node[state] (DS) [right =of DR] {$\llbracket$\lstinline{r}$\rrbracket$\lstinline{'} = $\llbracket$\lstinline{r'}$\rrbracket$ };
+\path (R) edge  node[left] { \lstinline{derive} } (DR);
+\path (DR) edge  node[below =0.15 cm] { \lstinline{denote} } (DS);
+\path (R) edge  node[above =0.15 cm] { \lstinline{denote} } (S);
 \path (S) edge  node[right] { \lstinline{Lang.derive} } (DS);
 \end{tikzpicture}
 
