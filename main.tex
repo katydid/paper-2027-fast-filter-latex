@@ -631,11 +631,8 @@ The following example illustrates a regular hedge grammar:
 \begin{lstlisting}[label=def example_grammar_doc]
 def example_grammar_doc: Grammar 3 (Pred String) :=
   Grammar.mk (start := Regex.symbol (Pred.eq "doc", 0))
-    (prods := #v[
-      Regex.oneOrMore (Regex.symbol (Pred.eq "p", 1)),
-      Regex.symbol (Pred.any, 2),
-      Regex.emptystr,
-    ])
+    (prods := #v[Regex.oneOrMore (Regex.symbol (Pred.eq "p", 1)),
+      Regex.symbol (Pred.any, 2), Regex.emptystr])
 \end{lstlisting}
 Note, the \lstinline{Vector} of production rules is constructed with the macro \lstinline{#v[]}.
 This grammar validates the \XML snippet \lstinline{<doc><p><pcdata/></p><p><br/></p></doc>}.
@@ -807,10 +804,10 @@ We instantiate \MemoizeKatydid with a \lstinline{State} monad and two hashtables
 
 It remains to show that the semantics of a regular hedge grammar coincide with the implementation of the Katydid algorithm:
 \begin{lstlisting}[label=theorem validate_commutes]
-theorem validate_commutes (G: Grammar n φ) Φ [DecidableRel Φ] (nodes: Hedge α):
-  (validate G (decideRel Φ) nodes = true) = Grammar.denote G Φ nodes
+theorem validate_commutes (G: Grammar n φ) Φ [DecidableRel Φ] (h: Hedge α):
+  (validate G (decideRel Φ) h = true) = Grammar.denote G Φ h
 \end{lstlisting}
-The \lstinline{validate} function accepts a hedge if and only if it is described by the grammar, i.e. if \lstinline{nodes}~\lstinline{∈}~$\llbracket$\lstinline{G}$\rrbracket$.
+The \lstinline{validate} function accepts a hedge if and only if it is described by the grammar, i.e. if \lstinline{h}~\lstinline{∈}~$\llbracket$\lstinline{G}$\rrbracket$.
 To understand this theorem, we first explain how denotation defines the semantics.
 
 \subsection{Semantics}
@@ -830,28 +827,28 @@ def Lang.derive (R: Lang α) (x: α): Lang α := fun (xs: List α) => R (x :: xs
 \end{lstlisting}
 We specify the semantics of a \Grammar as the denotation of the start rule:
 \begin{lstlisting}[label=def Rule.denote]
-def Grammar.denote (G: Grammar n φ) (Φ: φ → α → Prop) (nodes: Hedge α): Prop :=
-  Rule.denote G Φ G.start nodes
+def Grammar.denote (G: Grammar n φ) (Φ: φ → α → Prop) (h: Hedge α): Prop :=
+  Rule.denote G Φ G.start h
 def Rule.denote (G: Grammar n φ) (Φ: φ → α → Prop)
-  (r: Regex (φ × Ref n)) (nodes: Hedge α): Prop := match r with
+  (r: Regex (φ × Ref n)) (h: Hedge α): Prop := match r with
   | Regex.emptyset => False
-  | Regex.emptystr => nodes = []
-  | Regex.symbol (pred, ref) => match nodes with
-    | [node] => (Φ pred node.getLabel)
-                 ∧ denote G Φ (G.lookup ref) node.getChildren
+  | Regex.emptystr => h = []
+  | Regex.symbol (pred, ref) => match h with
+    | [hnode] => (Φ pred hnode.getLabel)
+                 ∧ denote G Φ (G.lookup ref) hnode.getChildren
     | _ => False
-  | Regex.or r1 r2 => (denote G Φ r1 nodes) ∨ (denote G Φ r2 nodes)
-  | Regex.concat r1 r2 => ∃ (i: Fin (nodes.length + 1)),
-      (denote G Φ r1 (List.take i nodes)) ∧ (denote G Φ r2 (List.drop i nodes))
-  | Regex.star r1 => match nodes with
+  | Regex.or r1 r2 => (denote G Φ r1 h) ∨ (denote G Φ r2 h)
+  | Regex.concat r1 r2 => ∃ (i: Fin (h.length + 1)),
+      (denote G Φ r1 (List.take i h)) ∧ (denote G Φ r2 (List.drop i h))
+  | Regex.star r1 => match h with
     | [] => True
-    | (node::nodes') => ∃ (i: Fin nodes.length),
-                        (denote G Φ r1 (node::List.take i nodes'))
-                        ∧ (denote G Φ (Regex.star r1) (List.drop i nodes'))
-  | Regex.interleave r1 r2 => ∃ (i: Fin (List.interleaves nodes).length),
-        (denote G Φ r1 (List.get (List.interleaves nodes) i).1)
-      ∧ (denote G Φ r2 (List.get (List.interleaves nodes) i).2)
-  termination_by (nodes, r)
+    | (hnode::h') => ∃ (i: Fin h.length),
+                        (denote G Φ r1 (hnode::List.take i h'))
+                        ∧ (denote G Φ (Regex.star r1) (List.drop i h'))
+  | Regex.interleave r1 r2 => ∃ (i: Fin (List.interleaves h).length),
+        (denote G Φ r1 (List.get (List.interleaves h) i).1)
+      ∧ (denote G Φ r2 (List.get (List.interleaves h) i).2)
+  termination_by (h, r)
 \end{lstlisting}
 We base this denotation on the denotation of regular expressions~\cite{elliott2021symbolic} and prove it to be equivalent to any alterations we made in the \supplementarymaterial, except for the \lstinline{symbol} and \lstinline{interleave} operators, which we had to define ourselves.
 The \lstinline{emptyset} specifies a set that contains nothing, while the \lstinline{emptystr} is a singleton set containing the empty list.
@@ -885,7 +882,7 @@ This renders \RegexDenote and \RuleDenote analogous, as both amount to checking 
 The proof of \refcode{theorem validate_commutes} requires two theorems.
 The first theorem states that the denotation of a \Grammar matching the empty list is equivalent to the definition of \RegexNull:
 \begin{lstlisting}
-theorem null_commutes (G: Grammar n φ) (Φ: φ → α → Prop) [DecidableRel Φ] r:
+theorem null_commutes (G: Grammar n φ) (Φ: φ -> α -> Prop) [DecidableRel Φ] r:
   ((Regex.null r) = true) = Lang.null (Rule.denote G Φ r)
 \end{lstlisting}
 This proof follows from induction on the regular expression \lstinline{r}.
@@ -920,7 +917,7 @@ All cases are trivial except for the symbol case, where we additionally perform 
 Next, we prove \TheoremDeriveCommutes for \GrammarKatydidDerive.
 For each operator except \lstinline{symbol}, we complete the proof by induction on the regular expression, undoing the partial application of the \Node, permuting the parameters, and applying \refcode{theorem Regex.Katydid.derive_is_Regex_derive}, which establishes the equivalence of \RegexKatydidDerive and \RegexDerive:
 \begin{lstlisting}[label=theorem Regex.Katydid.derive_is_Regex_derive]
-theorem Regex.Katydid.derive_is_Regex_derive (Φ: σ → α → Bool) (r: Regex σ) a:
+theorem Regex.Katydid.derive_is_Regex_derive (Φ: σ → α → Bool) r a:
   Regex.Katydid.derive (flip Φ a) r = Regex.derive Φ r a
 \end{lstlisting}
 This is proven by \refcode{theorem extract_replace_is_map} and \refcode{theorem regex_derive_is_point_derive}.
@@ -1004,9 +1001,10 @@ To avoid unnecessary parsing, the value, such as a 64-bit integer, is only parse
 Our \Parser implementations are all of type \Parser \Token, which means the \lstinline{token} method returns a \Token:
 \begin{lstlisting}[label=Token]
 inductive Token where
-  | null | bool (value: Bool) | string (value: String) | bytes (value: Bytes)
-  | int64 (value: Int64) | float64 (value: Float64Bits) | decimal (value: String)
-  | nanoseconds (value: Int64) | datetime (value: String) | tag (value: String) 
+  | null | bool (v: Bool) | string (v: String) | bytes (v: Bytes)
+  | int64 (v: Int64) | float64 (v: Float64Bits) | decimal (v: String)
+  | nanoseconds (v: Int64) | datetime (v: String) | tag (v: String)
+  deriving DecidableEq, Ord, Repr, Hashable
 \end{lstlisting}
 We base our set of token kinds on a survey of serialization formats conducted by ~\citet{survey}.
 We also introduce a \lstinline{skip} method to avoid the parsing of children.
@@ -1021,12 +1019,12 @@ Consider the following \Hedge representation of the \JSON example discussed earl
 \end{lstlisting}
 We can parse it using an implementation of our \Parser for Hedges:
 \begin{lstlisting}
-def exampleParse [p: Parser m Token] [MonadExcept String m] [Monad m]: m Unit := do
+def exampleParse [p: Parser m Token] ...: m Unit := do
   assertEq (← p.next) Hint.enter -- enter blogpost
-  assertEq (← p.next) Hint.value; assertEq (← p.token) (Token.string "author")
+  assertEq (← p.next) Hint.value; assertEq (← p.token) (string "author")
   _ ← p.skip                     -- skip author's children, username, ...
-  assertEq (← p.next) Hint.value; assertEq (← p.token) (Token.string "content")
-  assertEq (← p.next) Hint.enter; assertEq (← p.next) Hint.leave -- empty content
+  assertEq (← p.next) Hint.value; assertEq (← p.token) (string "content")
+  assertEq (← p.next) Hint.enter; assertEq (← p.next) Hint.leave
   assertEq (← p.next) Hint.leave -- leave blogpost
   assertEq (← p.next) Hint.eof
 \end{lstlisting}
@@ -1092,10 +1090,9 @@ To achieve this, we implement our own translation algorithm from \JSONSchema to 
 To illustrate our translation, consider the following trivial example of how the \JSON is parsed.
 The \JSON \lstinline[language=json]|{"a": ["b", "c"]}| is represented as the following \Hedge, abstracted away behind a performant, pull-based parser: 
 \begin{lstlisting}
-[node (tag "object") [
-   node (string "a") [
-     node (tag "array") [
-       node (int64 0) [node (string "b") []], node (int64 1) [node (string "c") []]]]]]
+[node (tag "object") [node (string "a") [node (tag "array") [
+  node (int64 0) [node (string "b") []],
+  node (int64 1) [node (string "c") []]]]]]
 \end{lstlisting}
 The objects and arrays are tagged with labels to help us support JSON~Schema's \lstinline[language=json]|{"type": "object"}| and \lstinline[language=json]|{"type": "array"}|. The arrays are indexed, which makes them behave similarly to objects with field names.
 Finally, the \Hedge is parameterized over the \Token type.
@@ -1103,20 +1100,20 @@ Finally, the \Hedge is parameterized over the \Token type.
 We can translate the \jsonlink{"small jsonschema for a blogpost"}{jsonschema_blogpost} example into a regular hedge grammar:
 \begin{lstlisting}
 def example_translated_jsonschema : Grammar 7 Pred := Grammar.mk
-  (start := (symbol (Pred.tagEq "object", 4)))
-  (prods := #v[emptystr, starAny, symbol (Pred.string, 0), symbol (Pred.email, 0)
-    , (interleave (symbol (Pred.strEq "content", 2))
-                  (optional (symbol (Pred.strEq "author", 5))))
-    , (symbol (Pred.tagEq "object", 6))
-    , (interleave (symbol (Pred.strEq "username", 2))
-                  (optional (symbol (Pred.strEq "email", 3))))])
+  (start := (symbol (tagEq "object", 4)))
+  (prods := #v[emptystr, starAny, symbol (string, 0), symbol (email, 0)
+    , (interleave (symbol (strEq "content", 2))
+                  (optional (symbol (strEq "author", 5))))
+    , (symbol (tagEq "object", 6))
+    , (interleave (symbol (strEq "username", 2))
+                  (optional (symbol (strEq "email", 3))))])
 \end{lstlisting}
 Most operators translate seamlessly, such as \lstinline[language=json]|"anyOf"|, \lstinline[language=json]|"allOf"|, \lstinline[language=json]|"oneOf"|, and \lstinline[language=json]|"not"|.
 Others posed a challenge: \lstinline[language=json]|"dependentRequired"|, \lstinline[language=json]|"patternProperties"| and \lstinline[language=json]|"additionalProperties"|.
 For example, if the \lstinline[language=json]|"additionalProperties"| field is not set, it defaults to true, which means other fields are allowed.
 Therefore, we need to add an extra constraint that matches any fields that were not already defined:
 \begin{lstlisting}
-star (symbol (Pred.not (Pred.or (Pred.strEq "content") (Pred.strEq "author")), 1))
+star (symbol (not (or (strEq "content") (strEq "author")), 1))
 \end{lstlisting}
 We evaluated our translation against the \JSONSchema Draft4 test suite.
 Out of 924 total test cases, our implementation successfully passed 838.
@@ -1146,8 +1143,7 @@ def complex: Grammar 7 (Pred String) :=
   mk (interleave (eq ("Due", 1)) (interleave (eq ("Loc", 5)) starAny)) #v[emptystr,
     or (field ("Year", 2)) (and (field ("Year", 3)) (field ("Month", 4))),
     eq ("2026", 0), eq ("2025", 0), symbol (Pred.ge "10", 0),
-    field ("Cont", 6), eq ("EU", 0),
-  ]
+    field ("Cont", 6), eq ("EU", 0)]
 def eq (v: α × Fin n) := symbol (Pred.eq v.1, v.2)
 def field (v: α × Fin n) := contains (symbol (Pred.eq v.1, v.2))
 \end{lstlisting}
@@ -1313,7 +1309,7 @@ Each invocation of \lstinline{startTagOpenDeriv} on a \lstinline{<div>} produces
 \begin{lstlisting}
 after (g.lookup 0) emptystr -- <div><div></div></div></div>
 after (g.lookup 0) (after emptystr emptystr) -- <div></div></div></div>
-after (g.lookup 0) (after emptystr (after emptystr emptystr)) -- </div></div></div>
+after (g.lookup 0) (after emptystr (after emptystr emptystr))
 \end{lstlisting}
 This makes it impossible to always build a fully memoized version of the functions up front, since the state space is technically unbounded.
 In practice, recursion depths are shallow, so after validating a few documents, memoization tables are hit frequently, whereas Katydid's memoization tables are hit after the first recursive step.
