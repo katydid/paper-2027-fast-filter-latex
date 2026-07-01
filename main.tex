@@ -1266,7 +1266,7 @@ In the API Gateway (discard) use case, which we include in the \supplementarymat
 In this use case, Ajv-Bun is the fastest for 22 out of the 45 schemas, and Katydid is the fastest for 21 others.
 Finally, we find that even though Katydid is not the fastest library for the API gateway (reuse) use case, it is still competitive and the fastest Go library; see \Cref{table_api_gateway_reuse}.
 
-Threats to the validity of benchmarking results:
+Threats to the validity of benchmarking results include:
 \begin{itemize}
 \item Katydid, Ajv, Blaze, JSONSchemer, JSU, OptimumCode, networknt, py-jsonschema return booleans and not detailed errors. In the invalid case, this gives them an advantage by not allocating memory over implementations that create descriptions of validation errors.
 \item When Blaze parses \JSON, it also calculates hashes for field names, which allows it to perform faster string comparisons. One could argue that this is part of the validation calculation happening at parse time, and we should always add parse time to validation time. One could also argue that this is just a custom implementation of a hash map and a perfectly generic dictionary, which would be reused.
@@ -1357,11 +1357,12 @@ Although pragmatic and user-friendly, there is room for more efficiency consider
 \section{Conclusions}
 \label{section_future}
 
-We provide the fused-memoized derivative-based Katydid algorithm for the validation of semi-structured data.
-We chose a generic representation of serialization formats and schema languages, a \Hedge and a symbolic regular hedge grammar, which makes this algorithm and verification applicable to any schema language and data format that can be translated into these general types.
-This algorithm is especially fast for high-performance filtering, because it avoids creating intermediate parsing data structures.
-We benchmarked against \JSONSchema implementations and found that Katydid has the fastest median for filtering and is also competitive for API gateway validation, demonstrating that derivatives are fast enough for real-world workloads of semi-structured data.
-As far as we know, we provide the first verification, in an interactive theorem prover, of algorithms for the validation of regular hedge grammars using derivatives.
+We provided a fused-memoized derivative-based Katydid algorithm for the validation of semi-structured data.
+We chose a generic representation of serialization formats and schema languages, a \Hedge and a symbolic regular hedge grammar, which makes our algorithm and verification approach applicable to any schema language and data format that can be translated into this representation.
+Our algorithm is fast, especially for filtering, since it avoids creating intermediate parsing data structures.
+We benchmarked against \JSONSchema implementations and found that Katydid has the lowest median time for filtering and is competitive for API gateway validation.
+This demonstrates that a derivative approach can be competitive with other semi-structured validation implementations.
+As far as we know, ours is the first verification in an interactive theorem prover of an algorithm for the validation of semi-structured data against a regular hedge grammar.
 
 \subsection{Future Work}
 
@@ -1370,12 +1371,12 @@ For example, implementing a \JSON pull-based parser and \JSONSchema translator i
 Our pull-based \JSON parser could be further optimized using SIMD, a faster way of parsing \JSON using specialized CPU instructions~\cite{simdjson}.
 Other languages to benchmark against include \RelaxNG for \XML validation.
 Regular expression matchers have been extended with non-regular features while keeping much of the matching machinery—for example, backreferences~\cite{backreferences}.
-The same question arises for Katydid and regular hedge grammars: \JSONSchema's \uniqueItems is not regular~\cite{holstege2019application, jsonschemafoundations}, and validating \dynamicRef is PSPACE-complete~\cite{modernjsonschema}.
+Non-regular extensions could be considered for Katydid and regular hedge grammars as well: \JSONSchema's \uniqueItems is not regular~\cite{holstege2019application, jsonschemafoundations}, and validating \dynamicRef is PSPACE-complete~\cite{modernjsonschema}.
 
-In terms of correctness, there are ample opportunities for future work.
-It is still open to prove the correctness of the conversion algorithms from JSON~Schema~\cite{holstege2019application} and \RelaxNG to regular hedge grammars to produce fully verified validators of schema languages.
-We also plan to prove the correctness of the further optimizations from the Go implementation, including the pull-based parser.
-Together, these directions move toward fully verified, high-throughput validators for the semi-structured data formats that pervade modern data systems.
+There are ample opportunities for future work in terms of correctness.
+It is still open to prove the correctness of the conversion algorithms from JSON~Schema~\cite{holstege2019application} and \RelaxNG to regular hedge grammars, ensuring fully verified validators of schema languages.
+We also plan to prove the correctness of optimizations used in the Go implementation, including the pull-based parser and our fused algorithm.
+Together, these avenues move toward fully verified, high-throughput validators for semi-structured data formats that pervade modern data systems.
 
 \section*{Supplementary Material}
 \label{supplementary_material}
