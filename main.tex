@@ -412,7 +412,7 @@ The only field left in the residual schema is \lstinline[language=json]|"author"
 { "type": "object", "additionalProperties": false, 
   "properties": { "author": { "$ref":"#/definitions/user-profile" } } ... }
 \end{lstlisting}
-We next take the derivative of this residual schema with respect to the remaining key-value pair \lstinline[language=json]|{"author": {"username": "Khaleesi"}}|. 
+We next take the derivative of this residual schema with respect to the remaining key-value pair \lstinline[language=json]|{"author":{"username": "Khaleesi"}}|. 
 The result is an empty schema, \lstinline[language=json]
 |{"type": "object", "additionalProperties": false}|.
 There are no more key-value pairs to process in the input, and the empty object is valid against the residual schema, so the input is accepted.
@@ -915,15 +915,14 @@ The proof begins with functional induction on \JSONmembersRuleDerive, producing 
 All cases are trivial except for the symbol case, where we additionally perform induction on the children and apply the functional inductive hypothesis.
 
 Next, we prove \TheoremDeriveCommutes for \GrammarKatydidDerive.
-For each operator except \lstinline{symbol}, we complete the proof by induction on the regular expression, undoing the partial application of the \Node, permuting the parameters, and applying \refcode{theorem Regex.Katydid.derive_is_Regex_derive}, which establishes the equivalence of \RegexKatydidDerive and \RegexDerive:
+For each operator except \lstinline{symbol}, we complete the proof by induction on the regular expression, undoing the partial application of \lstinline{node}, permuting the parameters, and applying \refcode{theorem Regex.Katydid.derive_is_Regex_derive}, which establishes the equivalence of \RegexKatydidDerive and \RegexDerive:
 \begin{lstlisting}[label=theorem Regex.Katydid.derive_is_Regex_derive]
 theorem Regex.Katydid.derive_is_Regex_derive (Φ: σ → α → Bool) r a:
   Regex.Katydid.derive (flip Φ a) r = Regex.derive Φ r a
 \end{lstlisting}
 This is proven by \refcode{theorem extract_replace_is_map} and \refcode{theorem regex_derive_is_point_derive}.
 
-The symbol case needs extra work.
-We also need to perform two inductions, one for the \Grammar and one for the \Hedge, as in the proof of \TheoremDeriveCommutes for \JSONmembersRuleDerive. 
+For the symbol case, we also need to perform two inductions, one for the \Grammar and one for the \Hedge, as in the proof of \TheoremDeriveCommutes for \JSONmembersRuleDerive. 
 Unlike the JSONmembers algorithm's proof, we cannot apply functional induction to a recursive closure and therefore lack an inductive hypothesis in the \lstinline{symbol} case.
 The proof proceeds by applying induction on the children, followed by using well-founded induction with recursive calls to \TheoremDeriveCommutes.
 
@@ -1314,11 +1313,12 @@ after (g.lookup 0) (after emptystr (after emptystr emptystr))
 This makes it impossible to always build a fully memoized version of the functions up front, since the state space is technically unbounded.
 In practice, recursion depths are shallow, so after validating a few documents, memoization tables are hit frequently, whereas Katydid's memoization tables are hit after the first recursive step.
 Another drawback is that the expression keeps more context than is necessary.
-For example, consider the grammar
-\lstinline{Grammar.mk (concat (symbol ("<head>", 0)) (symbol ("<body>", 0))) #v[optional (symbol ("<div>", 0))]}.
-Applying \lstinline{startTagOpenDeriv} to \lstinline{<head>} yields
-\lstinline{after (optional (symbol ("<div>", 0))) (symbol ("<body>", 0))},
-which still retains the \lstinline{<body>} symbol.
+For example, consider the grammar:
+\begin{lstlisting}
+Grammar.mk (concat (symbol ("<head>", 0)) (symbol ("<body>", 0)))
+  #v[optional (symbol ("<div>", 0))]
+\end{lstlisting}
+Applying \lstinline{startTagOpenDeriv} to \lstinline{<head>} yields \lstinline{after (optional (symbol ("<div>", 0))) (symbol ("<body>", 0))}, which still retains the \lstinline{<body>} symbol.
 In contrast, Katydid propagates only \lstinline{optional (symbol ("<div>", 0))} to the children, leading to more frequent memoization table hits.
 Overall, \RelaxNG provides an elegant and efficient approach to \XML validation, albeit theoretically slightly less efficient than the Katydid algorithm.
 
