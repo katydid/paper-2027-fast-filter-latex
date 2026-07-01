@@ -352,7 +352,7 @@ The big improvement our algorithm makes over \RelaxNG is that it can optionally 
 Our main contributions are:
 \begin{itemize}
     \item The factorization of the derivative function for regular hedge grammars enables alphabet independent memoization and bounds the size of the memoization table for performant filtering;
-    \item Formal verification in Lean~\cite{lean4} that our implementation of the JSONmembers algorithm and Katydid's memoization technique faithfully matches the semantics of a regular hedge grammar, which is the first formal verification of derivative algorithms for regular hedge grammars;
+    \item The first formal verification of derivative algorithms for regular hedge grammars, proving in Lean~\cite{lean4} that our implementation of the JSONmembers algorithm and Katydid's memoization technique faithfully match the semantics of a regular hedge grammar;
     \item A fused~\cite{fusion} derivative and parsing algorithm that removes the overhead of creating intermediate parsing data structures;
     \item Abstraction of serialization formats behind a pull-based parser interface in Go~\cite{golang} that allows for regular hedge grammar validation of Protocol Buffers, \JSON, \XML, and reflected Go structures; and
     \item A significant extension of the \JSONSchema benchmark suite developed by \citet{blaze}, which we use to benchmark our Go implementation of Katydid.
@@ -387,12 +387,12 @@ We describe the algorithm in more detail in \Cref{section_algorithm} and \Cref{s
 To illustrate the application of Brzozowski's derivative algorithm to \JSONSchema, we use a simplified schema of a blog post~\cite{jsonschemaexamples}:
 \begin{lstlisting}[language=json,label=jsonschema_blogpost]
 { "title": "small jsonschema for a blogpost",
-  "type":"object", "additionalProperties":false, "required": ["content"],
+  "type": "object", "additionalProperties": false, "required": ["content"],
   "properties": {
     "content": { "type":"string" },
-    "author": { "$ref":"#/definitions/user-profile" } },
-  "definitions": { "user-profile": {
-    "type": "object", "additionalProperties":false, "required": ["username"], 
+    "author": { "$ref":"#/definitions/profile" } },
+  "definitions": { "profile": {
+    "type": "object", "additionalProperties": false, "required": ["username"], 
     "properties": {
       "username": { "type":"string" },
       "email": { "type":"string", "format":"email" } } } } }
@@ -410,7 +410,7 @@ We first take the derivative of the schema with respect to the first object, \ls
 The only field left in the residual schema is \lstinline[language=json]|"author"|:
 \begin{lstlisting}[language=json]
 { "type": "object", "additionalProperties": false, 
-  "properties": { "author": { "$ref":"#/definitions/user-profile" } } ... }
+  "properties": { "author": { "$ref":"#/definitions/profile" } } ... }
 \end{lstlisting}
 We next take the derivative of this residual schema with respect to the remaining key-value pair \lstinline[language=json]|{"author":{"username": "Khaleesi"}}|. 
 The result is an empty schema, \lstinline[language=json]
@@ -428,7 +428,7 @@ For the first derivative in our example, \enter extracts two predicate/schema pa
 \begin{itemize}
   \item the \lstinline[language=json]|"content"| field predicate and
   \lstinline[language=json]|{"type": "string"}| schema; and
-  \item the \lstinline[language=json]|"author"| field predicate and the referenced \lstinline[language=json]|"user-profile"| schema.
+  \item the \lstinline[language=json]|"author"| field predicate and the referenced \lstinline[language=json]|"profile"| schema.
 \end{itemize}
 After extracting these predicates, the input object is evaluated against them, and the algorithm is recursively applied to the schemas to produce a boolean Vector. 
 For our example \lstinline[language=json]|{"content": "Dragons"}|, the predicate/schema pairs evaluate to: \lstinline{[true, false]}. 
@@ -439,7 +439,10 @@ In our example, the first predicate succeeds, so \leave returns the schema in wh
 The \leave function is well suited to memoization, since the input object values do not appear in the cache key.
 When evaluating predicate/schema pairs against the input objects, for example \lstinline[language=json]|{"content": "Dragons"}| and \lstinline[language=json]|{"content": "Eggs"}| both produce \lstinline{[true, false]} and so the memoization entry for \leave is reused.
 No input value ever appears in the keys, see \Cref{table_memo}.
+
 \begin{table}
+\caption{The bounded memoization tables for \enter and \leave}
+\label{table_memo}
 \begin{tabular}{ll|ll}
 \midrule
 \multicolumn{2}{l|}{\textbf{enter table}}&
@@ -449,13 +452,11 @@ key (schema, $\overrightarrow{\mathrm{boolean}}$) & value: residual \\
 \midrule
 blogpost & [(\lstinline[language=json]|"content"|,...), (\lstinline[language=json]|"author"|,...)] &
 (blogpost, [\lstinline{true}, \lstinline{false}]) & optional \lstinline[language=json]|"author"|\\
-user-profile & [(\lstinline[language=json]|"username"|,...), (\lstinline[language=json]|"email"|,...)] &
-(user..., [\lstinline{true}, \lstinline{false}]) & optional \lstinline[language=json]|"email"|\\
+profile & [(\lstinline[language=json]|"username"|,...), (\lstinline[language=json]|"email"|,...)] &
+(profile, [\lstinline{true}, \lstinline{false}]) & optional \lstinline[language=json]|"email"|\\
 \vdots & \vdots & \vdots & \vdots \\
 \end{tabular}
-\caption{The bounded memoization tables for \enter and \leave}
 \Description[Two memoization tables]{The enter table maps a Schema to its Vector of predicate/schema pairs. The leave table maps a pair of a Schema and a boolean Vector to a residual Schema. Two different inputs that evaluate to the same boolean Vector share a single leave entry.}
-\label{table_memo}
 \end{table}
 
 The factored derivative function is iteratively applied to the rest of the input to also end up with an empty schema, which matches the empty object, so the input is accepted.
@@ -922,7 +923,7 @@ theorem Regex.Katydid.derive_is_Regex_derive (Φ: σ → α → Bool) r a:
 \end{lstlisting}
 This is proven by \refcode{theorem extract_replace_is_map} and \refcode{theorem regex_derive_is_point_derive}.
 
-For the symbol case, we also need to perform two inductions, one for the \Grammar and one for the \Hedge, as in the proof of \TheoremDeriveCommutes for \JSONmembersRuleDerive. 
+We also need to perform two inductions for the symbol case, one for the \Grammar and one for the \Hedge, as in the proof of \TheoremDeriveCommutes for \JSONmembersRuleDerive. 
 Unlike the JSONmembers algorithm's proof, we cannot apply functional induction to a recursive closure and therefore lack an inductive hypothesis in the \lstinline{symbol} case.
 The proof proceeds by applying induction on the children, followed by using well-founded induction with recursive calls to \TheoremDeriveCommutes.
 
@@ -1199,7 +1200,9 @@ In the API Gateway (reuse) benchmarks, we use the unfused version of Katydid wit
 Each implementation is warmed up by first validating all the documents for over a hundred iterations.
 This implies that the CPU caches are warmed up, the JIT has been triggered, and that our memoized solution has a populated table.
 This is representative of real-world situations of an API gateway or filtering through petabytes of records.
-To ensure statistical stability, we first average the three execution times for each instance and then calculate the mean across all instances within a schema. Finally, we report the median and mean across all schemas for each implementation.
+For each schema, we measure the mean run time over all its instances.
+To ensure statistical stability, we calculate the mean of three separate runs.
+For each implementation, we then report the median and mean across all schemas.
 Details of how implementations were chosen and additional measurements, such as memory usage, can be found in the \supplementarymaterial.
 
 \begin{table}
@@ -1267,7 +1270,7 @@ Threats to the validity of benchmarking results:
 \begin{itemize}
 \item Katydid, Ajv, Blaze, JSONSchemer, JSU, OptimumCode, networknt, py-jsonschema return booleans and not detailed errors. In the invalid case, this gives them an advantage by not allocating memory over implementations that create descriptions of validation errors.
 \item When Blaze parses \JSON, it also calculates hashes for field names, which allows it to perform faster string comparisons. One could argue that this is part of the validation calculation happening at parse time, and we should always add parse time to validation time. One could also argue that this is just a custom implementation of a hash map and a perfectly generic dictionary, which would be reused.
-\item JSU, AJV and Corvus generate code in the target language, which is a big advantage for inlining many instructions. On the other hand, \citet{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema in the API Gateway use cases, but this might not be viable for Filtering, depending on the exact nature of the use case.
+\item JSU, AJV and Corvus generate code in the target language, which is a big advantage for inlining many instructions. On the other hand, \citet{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema in the API Gateway use cases, but this might not be viable for filtering.
 \item The Regular expression library chosen by each implementation to handle \JSONSchema patterns can make a big difference. We know that at least Blaze and Katydid attempt a fast path for simple regular expressions like prefix, suffix, and character sets.
 \item The implementation language also skews results; see, for example, the big difference in performance between various versions of JSU.
 \item Very large schemas required the Comp version of Katydid to fall back to the Memo version since the Vector of booleans that needed to be calculated for the \leave table was larger than twenty, which would require calculating more than a million combinations. There is work to be done to eliminate the impossible cases since many of the predicates are disjoint. The fallback rarely happens, though, as it was only triggered by two of the benchmark schemas and none of the test suite cases. 
@@ -1354,7 +1357,7 @@ Although pragmatic and user-friendly, there is room for more efficiency consider
 \section{Conclusions}
 \label{section_future}
 
-We provide the memoized derivative-based and fused Katydid algorithm for the validation of semi-structured data.
+We provide the fused-memoized derivative-based Katydid algorithm for the validation of semi-structured data.
 We chose a generic representation of serialization formats and schema languages, a \Hedge and a symbolic regular hedge grammar, which makes this algorithm and verification applicable to any schema language and data format that can be translated into these general types.
 This algorithm is especially fast for high-performance filtering, because it avoids creating intermediate parsing data structures.
 We benchmarked against \JSONSchema implementations and found that Katydid has the fastest median for filtering and is also competitive for API gateway validation, demonstrating that derivatives are fast enough for real-world workloads of semi-structured data.
