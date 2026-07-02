@@ -1,8 +1,8 @@
 \documentclass[acmsmall,%
   screen,% Produces colored hyperlinks.
-  review,%% TODO make sure review is turned on before submitting, it turns line numbers on
-  anonymous,%% TODO make sure anonymous is set before submitting and that there are no mentions of our names.
-  % authorversion, %% Produces a version of the work suitable for posting by the author.
+  % review,%% TODO make sure review is turned on before submitting, it turns line numbers on
+  % anonymous,%% TODO make sure anonymous is set before submitting and that there are no mentions of our names.
+  authorversion, %% Produces a version of the work suitable for posting by the author.
   nonacm%
 ]{acmart}
 
@@ -346,13 +346,11 @@ We restructure the derivative function to have memoization that is alphabet inde
 This refactors the derivative function into a composition of three stages—\enter, evaluate predicates, and \leave—of which the first and last are memoized and alphabet independent.
 The big improvement our algorithm makes over \RelaxNG is that it can optionally create a fully memoized table before seeing any input, and the number of entries in the table is bounded, see \Cref{subsection_compile}.
 Our main contributions are:
-\begin{itemize}
-    \item The factorization of the derivative function for regular hedge grammars that enables alphabet independent memoization and bounds the size of the memoization table for performant filtering;
-    \item The first formal verification of derivative algorithms for regular hedge grammars, proving in Lean~\cite{lean4} that our implementation of the JSONmembers algorithm and Katydid's memoization technique faithfully match the semantics of a regular hedge grammar;
-    \item A fused~\cite{fusion} derivative and parsing algorithm that removes the overhead of creating intermediate parsing data structures;
-    \item Abstraction of serialization formats behind a pull-based parser interface in Go~\cite{golang} that allows for regular hedge grammar validation of Protocol Buffers, \JSON, \XML, and reflected Go structures; and
-    \item A significant extension of the \JSONSchema benchmark suite developed by \citet{blaze}, which we use to benchmark our Go implementation of Katydid.
-\end{itemize}
+(1) The factorization of the derivative function for regular hedge grammars that enables alphabet independent memoization and bounds the size of the memoization table for performant filtering;
+(2) The first formal verification of derivative algorithms for regular hedge grammars, proving in Lean~\cite{lean4} that our implementation of the JSONmembers algorithm and Katydid's memoization technique faithfully match the semantics of a regular hedge grammar;
+(3) A fused~\cite{fusion} derivative and parsing algorithm that removes the overhead of creating intermediate parsing data structures;
+(4) Abstraction of serialization formats behind a pull-based parser interface in Go~\cite{golang} that allows for regular hedge grammar validation of Protocol Buffers, \JSON, \XML, and reflected Go structures; and
+(5) A significant extension of the \JSONSchema benchmark suite developed by \citet{blaze}, which we use to benchmark our Go implementation of Katydid.
 % fusion> We have accomplished our goal of removing the intermediate data structures by transforming the numerous recursive traversals into a single one. This process is called fusion
 
 The original requirement of this work was schema-based filtering at scale in a proprietary distributed database that stored denormalized Protocol Buffers.
@@ -384,13 +382,11 @@ To illustrate the application of Brzozowski's derivative algorithm to \JSONSchem
 \begin{lstlisting}[language=json,label=jsonschema_blogpost]
 { "title": "small jsonschema for a blogpost",
   "type": "object", "additionalProperties": false, "required": ["content"],
-  "properties": {
-    "content": { "type":"string" },
+  "properties": { "content": { "type":"string" },
     "author": { "$ref":"#/definitions/profile" } },
   "definitions": { "profile": {
     "type": "object", "additionalProperties": false, "required": ["username"], 
-    "properties": {
-      "username": { "type":"string" },
+    "properties": { "username": { "type":"string" },
       "email": { "type":"string", "format":"email" } } } } }
 \end{lstlisting}
 The schema requires a content field and an optional author object.
@@ -1376,17 +1372,14 @@ Together, these avenues move toward fully verified, high-throughput validators f
 
 \section*{Supplementary Material}
 \label{supplementary_material}
-%% TODO: Remove footnote
-Full proofs in Lean, Go implementation, and benchmarks are available\footnote{Anonymized for review to not include links, but these are available in the supplementary material zip file.}:
-%% TODO: add link to zenodo with Lean4 Verification
-Lean Verification;
-%% TODO: add link to zenodo with Go JSON Schema implementation
-Go JSON Schema implementation;
-%% TODO: add link to zenodo with memoization benchmarks
-%% TODO: add link to zenodo with test suite
-Memoization benchmarks and benchmark suite;
-%% TODO: add link to zenodo with JSON Schema benchmarks
-JSON Schema benchmarks.
+Full proofs in Lean, Go implementation, and benchmarks are available:
+\begin{itemize}
+\item Lean Verification: \url{https://doi.org/10.5281/zenodo.21109287};
+\item JSON Schema benchmarks: \url{https://doi.org/10.5281/zenodo.21109315};
+\item Go JSON Schema implementation: \url{https://doi.org/10.5281/zenodo.21109322};
+\item Memoization benchmarks runner: \url{https://doi.org/10.5281/zenodo.21109312}; and
+\item Memoization benchmark suite \url{https://doi.org/10.5281/zenodo.21109306}.
+\end{itemize}
 
 %%
 %% Bibliography
