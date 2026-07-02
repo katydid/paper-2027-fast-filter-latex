@@ -329,12 +329,12 @@ Finally, a derivative-based algorithm is easier to verify than a bespoke validat
 
 Because our algorithm operates on regular hedge grammars rather than any single schema language, it applies uniformly across schema languages and serialization formats—\RelaxNG, \JSONSchema, and Protocol Buffers.
 Our main contribution beyond prior derivative validators is that we build a high-performance \emph{filtering} library, not merely a validator: filtering through large volumes of mostly non-matching records is a use case for which existing \JSONSchema validators are not designed, and it is where fusing derivation with parsing pays off.
-Derivative-based recognition is, moreover, competitive in practice: \citet{nonbacktracking} built a derivative-based, non-backtracking engine that ships as a regex backend in .NET~7, demonstrating that derivatives can be fast on real-world workloads, at least in the string case.
+Derivative-based recognition is, moreover, competitive in practice: \citet{nonbacktracking} built a derivative-based, non-backtracking engine that ships as a regular expression backend in .NET~7, demonstrating that derivatives can be fast on real-world workloads, at least in the string case.
 We extend this evidence from flat strings to tree-shaped, semi-structured data.
 
 Outside our Katydid algorithm, there are two other derivative-based algorithms for schema validation: \RelaxNG~\cite{relaxng2001simple} and JSONmembers — a term we adopt for the procedure introduced by \citet{holstege2019application}.
 % holstege2019application> However, the current implementation performance numbers are not particularly compelling: the need to match types against an infinitude of specific values makes it difficult to find effective caching strategies, undermining the point of using derivatives as an implementation technique in the first place. 
-JSONmembers flattens the \JSON object into a sequence of key-value pairs and takes the derivative given one key-value pair at a time.
+JSONmembers flattens the \JSON object into a sequence of members (key-value pairs) and takes the derivative given one member at a time.
 \citet{holstege2019application} explicitly notes that the performance is not compelling, and it is difficult to find a memoization solution because the derivative is taken on an infinite input alphabet.
 
 \RelaxNG~\cite{relaxng2001simple} converts the schema into a \BCFG on the fly as it applies derivatives.
@@ -347,11 +347,11 @@ Also, the memoization technique is unbounded in the number of entries to be memo
 The table grows with inputs that have new element names or deeper recursion.
 
 We restructure the derivative function to have memoization that is alphabet independent.
-We restructure the derivative function into a composition of three stages—\enter, evaluate predicates, and \leave—of which the first and last are memoized and alphabet independent.
+This refactors the derivative function into a composition of three stages—\enter, evaluate predicates, and \leave—of which the first and last are memoized and alphabet independent.
 The big improvement our algorithm makes over \RelaxNG is that it can optionally create a fully memoized table before seeing any input, and the number of entries in the table is bounded, see \Cref{subsection_compile}.
 Our main contributions are:
 \begin{itemize}
-    \item The factorization of the derivative function for regular hedge grammars enables alphabet independent memoization and bounds the size of the memoization table for performant filtering;
+    \item The factorization of the derivative function for regular hedge grammars that enables alphabet independent memoization and bounds the size of the memoization table for performant filtering;
     \item The first formal verification of derivative algorithms for regular hedge grammars, proving in Lean~\cite{lean4} that our implementation of the JSONmembers algorithm and Katydid's memoization technique faithfully match the semantics of a regular hedge grammar;
     \item A fused~\cite{fusion} derivative and parsing algorithm that removes the overhead of creating intermediate parsing data structures;
     \item Abstraction of serialization formats behind a pull-based parser interface in Go~\cite{golang} that allows for regular hedge grammar validation of Protocol Buffers, \JSON, \XML, and reflected Go structures; and
@@ -360,7 +360,7 @@ Our main contributions are:
 % fusion> We have accomplished our goal of removing the intermediate data structures by transforming the numerous recursive traversals into a single one. This process is called fusion
 
 The original requirement of this work was schema-based filtering at scale in a proprietary distributed database that stored denormalized Protocol Buffers.
-To meet production-level performance requirements, we implemented the memoization technique in Go~\cite{golang} with a strong emphasis on avoiding heap allocations.
+To meet production-level performance requirements, we implemented the memoization technique and fused algorithm in Go~\cite{golang} with a strong emphasis on avoiding heap allocations.
 The benchmarks of this implementation demonstrate its ability to filter data at high speeds and that it competes with other \JSONSchema validators.
 
 Definitions, proofs, as well as pseudocode for the Go implementation are presented in the syntax of the Lean theorem prover~\cite{lean4} and are available in the \supplementarymaterial~\footnote{No part of the Lean code (including the formal proofs) or the Go code was created with the aid of GenAI (LLMs).}.
@@ -722,7 +722,7 @@ def Grammar.JSONmembers.derive (G: Grammar n φ) (Φ: φ → α → Bool)
   (r: Regex (φ × Ref n)) (node: Node α): Regex (φ × Ref n) := match r with
   | Regex.symbol (pred, ref) => let ⟨label, children⟩ := node
     Regex.onlyif (Φ pred label
-      /\ Regex.null (List.foldl (derive G Φ) (G.lookup ref) children)
+      ∧ Regex.null (List.foldl (derive G Φ) (G.lookup ref) children)
     ) Regex.emptystr
   ...
   termination_by (node, r)
@@ -1032,7 +1032,7 @@ def exampleParse [p: Parser m Token] ...: m Unit := do
 We built pull-based parsers for \JSON and Protocol Buffers that are optimized to avoid any allocation on the heap.
 We also built a pull-based parser for already parsed structures using Go's reflect library.
 This allows us to emulate an unfused version of the algorithm for benchmarking purposes.
-Unfortunately, this parser makes many heap allocations.
+Unfortunately, this parser and the unoptimized \XML parser make many heap allocations.
 
 \subsection{Fused Katydid Algorithm}
 \label{subsection_fused}
@@ -1259,7 +1259,7 @@ Details of how implementations were chosen and additional measurements, such as 
 
 We see in \Cref{table_filtering} that Katydid has the fastest median latency and the second fastest mean for the filtering use case.
 Katydid is the fastest for 35 out of the 45 schemas, while Ajv on the Javascript Bun runtime (Ajv-Bun) is the fastest for 9 other schemas, and JSU (Javascript) is the fastest for one.
-The mean is skewed towards Ajv-Bun because there are three schemas where the winning time is orders of magnitude larger than for the other schemas, and two more are two orders larger.
+The mean is skewed towards Ajv-Bun because there are three schemas where the winning time is an order of magnitude larger than for the other schemas, and two more are two orders larger.
 The slowest schema, geojson, is where Katydid is 2-3 times slower than Ajv-Bun.
 We do not exactly know how Ajv-Bun achieves this speed; maybe it is the code generation or the way the BUN runtime parses JSON, but we note that Katydid is still faster in this case than Blaze, an optimized C++ implementation.
 In the API Gateway (discard) use case, which we include in the \supplementarymaterial, Katydid also has the fastest median but the third fastest mean, with Ajv-Bun having the fastest mean again.
@@ -1268,7 +1268,7 @@ Finally, we find that even though Katydid is not the fastest library for the API
 
 Threats to the validity of benchmarking results include:
 \begin{itemize}
-\item Katydid, Ajv, Blaze, JSONSchemer, JSU, OptimumCode, networknt, py-jsonschema return booleans and not detailed errors. In the invalid case, this gives them an advantage by not allocating memory over implementations that create descriptions of validation errors.
+\item Katydid, Ajv, Blaze, JSONSchemer, JSU, OptimumCode, networknt, py-jsonschema return booleans and not detailed errors. In the filtering case, this gives them an advantage by not allocating memory over implementations that create descriptions of validation errors.
 \item When Blaze parses \JSON, it also calculates hashes for field names, which allows it to perform faster string comparisons. One could argue that this is part of the validation calculation happening at parse time, and we should always add parse time to validation time. One could also argue that this is just a custom implementation of a hash map and a perfectly generic dictionary, which would be reused.
 \item JSU, AJV and Corvus generate code in the target language, which is a big advantage for inlining many instructions. On the other hand, \citet{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema in the API Gateway use cases, but this might not be viable for filtering.
 \item The Regular expression library chosen by each implementation to handle \JSONSchema patterns can make a big difference. We know that at least Blaze and Katydid attempt a fast path for simple regular expressions like prefix, suffix, and character sets.
