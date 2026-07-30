@@ -28,9 +28,12 @@
 %% How to plot a graph: https://tex.stackexchange.com/questions/156964/guide-to-draw-charts-basic-pie-bar-from-data
 \pgfplotstableread[row sep=\\,col sep=&]{
 interations   & Zero  & Mem100 & Mem1000 & Mem10000 & Auto \\
-complex JSON  & 18547 & 1856   & 1100    & 1064     & 979  \\
-complex Proto & 16644 & 1091   & 508     & 342      & 261  \\
-simple Proto  & 4391  & 449    & 239     & 221      & 154  \\
+complex JSON  & 28587 & 2146   & 1223    & 1157     & 1076  \\
+% complex JSON  & 18547 & 1856   & 1100    & 1064     & 979  \\
+complex Proto & 27558 & 1254   & 531     & 446      & 350  \\
+% complex Proto & 16644 & 1091   & 508     & 342      & 261  \\
+simple Proto  & 5668  & 497    & 326     & 322      & 239  \\
+% simple Proto  & 4391  & 449    & 239     & 221      & 154  \\
 }\mydata
 
 % \begin{tikzpicture}[show background rectangle,tight background]
@@ -54,7 +57,7 @@ simple Proto  & 4391  & 449    & 239     & 221      & 154  \\
     %% This adds padding on the left and right, see https://tex.stackexchange.com/questions/206996/spacing-bars-in-ybar
     enlarge x limits={abs=1.9cm},
     ymin=0,
-    ymax=23000,
+    ymax=38000,
     ylabel={nanoseconds/validation},
     legend style={at={(0.545,0.99)},
  legend columns=-1},
