@@ -1205,25 +1205,25 @@ Details of how implementations were chosen and additional measurements, such as 
 \midrule
 \# & impl & language & median ns/doc & mean ns/doc \\
 \midrule
-1 & Katydid & Golang & 1,361 & 9,568 \\
-2 & Ajv-Bun & Javascript (gen) & 1,928 & 6,970 \\
-3 & Blaze & C++ & 2,645 & 12,729 \\
-4 & JSU & Javascript (gen) & 2,728 & 10,341 \\
-5 & networknt & Java & 3,000 & 32,474 \\
-6 & boon & Rust & 3,173 & 36,697 \\
-7 & JSU & Python (gen) & 3,336 & 25,231 \\
-8 & Ajv & Javascript (gen) & 3,572 & 12,629 \\
-9 & JSU & C++ (gen) & 4,139 & 25,724 \\
-10 & santhosh-tekuri & Golang & 7,993 & 78,244 \\
-11 & OptimumCode & Kotlin & 10,232 & 132,604 \\
-12 & JSU & Java (gen) & 10,310 & 30,663 \\
-13 & JSV & Elixir & 11,732 & 369,538 \\
-14 & Corvus & C\# (gen) & 12,813 & 42,210 \\
-15 & kaptinlin & Golang & 18,551 & 267,674 \\
-16 & json-everything & C\# & 28,390 & 695,042 \\
-17 & py-jsonschema & Python & 29,846 & 1,446,531 \\
-18 & JSONSchemer & Ruby & 41,906 & 728,676 \\
-19 & Hyperjump & Javascript & 212,527 & 621,062 \\
+1 & Katydid & Golang & 1,369 & 9,377 \\
+2 & Ajv-Bun & Javascript (gen, Bun) & 2,150 & 7,454 \\
+3 & Blaze & C++ & 2,867 & 13,759 \\
+4 & JSU & Javascript (gen) & 2,964 & 10,716 \\
+5 & networknt & Java & 3,037 & 32,877 \\
+6 & Ajv & Javascript (gen) & 3,384 & 13,051 \\
+7 & JSU & Python (gen) & 3,423 & 25,444 \\
+8 & boon & Rust & 3,558 & 42,998 \\
+9 & JSU & C++ (gen) & 4,313 & 26,382 \\
+10 & santhosh-tekuri & Golang & 7,815 & 77,087 \\
+11 & JSU & Java (gen) & 10,405 & 30,073 \\
+12 & OptimumCode & Kotlin & 10,663 & 128,266 \\
+13 & JSV & Elixir & 11,687 & 364,723 \\
+14 & Corvus & C\# (gen) & 13,453 & 41,886 \\
+15 & json-everything & C\# & 15,166 & 94,195 \\
+16 & kaptinlin & Golang & 17,830 & 250,637 \\
+17 & py-jsonschema & Python & 29,806 & 1,464,565 \\
+18 & JSONSchemer & Ruby & 42,152 & 734,856 \\
+19 & Hyperjump & Javascript & 207,046 & 608,794 \\
 \end{tabular}
 % END Generated tabular
 \end{table}
@@ -1236,12 +1236,12 @@ Details of how implementations were chosen and additional measurements, such as 
 \midrule
 \# & impl & language & median ns/doc & mean ns/doc \\
 \midrule
-1 & JSU & C++ (gen) & 136 & 1,397 \\
-2 & Blaze & C++ & 148 & 1,187 \\
-4 & Ajv & Javascript (Bun) & 329 & 2,836 \\
-11 & Katydid & Golang & 1,691 & 18,289 \\
-13 & santhosh-tekuri & Golang & 2,889 & 50,588 \\
-15 & kaptinlin & Golang & 12,466 & 247,007 \\
+1 & JSU & C++ (gen) & 135 & 856 \\
+2 & Blaze & C++ & 146 & 1,173 \\
+4 & Ajv-Bun & Javascript (gen, Bun) & 337 & 2,835 \\
+11 & Katydid & Golang & 1,702 & 18,733 \\
+13 & santhosh-tekuri & Golang & 2,660 & 49,448 \\
+16 & kaptinlin & Golang & 12,233 & 238,920 \\
 \vdots & \vdots & \vdots & \vdots \\
 \multicolumn{5}{c}{This is an excerpt of full table in \supplementarymaterial,}\\
 \multicolumn{5}{c}{where the \# column denotes median rank} \\
@@ -1250,12 +1250,13 @@ Details of how implementations were chosen and additional measurements, such as 
 \end{table}
 
 We see in \Cref{table_filtering} that Katydid has the fastest median latency and the second fastest mean for the filtering use case.
-Katydid is the fastest for 35 out of the 45 schemas, while Ajv on the Javascript Bun runtime (Ajv-Bun) is the fastest for 9 other schemas, and JSU (Javascript) is the fastest for one.
+Katydid is the fastest for 38 out of the 45 schemas, while Ajv-Bun on the Javascript
+Bun runtime is the fastest for the 7 other schemas.
 The mean is skewed towards Ajv-Bun because there are three schemas where the winning time is an order of magnitude larger than for the other schemas, and two more are two orders larger.
 The slowest schema, geojson, is where Katydid is 2-3 times slower than Ajv-Bun.
 We do not exactly know how Ajv-Bun achieves this speed; maybe it is the code generation or the way the BUN runtime parses JSON, but we note that Katydid is still faster in this case than Blaze, an optimized C++ implementation.
 In the API Gateway (discard) use case, which we include in the \supplementarymaterial, Katydid also has the fastest median but the third fastest mean, with Ajv-Bun having the fastest mean again.
-In this use case, Ajv-Bun is the fastest for 22 out of the 45 schemas, and Katydid is the fastest for 21 others.
+In this use case, Ajv-Bun is the fastest for 16 out of the 45 schemas, and Katydid is the fastest for 23 others.
 Finally, we find that even though Katydid is not the fastest library for the API gateway (reuse) use case, it is still competitive and the fastest Go library; see \Cref{table_api_gateway_reuse}.
 
 Threats to the validity of benchmarking results include:
