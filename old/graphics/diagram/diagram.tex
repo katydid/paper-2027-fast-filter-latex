@@ -1,16 +1,13 @@
 \documentclass[border=2pt]{standalone}
 
-%% Typeset with the default Computer Modern fonts to match the Springer LNCS
-%% body text of the paper (ESOP 2027).
+\usepackage{libertine}
+\usepackage{inconsolata}
+\usepackage[T1]{fontenc}
 \usepackage{amssymb}
-\usepackage{stmaryrd} % \llbracket, \rrbracket
-\usepackage{xcolor}
-\definecolor{keywordcolor}{rgb}{0.7, 0.1, 0.1}   % red
-\definecolor{tacticcolor}{rgb}{0.0, 0.1, 0.6}    % blue
-\definecolor{sortcolor}{rgb}{0.1, 0.5, 0.1}      % green
-\definecolor{stringcolor}{rgb}{0.1, 0.5, 0.1}    % green
-\definecolor{symbolcolor}{rgb}{0.0, 0.1, 0.6}    % blue
-\definecolor{attributecolor}{rgb}{0.7, 0.1, 0.1} % red
+\let\Bbbk\relax              % undefine it before newtxmath redefines it
+\usepackage[libertine]{newtxmath}
+\usepackage{inconsolata}
+\usepackage[T1]{fontenc}
 
 \usepackage{listings}
 \def\lstlanguagefiles{lstlean.tex}

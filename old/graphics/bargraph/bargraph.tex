@@ -1,8 +1,10 @@
 \documentclass[tikz,convert,border=0]{standalone}
 
-%% Sized and typeset for Springer LNCS (ESOP 2027): 122mm text width and the
-%% default Computer Modern fonts, matching the body text of the paper.
-\setlength{\textwidth}{122mm}
+\setlength{\textwidth}{4.4375in}
+\usepackage{libertine}
+\usepackage[libertine]{newtxmath}
+\usepackage{inconsolata}
+\usepackage[T1]{fontenc}
 
 \usepackage{pgfplots}
 \usetikzlibrary{backgrounds}
@@ -34,9 +36,9 @@ simple Proto  & 5448  & 514    & 392     & 308      & 230  \\
 % \begin{tikzpicture}[show background rectangle,tight background]
 \begin{tikzpicture}[tight background]
   \begin{axis}[
-    ybar=7pt,
-    bar width=12pt,
-    width=0.955\textwidth,
+    ybar=5pt,
+    bar width=15pt,
+    width=1.1\textwidth,
     height=.5\textwidth,
     legend style={
       at={(0.5,1)},
@@ -49,7 +51,6 @@ simple Proto  & 5448  & 514    & 392     & 308      & 230  \\
     %% These lines add text above the bars:
     nodes near coords,
     nodes near coords align={vertical},
-    every node near coord/.append style={font=\scriptsize},
     %% This adds padding on the left and right, see https://tex.stackexchange.com/questions/206996/spacing-bars-in-ybar
     enlarge x limits={abs=1.9cm},
     ymin=0,

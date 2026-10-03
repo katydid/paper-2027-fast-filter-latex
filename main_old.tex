@@ -16,20 +16,8 @@
 %% Packages that acmart loaded implicitly and that this paper relies on.
 \usepackage{graphicx}  % \includegraphics
 \usepackage{booktabs}  % \midrule in tables
-%% amsmath is deliberately not loaded: the paper uses none of its commands, and
-%% loading it after llncs (which defines its own \vec) gives the warning
-%% "Unable to redefine math accent \vec".
+\usepackage{amsmath}
 \usepackage{amssymb}   % symbols used by lstlean.tex literate replacements
-%% acmart loaded microtype automatically; it greatly reduces loose (underfull)
-%% and overlong (overfull) lines.
-%% (stretch/shrink slightly above the default 20 to avoid a few loose lines
-%% next to long, unbreakable code names.)
-%% Overleaf's TeX Live 2025 has microtype 3.2a, which predates a LaTeX kernel
-%% change and warns "Command \showhyphens has changed". The warning is harmless
-%% (fixed in microtype 3.2b); filter it. Safe to remove once Overleaf updates.
-\usepackage{silence}
-\WarningFilter{latex}{Command \showhyphens}
-\usepackage[stretch=30,shrink=30]{microtype}
 \usepackage{stmaryrd}  % \llbracket and \rrbracket
 \usepackage{xcolor}    % named colours such as gray (acmart loaded xcolor)
 \usepackage{hyperref}  % \hyperref, \url; must come before cleveref
@@ -37,10 +25,6 @@
 %% "screen" option did).
 \hypersetup{colorlinks=true, linkcolor=blue!50!black,
   citecolor=green!40!black, urlcolor=blue!60!black}
-
-%% Pages may end short rather than stretching the vertical space between
-%% paragraphs, listings and headings (avoids "Underfull \vbox" warnings).
-\raggedbottom
 
 %% Long unbreakable inline code (\lstinline) in LNCS's narrower text block:
 %% allow extra inter-word stretch before producing overfull lines.
@@ -98,23 +82,7 @@ basicstyle=\lstbasicstyle,
 
 %% Reference code via a hyperref
 \usepackage{xspace}
-% Long qualified names (e.g. Grammar.Katydid.derive) may break after a dot,
-% like \refcode below allows at underscores; each segment stays unbroken.
-\ExplSyntaxOn
-\seq_new:N \l__link_parts_seq
-\tl_new:N \l__link_last_tl
-\cs_new_protected:Npn \__link_parts:n #1
-  {
-    \seq_set_split:Nnn \l__link_parts_seq { . } { #1 }
-    \seq_pop_right:NN \l__link_parts_seq \l__link_last_tl
-    \seq_map_inline:Nn \l__link_parts_seq
-      { \mbox { \lstinline { ##1. } } \penalty 50 \scan_stop: }
-    \exp_args:NV \__link_last:n \l__link_last_tl
-  }
-\cs_new_protected:Npn \__link_last:n #1 { \mbox { \lstinline { #1 } } }
-\NewDocumentCommand \link { m m }
-  { \hyperref [ #2 ] { \__link_parts:n { #1 } } \xspace }
-\ExplSyntaxOff
+\newcommand{\link}[2]{\mbox{\hyperref[#2]{\lstinline{#1}}}\xspace}
 \newcommand{\jsonlink}[2]{\mbox{\hyperref[#2]{\lstinline[language=json]{#1}}}\xspace}
 \newcommand{\refcode}[1]{\hyperref[#1]{\lstinline[breaklines=true,literate={\_}{}{0\discretionary{\_}{}{\_}}]{#1}}\xspace}
 %% Names
@@ -248,7 +216,7 @@ basicstyle=\lstbasicstyle,
 %% Used to stop bad hyphenations (never hyphenate JSON).
 %% Note: \hyphenation only accepts letters, so "name/JSON" is an error in
 %% current TeX Live.
-\hyphenation{JSON Brzo-zow-ski}
+\hyphenation{JSON}
 
 %% Used for Cref to create capatilized references to Section and Fig.
 \usepackage[nameinlink]{cleveref}
@@ -280,7 +248,7 @@ basicstyle=\lstbasicstyle,
 \maketitle
 
 \begin{abstract}
-We present a high-\hspace{0pt}performance filtering and schema-\hspace{0pt}validation algorithm based on Brzozowski’s derivatives, extended to regular hedge grammars for semi-structured data.
+We present a high-performance filtering and schema-validation algorithm based on Brzozowski’s derivatives, extended to regular hedge grammars for semi-structured data.
 Our algorithm inherits the expressiveness of regular hedge grammars to support a wide range of schema languages and serialization formats, such as \JSONSchema, \RelaxNG for XML, and Protocol Buffers.
 High performance is achieved by refactoring the derivative algorithm to make it more amenable to memoization of hedges.
 We verify in Lean that our memoization technique is correct: our memoized filtering and validation algorithm is equivalent to the denotational semantics of regular hedge grammars.
@@ -435,7 +403,7 @@ blogpost & [(\lstinline[language=json]|"content"|,...), (\lstinline[language=jso
 profile & [(\lstinline[language=json]|"username"|,...), (\lstinline[language=json]|"email"|,...)] &
 (profile, [\lstinline|true|, \lstinline|false|]) & optional \lstinline[language=json]|"email"|\\
 \vdots & \vdots & \vdots & \vdots \\
-\end{tabular}}%
+\end{tabular}}
 \Description[Two memoization tables]{The enter table maps a Schema to its Vector of predicate/schema pairs. The leave table maps a pair of a Schema and a boolean Vector to a residual Schema. Two different inputs that evaluate to the same boolean Vector share a single leave entry.}
 \end{table}
 
@@ -616,7 +584,7 @@ def example_grammar_doc: Grammar 3 (Pred String) :=
       Regex.symbol (Pred.any, 2), Regex.emptystr])
 \end{lstlisting}
 Note, the \lstinline{Vector} of production rules is constructed with the macro \lstinline{#v[]}.
-This grammar validates the \XML snippet \lstinline{<doc>}\allowbreak\lstinline{<p>}\allowbreak\lstinline{<pcdata/>}\allowbreak\lstinline{</p>}\allowbreak\lstinline{<p>}\allowbreak\lstinline{<br/>}\allowbreak\lstinline{</p>}\allowbreak\lstinline{</doc>}.
+This grammar validates the \XML snippet \lstinline{<doc><p><pcdata/></p>}\allowbreak\lstinline{<p><br/></p></doc>}.
 
 \subsection{Katydid Algorithm for Regular Expressions}
 \label{section_enter_and_leave}
@@ -891,7 +859,7 @@ def decideRel (p : α → β → Prop) [DecidableRel p]: α → β → Bool :=
 \end{lstlisting}
 We prove that the derivative and denotation squares commute for both the JSONmembers and Katydid algorithms, which implies that validation and filtering proofs follow for each algorithm, including the memoized Katydid algorithm, \refcode{theorem memoize_mem_filter}.
 
-First, we verify \TheoremDeriveCommutes for \JSONmembersRuleDerive.
+We first verify \TheoremDeriveCommutes for \JSONmembersRuleDerive.
 The proof begins with functional induction on \JSONmembersRuleDerive, producing an inductive hypothesis applicable to the symbol case.
 All cases are trivial except for the symbol case, where we additionally perform induction on the children and apply the functional inductive hypothesis.
 
