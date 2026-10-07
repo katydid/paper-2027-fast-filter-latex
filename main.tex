@@ -121,7 +121,6 @@ basicstyle=\lstbasicstyle,
 \newcommand{\Hedge}{\refcode{Hedge}}
 \newcommand{\Node}{\link{Hedge.Node}{Hedge}}
 \newcommand{\GrammarKatydidDerive}{\link{Grammar.Katydid.derive}{def Grammar.Katydid.derive}}
-\newcommand{\RegexCharDerive}{\link{Regex.Char.derive}{def Regex.Char.derive}}
 \newcommand{\Grammar}{\link{Grammar}{Grammar}}
 \newcommand{\Regex}{\link{Regex}{Regex}}
 \newcommand{\Rule}{\link{Regex (φ × Ref n)}{Grammar}}
@@ -135,7 +134,6 @@ basicstyle=\lstbasicstyle,
 \newcommand{\RegexDerive}{\link{Regex.derive}{def Regex.derive}}
 \newcommand{\JSONmembersRuleDerive}{\link{Grammar.JSONmembers.derive}{def Grammar.JSONmembers.derive}}
 \newcommand{\RegexPointDerive}{\link{Regex.Point.derive}{def Regex.Point.derive}}
-\newcommand{\decideRel}{\link{decideRel}{def decideRel}}
 \newcommand{\RuleDenote}{\link{Rule.denote}{def Rule.denote}}
 \newcommand{\RegexDenote}{\link{Regex.denote}{def Regex.denote}}
 \newcommand{\LangDerive}{\link{Lang.derive}{def Lang.derive}}
@@ -151,7 +149,7 @@ basicstyle=\lstbasicstyle,
 \newcommand{\Token}{\link{Token}{Token}}
 \newcommand{\Hint}{\link{Hint}{Hint}}
 \newcommand{\Parser}{\link{Parser}{class Parser}}
-\newcommand{\fusedDerive}{\link{fusedDerive}{def fusedDerive}}
+\newcommand{\fusedDerive}{\link{Grammar.Fused.derive}{def Grammar.Fused.derive}}
 \newcommand{\RegexCompile}{\link{Regex.compile}{def Regex.compile}}
 \newcommand{\Lean}{%
   Lean\xspace%
@@ -327,11 +325,11 @@ To address the challenge of this high variability, they only memoize element nod
 Also, the memoization technique is unbounded in the number of entries to be memoized.
 The table grows with inputs that have new element names or deeper recursion.
 
-We restructure the derivative function to have memoization that is alphabet independent.
-This refactors the derivative function into a composition of three stages—\enter, evaluate predicates, and \leave—of which the first and last are memoized and alphabet independent.
+We restructure the derivative function to have memoization that is alphabet-independent.
+This refactors the derivative function into a composition of three stages—\enter, evaluate predicates, and \leave—of which the first and last are memoized and alphabet-independent.
 The big improvement our algorithm makes over \RelaxNG is that it can optionally create a fully memoized table before seeing any input, and the number of entries in the table is bounded, see \Cref{subsection_compile}.
 Our main contributions are:
-(1) The factorization of the derivative function for regular hedge grammars that enables alphabet independent memoization and bounds the size of the memoization table for performant filtering;
+(1) The factorization of the derivative function for regular hedge grammars that enables alphabet-independent memoization and bounds the size of the memoization table for performant filtering;
 (2) The first formal verification of derivative algorithms for regular hedge grammars, proving in Lean~\cite{lean4} that our implementation of the JSONmembers algorithm and Katydid's memoization technique faithfully match the semantics of a regular hedge grammar;
 (3) A fused~\cite{fusion} derivative and parsing algorithm that removes the overhead of creating intermediate parsing data structures;
 (4) Abstraction of serialization formats behind a pull-based parser interface in Go~\cite{golang} that allows for regular hedge grammar validation of Protocol Buffers, \JSON, \XML, and reflected Go structures; and
@@ -441,19 +439,19 @@ profile & [(\lstinline[language=json]|"username"|,...), (\lstinline[language=jso
 
 The factored derivative function is iteratively applied to the rest of the input to also end up with an empty schema, which matches the empty object, so the input is accepted.
 The Katydid algorithm moves high-variance input data out of memoized keys.
-Input objects are used only during predicate evaluation, but the memoization keys in \enter and \leave are alphabet independent, since they depend only on the schema argument and a boolean Vector.
+Input objects are used only during predicate evaluation, but the memoization keys in \enter and \leave are alphabet-independent, since they depend only on the schema argument and a boolean Vector.
 
 \section{The Katydid Algorithm}\label{section_algorithm}
 
-In this section, we describe the Katydid algorithm, an alphabet independent memoized filtering algorithm, defined as \GrammarMemoizeFilter.
+In this section, we describe the Katydid algorithm, an alphabet-independent memoized filtering algorithm, defined as \GrammarMemoizeFilter.
 We define its building blocks \enter, \leave, \RegexKatydidDerive, and \GrammarKatydidDerive, but we start by defining \emph{regular expressions}, which are the core of \emph{regular hedge grammars}, our generic schema language.
 
 \subsection{Regular Expressions}
 A symbolic \emph{regular expression}~\cite{brzozowski1964derivatives,stanford2021symbolic,elliott2021symbolic} is defined as an inductive type in Lean as follows:
 \begin{lstlisting}[label=Regex]
 inductive Regex (σ: Type) where
-  | emptyset | emptystr | symbol (s: σ) | or (r1 r2: Regex σ)
-  | concat (r1 r2: Regex σ) | star (r1: Regex σ) | interleave (r1 r2: Regex σ)
+  | emptyset | emptystr | symbol (s: σ) | interleave (r1 r2: Regex σ)
+  | or (r1 r2: Regex σ) | concat (r1 r2: Regex σ) | star (r1: Regex σ)
 \end{lstlisting}
 We include the \lstinline{interleave} operator to handle semi-structured data, for example, unordered \JSON members and \XML attributes~\cite{hosoya2010foundations}.
 We also support the \lstinline{and}, \lstinline{xor}, and \lstinline{complement} operators in our definitions and proofs in the \supplementarymaterial, but we omit them here for brevity.
@@ -475,21 +473,20 @@ Filtering through a list of strings (which are represented as a \lstinline{List 
 \begin{lstlisting}[label=def Regex.validate]
 def Regex.filter (Φ: σ → α → Bool) (r: Regex σ) (xs: List (List α)) :=
   List.filter (validate Φ r) xs
-def Regex.validate (Φ: σ → α → Bool) (r: Regex σ) (xs: List α): Bool :=
+def Regex.validate (Φ: σ → α → Bool) (r: Regex σ) (xs: List α):Bool :=
   null (List.foldl (derive Φ) r xs)
 \end{lstlisting}
 The derivative of a regular expression yields the expression that remains to be matched after consuming a list element~\cite{brzozowski1964derivatives,reexamined}:
-\begin{lstlisting}[label=def Regex.Char.derive]
-def Regex.Char.derive (r: Regex Char) (a: Char): Regex Char
-#guard Regex.Char.derive (concat (symbol 'a') (symbol 'b')) 'a'
+\begin{lstlisting}
+#guard Regex.derive (· == ·) (concat (symbol 'a') (symbol 'b')) 'a'
   = or (concat emptystr (symbol 'b')) emptyset -- symbol 'b'
-#guard Regex.Char.derive (star (symbol 'a')) 'a'
+#guard Regex.derive (· == ·) (star (symbol 'a')) 'a'
   = concat emptystr (star (symbol 'a')) -- star (symbol 'a')
 \end{lstlisting}
 We use Lean's \lstinline{#guard} command to show examples that are checked by the type checker.
 The derivative examples above can be simplified to the expressions in comments, which is common to do via smart constructors~\cite{reexamined} when taking derivatives; however, we do not discuss this in this paper.
-To define the derivative of a regular hedge grammar, we need a more general version of the regular expression derivative function that is capable of supporting hedges. 
-We achieve this by using a symbolic derivative~\cite{stanford2021symbolic,elliott2021symbolic} over a generic input alphabet (\lstinline{α}) and a decidable predicate (\lstinline{Φ}):
+In these examples, \lstinline{Φ} is an equality function, since the symbol \lstinline{σ} is of the same type as the alphabet \lstinline{α}, but in the general case, the symbol can represent an inductive predicate type, where \lstinline{Φ} is the evaluation function, see example in next subsection, \AnyEqPred.
+This is also called the symbolic derivative~\cite{stanford2021symbolic,elliott2021symbolic} over a generic input alphabet (\lstinline{α}) and a decidable predicate (\lstinline{Φ}):
 \begin{lstlisting}[label=def Regex.derive]
 def Regex.derive (Φ: σ → α → Bool) (r: Regex σ) (a: α): Regex σ :=
   match r with
@@ -503,16 +500,14 @@ def Regex.derive (Φ: σ → α → Bool) (r: Regex σ) (a: α): Regex σ :=
   | interleave r1 r2 => or
       (interleave (derive Φ r1 a) r2)
       (interleave (derive Φ r2 a) r1)
-theorem genderive: Regex.Char.derive r a = Regex.derive (fun s a => s == a) r a
 \end{lstlisting}
-The Lean \lstinline{theorem} is used to prove that the two definitions of derive are equal when the symbol is a \lstinline{Char} and the correctness is checked by the Lean type checker.
-In \RegexCharDerive, the symbol \lstinline{σ} is of the same type as the alphabet \lstinline{α}, but in the general case, the symbol can represent an inductive predicate type, where \lstinline{Φ} is the evaluation function, see example in next subsection, \AnyEqPred.
 The \lstinline{null} function returns whether a regular expression matches the empty string~\cite{brzozowski1964derivatives,elliott2021symbolic,reexamined}:
 \begin{lstlisting}[label=def Regex.null]
 def Regex.null: (r: Regex σ) → Bool
   | emptyset => false | emptystr => true | symbol _ => false
-  | or r1 r2 => (null r1 || null r2) | concat r1 r2 => (null r1 && null r2)
-  | star _ => true | interleave r1 r2 => (null r1 && null r2)
+  | or r1 r2 => (null r1 || null r2) | star _ => true 
+  | concat r1 r2 => (null r1 && null r2)
+  | interleave r1 r2 => (null r1 && null r2)
 \end{lstlisting}
 String validation can be performed by lazily constructing a \DFA using memoization: the initial regular expression acts as the start state, transitions are given by the derivative function, and every distinct regular expression produced by the derivative function becomes a new state. 
 As more strings are processed, the lazily constructed fragment of the \DFA incrementally expands, allowing it to filter subsequent strings more efficiently~\cite{reexamined}.
@@ -537,11 +532,11 @@ Instead of the original alphabet symbols, each position now contains a tuple com
 This pair can be interpreted as a point on the graph of the predicate function.
 In the \lstinline{symbol} case, the result is checked, but in all other cases, the original derivative algorithm is applied by either calling derive or retrieving the original regular expression with the \lstinline{first} function, which maps over the regular expression as a Functor:
 \begin{lstlisting}
-def Regex.Point.first (r: Regex (α × β)): Regex α := r.map (fun (s,_) => s)
+def Regex.Point.first (r: Regex (α × β)): Regex α := r.map (·.1)
 \end{lstlisting}
 We can prove that these two derivative functions are equivalent:
 \begin{lstlisting}[label=theorem regex_derive_is_point_derive]
-theorem regex_derive_is_point_derive (Φ: σ → α → Bool) (r: Regex σ) (a: α):
+theorem regex_derive_is_point_derive (Φ: σ → α → Bool) (r: Regex σ) a:
   Regex.derive Φ r a = Regex.Point.derive (r.map (fun s => (s, Φ s a)))
 \end{lstlisting}
 The proof follows from induction on \lstinline{r}.
@@ -629,7 +624,7 @@ def Regex.Katydid.derive (Φ: σ → Bool) (r: Regex σ): Regex σ :=
 This pipeline extracts the symbols of the regular expression (\enter), evaluates the predicate at each symbol (\lstinline{Vector.map Φ}), and then reintegrates the results and takes the derivative (\leave).
 The \enter function is memoized over the \Regex parameter, whereas \leave is memoized over the product of the \Regex and the evaluated symbols, \lstinline{Vector Bool (symcount r)}.
 We name the functions \enter and \leave to reflect that they correspond to entering and leaving a \Node, which we will discuss in the next subsection.
-Note that both of these functions are alphabet independent.
+Note that both of these functions are alphabet-independent.
 
 The \enter function returns a \lstinline{Vector} of the symbols contained in the regular expression:
 \begin{lstlisting}[label=def enter]
@@ -708,7 +703,7 @@ def Grammar.JSONmembers.derive (G: Grammar n φ) (Φ: φ → α → Bool)
   termination_by (node, r)
 \end{lstlisting}
 Usually, \Lean can automatically detect that a function will terminate, but in some cases, the termination needs to be proved via \lstinline{termination_by}.
-Unfortunately, the JSONmembers algorithm memoizes parameters with high variance because the parameters are alphabet dependent and the \JSON member alphabet has high variance.
+Unfortunately, the JSONmembers algorithm memoizes parameters with high variance because the parameters are alphabet-dependent and the \JSON member alphabet has high variance.
 The Katydid algorithm avoids this problem by handling the \lstinline{symbol} case within the \lstinline{nodePred} predicate.
 
 While the aim is to implement and verify a memoized variant, we first present its foundation, the non-memoized version of Katydid:
@@ -729,10 +724,10 @@ This is done to make termination obvious to the checker since \GrammarKatydidDer
 
 Both \JSONmembersRuleDerive and \GrammarKatydidDerive can be used to validate a hedge against a regular hedge grammar or to filter a list of hedges:
 \begin{lstlisting}
-def validate (G: Grammar n φ) (Φ: φ → α → Bool) (nodes: Hedge α): Bool :=
-  Regex.null (List.foldl (derive G Φ) G.start nodes)
 def filter (G: Grammar n φ) (Φ: φ → α → Bool) (hedges: List (Hedge α)) := 
   List.filter (validate G Φ) hedges
+def validate (G: Grammar n φ) (Φ: φ → α → Bool) (nodes: Hedge α): Bool :=
+  Regex.null (List.foldl (derive G Φ) G.start nodes)
 \end{lstlisting}
 
 \subsection{Adding Memoization}
@@ -766,7 +761,7 @@ This class allows one to specify a memoization strategy appropriate to the use c
 We adopt a strategy that records every invocation in a \lstinline{State} Monad.
 
 The memoized functions are updated to use monads and to propagate soundness via the \lstinline{Subtype}; otherwise, they are a one-to-one translation of the non-memoized functions.
-Propagating soundness required redefining some standard library functions (including \lstinline{List.foldlM}, \lstinline{Vector.mapM}, and \lstinline{List.filterM}) to also propagate soundness.
+Propagating soundness required redefining some standard library functions (including \lstinline{List.foldlM}, \lstinline{Vector.mapM}, and \lstinline{List.filterM}) to include the propagating of soundness.
 As part of the refactoring with monads, we replace the predicate \lstinline{nodePred} passed to \RegexKatydidDerive and give it the type \lstinline{σ → m Bool} to ensure the recursive use of memoization.
 
 \section{Verification}
@@ -776,17 +771,17 @@ Verifying the correctness of \GrammarMemoizeFilter, our memoized filtering funct
 The full theorem is written in Lean as:
 \begin{lstlisting}[label=theorem memoize_mem_filter]
 theorem memoize_mem_filter [DecidableEq φ] [Hashable φ] (state: ...)
-  (G: Grammar n φ) Φ [DecidableRel Φ] (xs: List (Hedge α)):
+  (G: Grammar n φ) Φ (xs: List (Hedge α)):
   ∀ x, (x ∈ (flip StateM.run' state.leave (flip StateT.run' state.enter
-       (Grammar.Memoize.filter G (decideRel Φ) xs))).val)
+       (Grammar.Memoize.filter G Φ xs))).val)
     ↔ (x ∈ xs ∧ Grammar.denote G Φ x)
 \end{lstlisting}
 We instantiate \MemoizeKatydid with a \lstinline{State} monad and two hashtables, but the instance is not important since the proof follows by generalizing these and using the soundness that was propagated to \GrammarMemoizeFilter.
 
 It remains to show that the semantics of a regular hedge grammar coincide with the implementation of the Katydid algorithm:
 \begin{lstlisting}[label=theorem validate_commutes]
-theorem validate_commutes (G: Grammar n φ) Φ [DecidableRel Φ] (h: Hedge α):
-  (validate G (decideRel Φ) h = true) = Grammar.denote G Φ h
+theorem validate_commutes (G: Grammar n φ) Φ (h: Hedge α):
+  (validate G Φ h = true) = Grammar.denote G Φ h 
 \end{lstlisting}
 The \lstinline{validate} function accepts a hedge if and only if it is described by the grammar, i.e. if \lstinline{h}~\lstinline{∈}~$\llbracket$\lstinline{G}$\rrbracket$.
 To understand this theorem, we first explain how denotation defines the semantics.
@@ -808,9 +803,9 @@ def Lang.derive (R: Lang α) (x: α): Lang α := fun (xs: List α) => R (x :: xs
 \end{lstlisting}
 We specify the semantics of a \Grammar as the denotation of the start rule:
 \begin{lstlisting}[label=def Rule.denote]
-def Grammar.denote (G: Grammar n φ) (Φ: φ → α → Prop) (h: Hedge α): Prop :=
+def Grammar.denote (G: Grammar n φ) (Φ: φ → α → Bool) (h: Hedge α): Prop :=
   Rule.denote G Φ G.start h
-def Rule.denote (G: Grammar n φ) (Φ: φ → α → Prop)
+def Rule.denote (G: Grammar n φ) (Φ: φ → α → Bool)
   (r: Regex (φ × Ref n)) (h: Hedge α): Prop := match r with
   | Regex.emptyset => False
   | Regex.emptystr => h = []
@@ -849,7 +844,7 @@ We use this definition to avoid termination issues and prove it equivalent to an
 
 Verifying the correctness of this denotation is simplified by observing that the \RuleDenote function coincides with the denotation of a \Regex in all cases except \lstinline{symbol}:
 \begin{lstlisting}[label=def Regex.denote]
-def Regex.denote (Φ: σ → α → Prop) (r: Regex σ) (xs: List α): Prop :=
+def Regex.denote (Φ: σ → α → Bool) (r: Regex σ) (xs: List α): Prop :=
   match r with
   | symbol s => match xs with
     | [x] => Φ s x | _ => False
@@ -863,7 +858,7 @@ This renders \RegexDenote and \RuleDenote analogous, as both amount to checking 
 The proof of \refcode{theorem validate_commutes} requires two theorems.
 The first theorem states that the denotation of a \Grammar matching the empty list is equivalent to the definition of \RegexNull:
 \begin{lstlisting}
-theorem null_commutes (G: Grammar n φ) (Φ: φ -> α -> Prop) [DecidableRel Φ] r:
+theorem null_commutes (G: Grammar n φ) (Φ: φ -> α -> Bool) r:
   ((Regex.null r) = true) = Lang.null (Rule.denote G Φ r)
 \end{lstlisting}
 This proof follows from induction on the regular expression \lstinline{r}.
@@ -879,15 +874,8 @@ This proof follows from induction on the regular expression \lstinline{r}.
 
 The second theorem states that the derivative algorithm satisfies the commuting square shown in \Cref{figure_square}:
 \begin{lstlisting}[label=theorem derive_commutes]
-theorem derive_commutes (G: Grammar n φ) Φ [DecidableRel Φ]
-  (r: Regex (φ × Ref n)) (node: Node α):
-  Rule.denote G Φ (derive G (decideRel Φ) r node)
-  = Lang.derive (Rule.denote G Φ r) node
-\end{lstlisting}
-Note that we use \decideRel to convert a decidable relation that returns a property to a decidable predicate that returns a boolean:
-\begin{lstlisting}[label=def decideRel]
-def decideRel (p : α → β → Prop) [DecidableRel p]: α → β → Bool :=
-  fun a b => decide (p a b)
+theorem derive_commutes G Φ (r: Regex (φ × Ref n)) (n: Node α):
+  Rule.denote G Φ (derive G Φ r n) = Lang.derive (Rule.denote G Φ r) n
 \end{lstlisting}
 We prove that the derivative and denotation squares commute for both the JSONmembers and Katydid algorithms, which implies that validation and filtering proofs follow for each algorithm, including the memoized Katydid algorithm, \refcode{theorem memoize_mem_filter}.
 
@@ -953,6 +941,7 @@ where $R$ is \lstinline{G.prods} $\cup$ \lstinline|{G.start}|, $\Delta_r$ is the
 \label{section_go}
 
 The Katydid algorithm was originally implemented in Go, back in 2016, to filter through petabytes of serialized Protocol Buffers in a proprietary distributed database.
+We have linked the Go implementation and the verified Lean implementation using a test suite that provides over 85\% coverage of the Go validation algorithms.
 The Go implementation includes optimizations for faster validation beyond the verified memoization technique.
 The optimization that is considered a major contribution is the fusion of the derivative and parsing algorithms.
 Other simple optimizations beyond the scope of this paper include smart constructors that simplify regular expressions and compute nullability and hashes for comparisons.
@@ -1026,7 +1015,7 @@ class FusedKatydid (m: Type → Type u) (σ: Type) (α: Type)
 \end{lstlisting}
 We created an alternative to the \MemoizeKatydid class called \lstinline{MemoizeKatydids} that handles Vectors of regular expressions instead of single regular expressions.
 This was necessary since the fused algorithm uses the \Parser, which is an online parser and therefore performs no backtracking, requiring the order of \Hedge traversal to be refactored:
-\begin{lstlisting}[label=def fusedDerive]
+\begin{lstlisting}[label=def Grammar.Fused.derive]
 partial def Grammar.Fused.derive
   [DecidableEq φ] [Hashable φ] [FusedKatydid m (φ × Ref n) α]
   (G: Grammar n φ) (Φ: φ → m α → m Bool)
@@ -1043,7 +1032,7 @@ partial def Grammar.Fused.derive
     h := ← Parser.next
   if h == Hint.enter then Fused.derive G Φ rs else return drs
 \end{lstlisting}
-We start each call to \fusedDerive with a check to determine whether we can skip parsing the children since the Vector \lstinline{rs} could be empty or could only contain \lstinline{emptyset} elements.
+We start each call to \fusedDerive with a check to determine whether we can skip parsing the children since the Vector \lstinline{rs} could be empty or could only contain \lstinline{unescapable} \lstinline{emptyset} or \lstinline{starAny} expressions.
 We then check if the \Hint is a \lstinline{value} or \lstinline{enter}, in which case we can either loop through all the values or recurse until a \lstinline{leave} \Hint is received.
 Handling this new traversal order requires the memoized functions (\lstinline{enterM} and \lstinline{leaveM}) to be adjusted to operate on a Vector of \Regex rather than on a single \Regex.
 The newly adjusted functions \lstinline{entersM} and \lstinline{leavesM} require the length of the Vector to also be memoized; hence, the addition of \lstinline{l} in their dependent pair parameters, which is constructed using \lstinline{⟨⟩}.
@@ -1060,7 +1049,7 @@ The resulting Vector \lstinline{childbs} is then decompressed to match the origi
 \subsection{Supporting \JSONSchema}
 
 Holstege~\cite{holstege2019application} explains how \JSONSchema can be converted to \emph{tagged-type regular expressions}.
-They support additional operators, including \lstinline{interleave}, \lstinline{xor} and \lstinline{ifthenelse}.
+They support additional operators, including \lstinline{ifthenelse}.
 They show that translation is possible, except for non-regular operators such as \uniqueItems and \dynamicRef.
 Unlike \uniqueItems, \dynamicRef is still an unpopular feature.
 After analyzing 31,000 schemas, Viotti and Mior~\cite{blaze} found only 10 uses of \dynamicRef on \GitHub.
@@ -1130,7 +1119,7 @@ def field (v: α × Fin n) := contains (symbol (Pred.eq v.1, v.2))
 The \lstinline{simple} grammar filters for conferences within the Category of Computer Science, while the \lstinline{complex} grammar filters for conferences that have submission deadlines in 2026 or after October 2025 and are also located on the continent of Europe.
 For each grammar, we randomly populated data structures and serialized them as Protocol Buffers and \JSON.
 
-Note that we also ran benchmarks back in 2016 and achieved similar sub-microsecond results for similar grammars on older hardware.
+Note even though these benchmarks were run in 2026, we also ran benchmarks back in 2016 and achieved similar sub-microsecond results for similar grammars on older hardware.
 We conducted benchmarks over several iterations to evaluate how memoization improves filter efficiency with repeated execution.
 The \supplementarymaterial includes a more extensive benchmark suite, recorded runs, and explains how to reproduce the benchmarks.
 
@@ -1241,11 +1230,12 @@ We see in \Cref{table_filtering} that Katydid has the fastest median latency and
 Katydid is the fastest for 38 out of the 45 schemas, while Ajv-Bun on the Javascript
 Bun runtime is the fastest for the 7 other schemas.
 The mean is skewed towards Ajv-Bun because there are three schemas where the winning time is an order of magnitude larger than for the other schemas, and two more are two orders larger.
-The slowest schema, geojson, is where Katydid is 2-3 times slower than Ajv-Bun.
+The slowest schema, \textit{geojson}, is where Katydid is 2-3 times slower than Ajv-Bun.
 We do not exactly know how Ajv-Bun achieves this speed; maybe it is the code generation or the way the BUN runtime parses JSON, but we note that Katydid is still faster in this case than Blaze, an optimized C++ implementation.
+Katydid struggles, because it needs to view lists as hedges, which requires add indices as labels and also tag the list as an array, which results in a lot of extra overhead.
 In the API Gateway (discard) use case, which we include in the \supplementarymaterial, Katydid also has the fastest median but the third fastest mean, with Ajv-Bun having the fastest mean again.
 In this use case, Ajv-Bun is the fastest for 16 out of the 45 schemas, and Katydid is the fastest for 23 others.
-Finally, we find that even though Katydid is not the fastest library for the API gateway (reuse) use case, it is still competitive and the fastest Go library; see \Cref{table_api_gateway_reuse}.
+Finally, we find that even though Katydid is not the fastest library for the API gateway (reuse) use case, it is still the fastest Go library; see \Cref{table_api_gateway_reuse}.
 
 Threats to the validity of benchmarking results include:
 \begin{itemize}
@@ -1254,7 +1244,7 @@ Threats to the validity of benchmarking results include:
 \item JSU, AJV and Corvus generate code in the target language, which is a big advantage for inlining many instructions. On the other hand, Viotti and Mior~\cite{blaze} found from their analysis on \GitHub that schemas only change on average every 61 days, so it is perfectly reasonable to generate code and precompile the schema in the API Gateway use cases, but this might not be viable for filtering.
 \item The Regular expression library chosen by each implementation to handle \JSONSchema patterns can make a big difference. We know that at least Blaze and Katydid attempt a fast path for simple regular expressions like prefix, suffix, and character sets.
 \item The implementation language also skews results; see, for example, the big difference in performance between various versions of JSU.
-\item Very large schemas required the Comp version of Katydid to fall back to the Memo version since the Vector of booleans that needed to be calculated for the \leave table was larger than twenty, which would require calculating more than a million combinations. There is work to be done to eliminate the impossible cases since many of the predicates are disjoint. The fallback rarely happens, though, as it was only triggered by two of the benchmark schemas and none of the test suite cases. 
+\item Very large schemas required the Comp version of Katydid to fall back to the Memo version since the Vector of booleans that needed to be calculated for the \leave table was larger than twenty, which would require calculating more than a million combinations. There is work to be done to eliminate the impossible cases since many of the predicates are disjoint. The fallback rarely happens, though, as it was only triggered by two of the benchmark schemas, \textit{ui5} (94 KB) and \textit{ansible-meta} (36 KB), and none of the test suite cases.
 \end{itemize}
 
 A use case we did not benchmark is deserializing directly into the user-defined data structure and then validating this structure.
