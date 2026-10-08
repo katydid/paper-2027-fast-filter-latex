@@ -365,11 +365,10 @@ To illustrate the application of Brzozowski's derivative algorithm to \JSONSchem
 { "title": "small jsonschema for a blogpost",
   "type":"object", "additionalProperties":false, "required":["content"],
   "properties": { "content": { "type":"string" },
-    "author": { "$ref":"#/definitions/profile" } },
-  "definitions": { "profile": {
-    "type":"object","additionalProperties":false,"required":["username"], 
-    "properties": { "username": { "type":"string" },
-      "email": { "type":"string", "format":"email" } } } } }
+    "author": { "type": "object", "additionalProperties": false,
+      "required": ["username"], 
+      "properties": { "username": { "type":"string" },
+        "email": { "type":"string", "format":"email" } } } } }
 \end{lstlisting}
 The schema requires a content field and an optional author object.
 The author object must contain a username and may contain an email address. 
@@ -384,7 +383,7 @@ We first take the derivative of the schema with respect to the first object, \ls
 The only field left in the residual schema is \lstinline[language=json]|"author"|:
 \begin{lstlisting}[language=json]
 { "type": "object", "additionalProperties": false, 
-  "properties": { "author": { "$ref":"#/definitions/profile" } } ... }
+  "properties": { "author": { ... } } ... }
 \end{lstlisting}
 We next take the derivative of this residual schema with respect to the remaining key-value pair \lstinline[language=json]|{"author":{"username": "Khaleesi"}}|. 
 The result is an empty schema, \lstinline[language=json]
@@ -402,8 +401,8 @@ For the first derivative in our example, \enter extracts two predicate/schema pa
 \begin{itemize}
   \item the \lstinline[language=json]|"content"| field predicate and
   \lstinline[language=json]|{"type": "string"}| schema; and
-  \item the \lstinline[language=json]|"author"| field predicate and the referenced \lstinline[language=json]|"profile"| schema.
-\end{itemize}
+  \item the \lstinline[language=json]|"author"| predicate and the \lstinline[language=json]|{"username":..., "email":...}| schema.
+  \end{itemize}
 After extracting these predicates, the input object is evaluated against them, and the algorithm is recursively applied to the schemas to produce a boolean Vector. 
 For our example \lstinline[language=json]|{"content": "Dragons"}|, the predicate/schema pairs evaluate to: \lstinline{[true, false]}. 
 The first boolean is \lstinline{true} because the field name is \lstinline[language=json]|"content"| and the value \lstinline[language=json]|"Dragons"| is of string type. 
@@ -429,8 +428,8 @@ key (schema, $\overrightarrow{\mathrm{boolean}}$) & value: residual \\
 \midrule
 blogpost & [(\lstinline[language=json]|"content"|,...), (\lstinline[language=json]|"author"|,...)] &
 (blogpost, [\lstinline|true|, \lstinline|false|]) & optional \lstinline[language=json]|"author"|\\
-profile & [(\lstinline[language=json]|"username"|,...), (\lstinline[language=json]|"email"|,...)] &
-(profile, [\lstinline|true|, \lstinline|false|]) & optional \lstinline[language=json]|"email"|\\
+author & [(\lstinline[language=json]|"username"|,...), (\lstinline[language=json]|"email"|,...)] &
+(author, [\lstinline|true|, \lstinline|false|]) & optional \lstinline[language=json]|"email"|\\
 \vdots & \vdots & \vdots & \vdots \\
 \end{tabular}}%
 \Description[Two memoization tables]{The enter table maps a Schema to its Vector of predicate/schema pairs. The leave table maps a pair of a Schema and a boolean Vector to a residual Schema. Two different inputs that evaluate to the same boolean Vector share a single leave entry.}
