@@ -238,6 +238,12 @@ basicstyle=\lstbasicstyle,
 %% Used for Cref to create capatilized references to Section and Fig.
 \usepackage[nameinlink]{cleveref}
 
+%% Plot
+\usepackage{pgfplots}
+\usetikzlibrary{backgrounds}
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{positioning}
+
 %%%%% END: Author aditions to style %%%%%%
 
 \begin{document}
@@ -852,7 +858,16 @@ This proof follows from induction on the regular expression \lstinline{r}.
 
 \begin{figure}
 \begin{center}
-\includegraphics[]{graphics/diagram/diagram.pdf}
+\begin {tikzpicture}[-latex, auto, node distance =2 cm and 5cm, on grid, semithick, state/.style={rectangle, draw, black, text=black, minimum width=1 cm}]
+\node[state] (R) {\lstinline{r: Regex (φ × Ref n)}};
+\node[state] (DR) [below =of R] {\lstinline{r'}};
+\node[state] (S) [right =of R] {$\llbracket$\lstinline{r}$\rrbracket$};
+\node[state] (DS) [right =of DR] {$\llbracket$\lstinline{r}$\rrbracket$\lstinline{'} = $\llbracket$\lstinline{r'}$\rrbracket$ };
+\path (R) edge  node[left] { \lstinline{derive} } (DR);
+\path (DR) edge  node[below =0.15 cm] { \lstinline{denote} } (DS);
+\path (R) edge  node[above =0.15 cm] { \lstinline{denote} } (S);
+\path (S) edge  node[right] { \lstinline{Lang.derive} } (DS);
+\end{tikzpicture}
 \end{center}
 \caption{Commuting Square: $\llbracket$\lstinline{derive r node}$\rrbracket$ = \lstinline{Lang.derive} $\llbracket$\lstinline{r}$\rrbracket$ \lstinline{node}}
 \Description[Commuting derivative and denotation square]{The denotation of a regular expression and deriving the Language from that derivative, is equivalent to deriving the regular expression and then denoting it.}
@@ -1115,7 +1130,49 @@ The \supplementarymaterial includes a more extensive benchmark suite, recorded r
 
 \begin{figure}[t]
 \begin{center}
-\includegraphics{graphics/bargraph/bargraph.pdf}
+%% How to plot a graph: https://tex.stackexchange.com/questions/156964/guide-to-draw-charts-basic-pie-bar-from-data
+\pgfplotstableread[row sep=\\,col sep=&]{
+interations   & Zero  & Mem100 & Mem1000 & Mem10000 & Auto \\
+dateAndCont JSON  & 27426 & 1998   & 1183    & 1115     & 1037  \\
+dateAndCont Proto & 26968 & 1153   & 589     & 419      & 322  \\
+compSci Proto  & 5448  & 514    & 392     & 308      & 230  \\
+}\mydata
+
+% \begin{tikzpicture}[show background rectangle,tight background]
+\begin{tikzpicture}[tight background]
+  \begin{axis}[
+    ybar=7pt,
+    bar width=11pt,
+    width=0.955\textwidth,
+    height=.5\textwidth,
+    legend style={
+      at={(0.5,1)},
+      anchor=north,
+      legend columns=-1
+    },
+    scaled ticks=false,
+    symbolic x coords={dateAndCont JSON, dateAndCont Proto, compSci Proto},
+    xtick=data,
+    %% These lines add text above the bars:
+    nodes near coords,
+    nodes near coords align={vertical},
+    every node near coord/.append style={font=\scriptsize},
+    %% This adds padding on the left and right, see https://tex.stackexchange.com/questions/206996/spacing-bars-in-ybar
+    enlarge x limits={abs=1.9cm},
+    ymin=0,
+    ymax=38000,
+    ylabel={nanoseconds/validation},
+    legend style={at={(0.545,0.99)},
+ legend columns=-1},
+  ]
+    \addplot[delim,fill] table[x=interations,y=Zero]{\mydata};
+    \addplot[stringcolor,fill] table[x=interations,y=Mem100]{\mydata};
+    \addplot[commentcolor,fill] table[x=interations,y=Mem1000]{\mydata};
+    \addplot[tacticcolor,fill] table[x=interations,y=Mem10000]{\mydata};
+    \addplot[string,fill] table[x=interations,y=Auto]{\mydata};
+    \legend{NoMemo, Memo100, Memo1000, Memo10000, Comp}
+  \end{axis}
+\end{tikzpicture}
 \caption{Memoization Benchmarks}
 \Description[Bar graph of memoization benchmarks]{Bar graph showing benchmarks of the dateAndCont grammar and compSci grammar in the JSON and Proto formats, where each is measured in nanoseconds per validation, for no memoization, a hundred memoization iterations, a thousand memoization iterations, ten thousand memoization iterations, and pre-compiled. The dateAndCont grammar with JSON parsing is measured as: NoMemo 18547, Memo100 1856, Memo1000 1100, Memo10000 1064, Comp 979. The dateAndCont grammar with Proto parsing is measured as: NoMemo 16644, Memo100 1091, Memo1000 508, Memo10000 342, Comp 261. The compSci grammar with Proto parsing is measured as: NoMemo 4391, Memo100 449, Memo1000 239, Memo10000 221, Comp 154.}
 \label{figure_benchmarks}
