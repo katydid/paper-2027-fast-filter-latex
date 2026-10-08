@@ -683,7 +683,7 @@ Unfolding \enter and \leave yields exactly this behaviour:
 \begin{lstlisting}
 theorem derive_unfolds_to_map (Φ: σ → α → Bool) (r: Regex σ) (a: α):
   Regex.Katydid.derive (flip Φ a) r = Regex.Point.derive
-    (replace (extract r).1 (Vector.map (fun s => (s, Φ s a)) (extract r).2))
+    (replace (extract r).1 ((extract r).2.map (fun s => (s, Φ s a))))
 \end{lstlisting}
 In this case, the mapped function \lstinline{f} is \lstinline{fun x => (x, Φ x a)}.
 With the \RegexKatydidDerive algorithm defined, let us move on to its role in regular hedge grammars.
@@ -694,13 +694,13 @@ Holstege~\cite{holstege2019application} applied a derivative algorithm to JSON~S
 They treat the derivative of a regular hedge grammar similarly to the derivative of a regular expression, but with special handling for the \lstinline{symbol} case:
 \begin{lstlisting}[label=def Grammar.JSONmembers.derive]
 def Grammar.JSONmembers.derive (G: Grammar n φ) (Φ: φ → α → Bool)
-  (r: Regex (φ × Ref n)) (node: Node α): Regex (φ × Ref n) := match r with
-  | Regex.symbol (pred, ref) => let ⟨label, children⟩ := node
+  (r: Regex (φ × Ref n)) (t: Node α): Regex (φ × Ref n) := match r with
+  | Regex.symbol (pred, ref) => let ⟨label, children⟩ := t
     Regex.onlyif (Φ pred label
       ∧ Regex.null (List.foldl (derive G Φ) (G.lookup ref) children)
     ) Regex.emptystr
   ...
-  termination_by (node, r)
+  termination_by (t, r)
 \end{lstlisting}
 Usually, \Lean can automatically detect that a function will terminate, but in some cases, the termination needs to be proved via \lstinline{termination_by}.
 Unfortunately, the JSONmembers algorithm memoizes parameters with high variance because the parameters are alphabet-dependent and the \JSON member alphabet has high variance.
@@ -709,11 +709,11 @@ The Katydid algorithm avoids this problem by handling the \lstinline{symbol} cas
 While the aim is to implement and verify a memoized variant, we first present its foundation, the non-memoized version of Katydid:
 \begin{lstlisting}[label=def Grammar.Katydid.derive]
 def Grammar.Katydid.derive (G: Grammar n φ) (Φ: φ → α → Bool)
-  (r: Regex (φ × Ref n)) (node: Node α): Regex (φ × Ref n) :=
+  (r: Regex (φ × Ref n)) (t: Node α): Regex (φ × Ref n) :=
   let nodePred := fun ((labelPred, ref): (φ × Ref n)) =>
-    let ⟨label, children⟩ := node
-    let childr := if Φ labelPred label then G.lookup ref else Regex.emptyset
-    Regex.null (List.foldl (Grammar.Katydid.derive G Φ) childr children)
+    let ⟨label, children⟩ := t
+    let childr := if Φ labelPred label then G.lookup ref else emptyset
+    null (List.foldl (Grammar.Katydid.derive G Φ) childr children)
   Regex.Katydid.derive nodePred r -- enter r |> Vector.map nodePred |> leave r
 \end{lstlisting}
 If \lstinline{labelPred} matches the \lstinline{label}, we compute the derivative of the referenced regular expression and fold it over the children of the \Node.
@@ -724,10 +724,10 @@ This is done to make termination obvious to the checker since \GrammarKatydidDer
 
 Both \JSONmembersRuleDerive and \GrammarKatydidDerive can be used to validate a hedge against a regular hedge grammar or to filter a list of hedges:
 \begin{lstlisting}
-def filter (G: Grammar n φ) (Φ: φ → α → Bool) (hedges: List (Hedge α)) := 
-  List.filter (validate G Φ) hedges
-def validate (G: Grammar n φ) (Φ: φ → α → Bool) (nodes: Hedge α): Bool :=
-  Regex.null (List.foldl (derive G Φ) G.start nodes)
+def filter (G: Grammar n φ) (Φ: φ → α → Bool)
+  (hedges: List (Hedge α)) := List.filter (validate G Φ) hedges
+def validate (G: Grammar n φ) (Φ: φ → α → Bool)
+  (hedge: Hedge α): Bool := null (List.foldl (derive G Φ) G.start hedge)
 \end{lstlisting}
 
 \subsection{Adding Memoization}
@@ -736,8 +736,9 @@ To demonstrate how memoization improves the performance of derivative-based filt
 A function is \emph{memoizable} if its input parameters can be hashed and have decidable equality. 
 We express this as a Lean \lstinline{class} using a Monad \lstinline{m} for stateful caching:
 \begin{lstlisting}[label=Memoize]
-class Memoize [DecidableEq α] [Hashable α] {β: α → Type} (f: (a: α) → β a)
-  (m: Type → Type u) where call: (a: α) → m { b: β a // b = f a }
+class Memoize [DecidableEq α] [Hashable α] {β: α → Type}
+  (f: (a: α) → β a) (m: Type → Type u)
+  where call: (a: α) → m { b: β a // b = f a }
 \end{lstlisting}
 The return type is expressed as a \lstinline{Subtype}, \lstinline|{ b: β a // b = f a }|, which has a value \lstinline{b} and a property that the value is equal to the output value of the original non-memoized function \lstinline{f}.
 Other formalizations~\cite{formalmem} additionally have an invariant that input and output values have to be stored, but the \lstinline{Memoize} class allows various caching strategies, including limited space strategies.
@@ -747,13 +748,13 @@ Here is a filter type signature as an example:
 \begin{lstlisting}[label=def Grammar.Memoize.filter]
 def Grammar.Memoize.filter [DecidableEq φ] [Hashable φ] [Monad m]
   [MemoizeKatydid m (φ × Ref n)] (G: Grammar n φ) (Φ: φ → α → Bool)
-  (xs: List (Hedge α)) : m { xs' // xs' = Grammar.Katydid.filter G Φ xs }
+  (xs: List (Hedge α)): m { xs' // xs' = Grammar.Katydid.filter G Φ xs }
 \end{lstlisting}
 We only memoize the \enter and \leave functions using the \lstinline{MemoizeKatydid} class:
 \begin{lstlisting}[label=MemoizeKatydid]
-class MemoizeKatydid (m: Type → Type u) σ [DecidableEq σ] [Hashable σ] where
-  enterM : (r: Regex σ) → m { res: Vector σ (symcount r) // res = enter r }
-  leaveM : (param: Σ (r: Regex σ), (Vector Bool (symcount r)))
+class MemoizeKatydid (m: Type → Type u) σ where
+  enterM: (r: Regex σ) → m { res: Vector σ (symcount r) // res = enter r }
+  leaveM: (param: Σ (r: Regex σ), (Vector Bool (symcount r)))
              → m { res: Regex σ // res = Regex.leave param.1 param.2 }
 \end{lstlisting}
 We use \lstinline{Σ} in Lean to express a dependent pair type, where the type of the second element depends on the value of the first element.
@@ -799,12 +800,12 @@ def Lang.null (R: Lang α): Prop := R []
 \end{lstlisting}
 The derivative of a language is the language consisting of all strings that remain after the input element has been matched:
 \begin{lstlisting}[label=def Lang.derive]
-def Lang.derive (R: Lang α) (x: α): Lang α := fun (xs: List α) => R (x :: xs)
+def Lang.derive (R: Lang α) (x: α): Lang α := fun xs => R (x :: xs)
 \end{lstlisting}
 We specify the semantics of a \Grammar as the denotation of the start rule:
 \begin{lstlisting}[label=def Rule.denote]
-def Grammar.denote (G: Grammar n φ) (Φ: φ → α → Bool) (h: Hedge α): Prop :=
-  Rule.denote G Φ G.start h
+def Grammar.denote (G: Grammar n φ) (Φ: φ → α → Bool) (h: Hedge α)
+  : Prop := Rule.denote G Φ G.start h
 def Rule.denote (G: Grammar n φ) (Φ: φ → α → Bool)
   (r: Regex (φ × Ref n)) (h: Hedge α): Prop := match r with
   | Regex.emptyset => False
@@ -874,8 +875,8 @@ This proof follows from induction on the regular expression \lstinline{r}.
 
 The second theorem states that the derivative algorithm satisfies the commuting square shown in \Cref{figure_square}:
 \begin{lstlisting}[label=theorem derive_commutes]
-theorem derive_commutes G Φ (r: Regex (φ × Ref n)) (n: Node α):
-  Rule.denote G Φ (derive G Φ r n) = Lang.derive (Rule.denote G Φ r) n
+theorem derive_commutes G Φ (r: Regex (φ × Ref n)) (t: Node α):
+  Rule.denote G Φ (derive G Φ r t) = Lang.derive (Rule.denote G Φ r) t
 \end{lstlisting}
 We prove that the derivative and denotation squares commute for both the JSONmembers and Katydid algorithms, which implies that validation and filtering proofs follow for each algorithm, including the memoized Katydid algorithm, \refcode{theorem memoize_mem_filter}.
 
@@ -915,8 +916,8 @@ We encountered a similar termination issue when propagating memoization soundnes
 
 All entries in the memoization tables of \enter and \leave can be precomputed without any input:
 \begin{lstlisting}[label=def Regex.compile]
-def Regex.compile [DecidableEq σ] [Hashable σ] [Monad m] [MemoizeKatydid m σ]
-  (r: Regex σ): m Unit := do
+def Regex.compile [DecidableEq σ] [Hashable σ] [Monad m]
+  [MemoizeKatydid m σ] (r: Regex σ): m Unit := do
   for r in Regex.derivatives r do
     _ ← MemoizeKatydid.enterM r
     for bools in Vector.boolCombos (symcount r) do
@@ -982,20 +983,20 @@ Skipping is efficient in the case of Protocol Buffers, because of the length-del
 Consider the following \Hedge representation of the \JSON example discussed earlier:
 \begin{lstlisting}
 #guard runs exampleParse [
-    node (Token.string "author") [
-      node (Token.string "username") [node (Token.string "Khaleesi") []]],
-    node (Token.string "content") []]
+  node (Token.string "author") [
+    node (Token.string "username") [node (Token.string "Khaleesi") []]],
+  node (Token.string "content") []]
 \end{lstlisting}
 We can parse it using an implementation of our \Parser for Hedges:
 \begin{lstlisting}
 def exampleParse [p: Parser m Token] ...: m Unit := do
-  assertEq (← p.next) Hint.enter -- enter blogpost
-  assertEq (← p.next) Hint.value; assertEq (← p.token) (string "author")
+  assert (← p.next) Hint.enter -- enter blogpost
+  assert (← p.next) Hint.value; assert (← p.token) (string "author")
   _ ← p.skip                     -- skip author's children, username, ...
-  assertEq (← p.next) Hint.value; assertEq (← p.token) (string "content")
-  assertEq (← p.next) Hint.enter; assertEq (← p.next) Hint.leave
-  assertEq (← p.next) Hint.leave -- leave blogpost
-  assertEq (← p.next) Hint.eof
+  assert (← p.next) Hint.value; assert (← p.token) (string "content")
+  assert (← p.next) Hint.enter; assert (← p.next) Hint.leave
+  assert (← p.next) Hint.leave -- leave blogpost
+  assert (← p.next) Hint.eof
 \end{lstlisting}
 
 We built pull-based parsers for \JSON and Protocol Buffers that are optimized to avoid any allocation on the heap.
@@ -1018,14 +1019,14 @@ This was necessary since the fused algorithm uses the \Parser, which is an onlin
 \begin{lstlisting}[label=def Grammar.Fused.derive]
 partial def Grammar.Fused.derive
   [DecidableEq φ] [Hashable φ] [FusedKatydid m (φ × Ref n) α]
-  (G: Grammar n φ) (Φ: φ → m α → m Bool)
-  (rs: Vector (Regex (φ × Ref n)) l): m (Vector (Regex (φ × Ref n)) l) := do
+  (G: ...) (Φ: φ → m α → m Bool) (rs: Vector (Regex (φ × Ref n)) l)
+  : m (Vector (Regex (φ × Ref n)) l) := do
   let mut drs := rs
   if Vector.all rs Regex.unescapable then Parser.skip; return drs
   let mut h := ← Parser.next
   while h == Hint.value do
     let enterSymbols    ← MemoizeKatydids.entersM ⟨l, drs⟩
-    let childrs ← Vector.mapM (xs := enterSymbols.val) (fun ⟨pred, ref⟩ => do
+    let childrs ← enterSymbols.val.mapM (fun ⟨pred, ref⟩ =>
       return if ← Φ pred Parser.token then G.lookup ref else emptyset)
     let childbs ← Vector.map Regex.null <$> Fused.derive G Φ childrs
     drs :=              ← MemoizeKatydids.leavesM ⟨l, drs, childbs⟩
