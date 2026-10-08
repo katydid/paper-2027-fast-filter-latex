@@ -1040,6 +1040,8 @@ We define \fusedDerive using \lstinline{partial} since we have not proven that i
 
 There are other optimizations not included here.
 Evaluating the predicates can be expensive, but we optimize many string equalities with various hash map strategies.
+The \lstinline{extract} and \lstinline{replace} functions are aware of nullability and only extract those that will be relevant to the derivative.
+For example, if two symbols are concatenated together, only the first is extracted, since it is unnecessary to evaluate the second.
 The Vector \lstinline{childrs} is also compressed before calling \fusedDerive.
 This is done by removing duplicates, \lstinline{emptyset}, and \lstinline{starAny}.
 The resulting Vector \lstinline{childbs} is then decompressed to match the original length of \lstinline{childrs} using a Vector of indices that the compression function emitted.
