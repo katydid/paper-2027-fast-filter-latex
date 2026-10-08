@@ -126,7 +126,6 @@ basicstyle=\lstbasicstyle,
 \newcommand{\Rule}{\link{Regex (φ × Ref n)}{Grammar}}
 \newcommand{\Reference}{\link{Ref n}{Ref}}
 \newcommand{\RegexKatydidDerive}{\link{Regex.Katydid.derive}{def Regex.Katydid.derive}}
-\newcommand{\symcount}{\link{symcount}{def symcount}}
 \newcommand{\enter}{\link{enter}{def enter}}
 \newcommand{\leave}{\link{leave}{def leave}}
 \newcommand{\extract}{\link{extract}{def extract}}
@@ -622,26 +621,25 @@ def Regex.Katydid.derive (Φ: σ → Bool) (r: Regex σ): Regex σ :=
   enter r |> Vector.map Φ |> leave r
 \end{lstlisting}
 This pipeline extracts the symbols of the regular expression (\enter), evaluates the predicate at each symbol (\lstinline{Vector.map Φ}), and then reintegrates the results and takes the derivative (\leave).
-The \enter function is memoized over the \Regex parameter, whereas \leave is memoized over the product of the \Regex and the evaluated symbols, \lstinline{Vector Bool (symcount r)}.
+The \enter function is memoized over the \Regex parameter, whereas \leave is memoized over the product of the \Regex and the evaluated symbols, \lstinline{Vector Bool |r|}.
 We name the functions \enter and \leave to reflect that they correspond to entering and leaving a \Node, which we will discuss in the next subsection.
 Note that both of these functions are alphabet-independent.
 
 The \enter function returns a \lstinline{Vector} of the symbols contained in the regular expression:
 \begin{lstlisting}[label=def enter]
-def enter (r: Regex σ): Vector σ (symcount r) := (extract r).2
+def enter (r: Regex σ): Vector σ |r| := (extract r).2
 #guard enter (or (symbol 'a') (star (symbol 'b'))) = #v['a','b']
 \end{lstlisting}
 
-The \symcount function determines the number of symbols in a regular expression:
-\begin{lstlisting}[label=def symcount]
-def symcount (r: Regex σ): Nat
-#guard symcount (or (symbol 'a') (star (symbol 'b'))) = 2
+The \lstinline{|r|} function determines the number of symbols in a regular expression:
+\begin{lstlisting}
+#guard |or (symbol 'a') (star (symbol 'b'))| = 2
 \end{lstlisting}
 
 The symbols are extracted from the regular expression using the \extract function.
 The \extract function returns a \lstinline{Vector} of symbols and a regular expression, where all the symbols have been replaced with indexes into the \lstinline{Vector} from which their original symbols can be retrieved:
 \begin{lstlisting}[label=def extract]
-def extract (r: Regex σ): Regex (Fin (symcount r)) × Vector σ (symcount r)
+def extract (r: Regex σ): Regex (Fin |r|) × Vector σ |r|
 #guard extract (or (symbol 'a') (star (symbol 'b')))
   = ((or (symbol 0) (star (symbol 1))), #v['a', 'b'])
 \end{lstlisting}
@@ -657,8 +655,8 @@ The drawback of \lstinline{IfExpr.enter} is an exponential blow-up in the space 
 The \leave function zips the evaluated results with the original input symbols and replaces these back into the \Regex to create a \lstinline{Regex (σ × Bool)}.
 Finally, \leave applies the derivative using \RegexPointDerive:
 \begin{lstlisting}[label=def leave]
-def leave (r: Regex σ) (bools: Vector Bool (symcount r)): Regex σ :=
-  let points: Vector (σ × Bool) (symcount r) := Vector.zip (extract r).2 bools
+def leave (r: Regex σ) (bools: Vector Bool |r|): Regex σ :=
+  let points: Vector (σ × Bool) |r| := Vector.zip (extract r).2 bools
   let rpoint: Regex (σ × Bool) := replace (extract r).1 points
   Regex.Point.derive rpoint
 \end{lstlisting}
@@ -753,8 +751,8 @@ def Grammar.Memoize.filter [DecidableEq φ] [Hashable φ] [Monad m]
 We only memoize the \enter and \leave functions using the \lstinline{MemoizeKatydid} class:
 \begin{lstlisting}[label=MemoizeKatydid]
 class MemoizeKatydid (m: Type → Type u) σ where
-  enterM: (r: Regex σ) → m { res: Vector σ (symcount r) // res = enter r }
-  leaveM: (param: Σ (r: Regex σ), (Vector Bool (symcount r)))
+  enterM: (r: Regex σ) → m { res: Vector σ |r| // res = enter r }
+  leaveM: (param: Σ (r: Regex σ), (Vector Bool |r|))
              → m { res: Regex σ // res = Regex.leave param.1 param.2 }
 \end{lstlisting}
 We use \lstinline{Σ} in Lean to express a dependent pair type, where the type of the second element depends on the value of the first element.
@@ -920,7 +918,7 @@ def Regex.compile [DecidableEq σ] [Hashable σ] [Monad m]
   [MemoizeKatydid m σ] (r: Regex σ): m Unit := do
   for r in Regex.derivatives r do
     _ ← MemoizeKatydid.enterM r
-    for bools in Vector.boolCombos (symcount r) do
+    for bools in Vector.boolCombos |r| do
       _ ← MemoizeKatydid.leaveM ⟨r, bools⟩
 \end{lstlisting}
 \lstinline{Regex.derivatives} calculates a list of all dissimilar derivatives of a regular expression.
@@ -936,7 +934,7 @@ We extend this compilation to the whole grammar by calling \RegexCompile for eac
 % total <= Num_prods * (max enter_keys + max leaves_keys)
 As a result, the combined number of entries in the \enter and \leave memoization tables is at most
 $\sum_{r \in R}{|\Delta_r| + 2^{\mathrm{maxs}(\Delta_r)}}$, 
-where $R$ is \lstinline{G.prods} $\cup$ \lstinline|{G.start}|, $\Delta_r$ is the list \lstinline{Regex.derivatives r}, and $\mathrm{maxs}(\Delta_r)$ denotes the maximum \symcount over $r' \in \Delta_r$.
+where $R$ is \lstinline{G.prods} $\cup$ \lstinline|{G.start}|, $\Delta_r$ is the list \lstinline{Regex.derivatives r}, and $\mathrm{maxs}(\Delta_r)$ denotes the maximum number of symbols over $r' \in \Delta_r$.
 
 \section{Go Implementation}
 \label{section_go}
@@ -992,7 +990,7 @@ We can parse it using an implementation of our \Parser for Hedges:
 def exampleParse [p: Parser m Token] ...: m Unit := do
   assert (← p.next) Hint.enter -- enter blogpost
   assert (← p.next) Hint.value; assert (← p.token) (string "author")
-  _ ← p.skip                     -- skip author's children, username, ...
+  _ ← p.skip                   -- skip author's children, username, ...
   assert (← p.next) Hint.value; assert (← p.token) (string "content")
   assert (← p.next) Hint.enter; assert (← p.next) Hint.leave
   assert (← p.next) Hint.leave -- leave blogpost
@@ -1110,10 +1108,11 @@ Two regular hedge grammars (\lstinline{compSci} and \lstinline{dateAndCont}) wer
 def compSci: Grammar 2 (Pred String) :=
   mk (field ("Category", 1)) #v[emptystr, eq ("Computer Science", 0)]
 def dateAndCont: Grammar 7 (Pred String) :=
-  mk (interleave (eq ("Due", 1)) (interleave (eq ("Loc", 5)) starAny)) #v[emptystr,
-    or (field ("Year", 2)) (and (field ("Year", 3)) (field ("Month", 4))),
-    eq ("2026", 0), eq ("2025", 0), symbol (Pred.ge "10", 0),
-    field ("Cont", 6), eq ("EU", 0)]
+mk (interleave (eq ("Due", 1)) (interleave (eq ("Loc", 5)) starAny)) #v[
+  emptystr,
+  or (field ("Year", 2)) (and (field ("Year", 3)) (field ("Month", 4))),
+  eq ("2026", 0), eq ("2025", 0), symbol (Pred.ge "10", 0),
+  field ("Cont", 6), eq ("EU", 0)]
 def eq (v: α × Fin n) := symbol (Pred.eq v.1, v.2)
 def field (v: α × Fin n) := contains (symbol (Pred.eq v.1, v.2))
 \end{lstlisting}
