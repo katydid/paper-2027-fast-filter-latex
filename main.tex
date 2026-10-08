@@ -363,11 +363,11 @@ We describe the algorithm in more detail in \Cref{section_algorithm} and \Cref{s
 To illustrate the application of Brzozowski's derivative algorithm to \JSONSchema, we use a simplified schema of a blog post~\cite{jsonschemaexamples}:
 \begin{lstlisting}[language=json,label=jsonschema_blogpost]
 { "title": "small jsonschema for a blogpost",
-  "type": "object", "additionalProperties": false, "required": ["content"],
+  "type":"object", "additionalProperties":false, "required":["content"],
   "properties": { "content": { "type":"string" },
     "author": { "$ref":"#/definitions/profile" } },
   "definitions": { "profile": {
-    "type": "object", "additionalProperties": false, "required": ["username"], 
+    "type":"object","additionalProperties":false,"required":["username"], 
     "properties": { "username": { "type":"string" },
       "email": { "type":"string", "format":"email" } } } } }
 \end{lstlisting}
