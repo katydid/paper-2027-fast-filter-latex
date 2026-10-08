@@ -13,23 +13,23 @@
 
 %% Recommended by Springer's LNCS template: T1 fonts are used for the final PDFs.
 \usepackage[T1]{fontenc}
+
 %% Packages that acmart loaded implicitly and that this paper relies on.
 \usepackage{graphicx}  % \includegraphics
+
 \usepackage{booktabs}  % \midrule in tables
+
 %% amsmath is deliberately not loaded: the paper uses none of its commands, and
 %% loading it after llncs (which defines its own \vec) gives the warning
 %% "Unable to redefine math accent \vec".
 \usepackage{amssymb}   % symbols used by lstlean.tex literate replacements
+
 %% acmart loaded microtype automatically; it greatly reduces loose (underfull)
 %% and overlong (overfull) lines.
 %% (stretch/shrink slightly above the default 20 to avoid a few loose lines
 %% next to long, unbreakable code names.)
-%% Overleaf's TeX Live 2025 has microtype 3.2a, which predates a LaTeX kernel
-%% change and warns "Command \showhyphens has changed". The warning is harmless
-%% (fixed in microtype 3.2b); filter it. Safe to remove once Overleaf updates.
-\usepackage{silence}
-\WarningFilter{latex}{Command \showhyphens}
 \usepackage[stretch=30,shrink=30]{microtype}
+
 \usepackage{stmaryrd}  % \llbracket and \rrbracket
 \usepackage{xcolor}    % named colours such as gray (acmart loaded xcolor)
 \usepackage{hyperref}  % \hyperref, \url; must come before cleveref
@@ -40,7 +40,7 @@
 
 %% Pages may end short rather than stretching the vertical space between
 %% paragraphs, listings and headings (avoids "Underfull \vbox" warnings).
-\raggedbottom
+% \raggedbottom
 
 %% Long unbreakable inline code (\lstinline) in LNCS's narrower text block:
 %% allow extra inter-word stretch before producing overfull lines.
@@ -49,18 +49,6 @@
 %% acmart-only accessibility descriptions for figures and tables.
 %% LNCS has no equivalent, so they are ignored (kept in the source for reuse).
 \providecommand{\Description}[2][]{}
-
-%% Cross-reference names matching LNCS captions ("Fig. 1", "Table 1").
-\AtBeginDocument{%
-  \crefname{figure}{Fig.}{Figs.}%
-  \Crefname{figure}{Fig.}{Figs.}%
-  \crefname{table}{Table}{Tables}%
-  \Crefname{table}{Table}{Tables}%
-  \crefname{section}{Section}{Sections}%
-  \Crefname{section}{Section}{Sections}%
-  \crefname{subsection}{Section}{Sections}%
-  \Crefname{subsection}{Section}{Sections}%
-}
 
 %%%%% BEGIN: Author additions to style %%%%%%
 
@@ -277,7 +265,7 @@ basicstyle=\lstbasicstyle,
 \maketitle
 
 \begin{abstract}
-We present a high-\hspace{0pt}performance filtering and schema-\hspace{0pt}validation algorithm based on Brzozowski’s derivatives, extended to regular hedge grammars for semi-structured data.
+We present a high-performance filtering and schema-validation algorithm based on Brzozowski’s derivatives, extended to regular hedge grammars for semi-structured data.
 Our algorithm inherits the expressiveness of regular hedge grammars to support a wide range of schema languages and serialization formats, such as \JSONSchema, \RelaxNG for XML, and Protocol Buffers.
 High performance is achieved by refactoring the derivative algorithm to make it more amenable to memoization of hedges.
 We verify in Lean that our memoization technique is correct: our memoized filtering and validation algorithm is equivalent to the denotational semantics of regular hedge grammars.
@@ -416,8 +404,7 @@ No input value ever appears in the keys, see \Cref{table_memo}.
 \begin{table}
 \caption{The bounded memoization tables for \enter and \leave}
 \label{table_memo}
-\small
-% Slightly scaled down to fit the LNCS text width.
+\small % Slightly scaled down to fit the LNCS text width.
 \resizebox{\linewidth}{!}{%
 \begin{tabular}{ll|ll}
 \midrule
@@ -765,7 +752,7 @@ As part of the refactoring with monads, we replace the predicate \lstinline{node
 \section{Verification}
 \label{section_verification}
 
-Verifying the correctness of \GrammarMemoizeFilter, our memoized filtering function, requires instantiating \MemoizeKatydid and proving that the filtered elements are exactly those that both occur in the original list and belong to the language denoted by the \Grammar: \lstinline{x ∈ filter G xs}~\lstinline{↔}\linebreak[0] \lstinline{x ∈ xs ∧ x ∈}~$\llbracket$\lstinline{G}$\rrbracket$.
+Verifying the correctness of \GrammarMemoizeFilter, our memoized filtering function, requires instantiating \MemoizeKatydid and proving that the filtered elements are exactly those that both occur in the original list and belong to the language denoted by the \Grammar: \lstinline{x ∈ filter G xs ↔ x ∈ xs ∧ x ∈}~$\llbracket$\lstinline{G}$\rrbracket$.
 The full theorem is written in Lean as:
 \begin{lstlisting}[label=theorem memoize_mem_filter]
 theorem memoize_mem_filter [DecidableEq φ] [Hashable φ] (state: ...)
@@ -877,7 +864,7 @@ theorem derive_commutes G Φ (r: Regex (φ × Ref n)) (t: Node α):
 \end{lstlisting}
 We prove that the derivative and denotation squares commute for both the JSONmembers and Katydid algorithms, which implies that validation and filtering proofs follow for each algorithm, including the memoized Katydid algorithm, \refcode{theorem memoize_mem_filter}.
 
-First, we verify \TheoremDeriveCommutes for \JSONmembersRuleDerive.
+We first verify \TheoremDeriveCommutes for \JSONmembersRuleDerive.
 The proof begins with functional induction on \JSONmembersRuleDerive, producing an inductive hypothesis applicable to the symbol case.
 All cases are trivial except for the symbol case, where we additionally perform induction on the children and apply the functional inductive hypothesis.
 
@@ -1353,7 +1340,7 @@ Together, these avenues move toward fully verified, high-throughput validators f
 \section*{Supplementary Material}
 \label{supplementary_material}
 Full proofs in Lean, Go implementation, and benchmarks are available:
-\begin{itemize}\raggedright
+\begin{itemize}
 \item Lean Verification: \url{https://doi.org/10.5281/zenodo.21109287};
 \item JSON Schema benchmarks: \url{https://doi.org/10.5281/zenodo.21109315};
 \item Go JSON Schema implementation: \url{https://doi.org/10.5281/zenodo.21109322};
