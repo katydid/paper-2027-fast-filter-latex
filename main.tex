@@ -3,13 +3,13 @@
 %% Class: llncs.cls, bibliography style: splncs04.bst. Both are part of
 %% TeX Live (package "llncs") and are available on Overleaf; they can also be
 %% downloaded from Springer's "LaTeX2e Proceedings Templates" page.
-\documentclass[runningheads]{llncs}
+\documentclass[runningheads,orivec,colorlinks=true]{llncs}
 
 %% ESOP 2027 reviewing is double-blind.
 %% Keep \anonymoustrue for the submission; switch to \anonymousfalse for the
 %% camera-ready version.
 \newif\ifanonymous
-\anonymoustrue
+\anonymousfalse
 
 %% Recommended by Springer's LNCS template: T1 fonts are used for the final PDFs.
 \usepackage[T1]{fontenc}
@@ -250,10 +250,12 @@ basicstyle=\lstbasicstyle,
   \authorrunning{Anonymous Author(s)}
   \institute{Anonymous Institution(s)}
 \else
-  \author{Walter Schulze\inst{1}\orcidID{0009-0002-4400-1606} \and
+  \author{
+    Walter Schulze\inst{1}\orcidID{0009-0002-4400-1606} \and
     Brink van~der~Merwe\inst{1}\orcidID{0000-0001-5010-9934} \and
     Paul Cadman\inst{2}\orcidID{0009-0002-5034-3514} \and
-    Christiaan Maasdorp\inst{1}\orcidID{0000-0002-9248-4756}}
+    Christiaan Maasdorp\inst{1}\orcidID{0000-0002-9248-4756}
+  }
   \authorrunning{W. Schulze et al.}
   \institute{Stellenbosch University, Stellenbosch, South Africa\\
     \email{mail@awalterschulze.org}, \email{abvdm@sun.ac.za}, \email{chm2@sun.ac.za}
