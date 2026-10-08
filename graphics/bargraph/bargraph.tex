@@ -1,8 +1,10 @@
 \documentclass[tikz,convert,border=0]{standalone}
 
-%% Sized and typeset for Springer LNCS (ESOP 2027): 122mm text width and the
-%% default Computer Modern fonts, matching the body text of the paper.
-\setlength{\textwidth}{122mm}
+\setlength{\textwidth}{4.4375in}
+\usepackage{libertine}
+\usepackage[libertine]{newtxmath}
+\usepackage{inconsolata}
+\usepackage[T1]{fontenc}
 
 \usepackage{pgfplots}
 \usetikzlibrary{backgrounds}
@@ -26,17 +28,17 @@
 %% How to plot a graph: https://tex.stackexchange.com/questions/156964/guide-to-draw-charts-basic-pie-bar-from-data
 \pgfplotstableread[row sep=\\,col sep=&]{
 interations   & Zero  & Mem100 & Mem1000 & Mem10000 & Auto \\
-complex JSON  & 27426 & 1998   & 1183    & 1115     & 1037  \\
-complex Proto & 26968 & 1153   & 589     & 419      & 322  \\
-simple Proto  & 5448  & 514    & 392     & 308      & 230  \\
+dateAndCont JSON  & 27426 & 1998   & 1183    & 1115     & 1037  \\
+dateAndCont Proto & 26968 & 1153   & 589     & 419      & 322  \\
+compSci Proto  & 5448  & 514    & 392     & 308      & 230  \\
 }\mydata
 
 % \begin{tikzpicture}[show background rectangle,tight background]
 \begin{tikzpicture}[tight background]
   \begin{axis}[
-    ybar=7pt,
-    bar width=12pt,
-    width=0.955\textwidth,
+    ybar=5pt,
+    bar width=15pt,
+    width=1.1\textwidth,
     height=.5\textwidth,
     legend style={
       at={(0.5,1)},
@@ -44,12 +46,11 @@ simple Proto  & 5448  & 514    & 392     & 308      & 230  \\
       legend columns=-1
     },
     scaled ticks=false,
-    symbolic x coords={complex JSON, complex Proto, simple Proto},
+    symbolic x coords={dateAndCont JSON, dateAndCont Proto, compSci Proto},
     xtick=data,
     %% These lines add text above the bars:
     nodes near coords,
     nodes near coords align={vertical},
-    every node near coord/.append style={font=\scriptsize},
     %% This adds padding on the left and right, see https://tex.stackexchange.com/questions/206996/spacing-bars-in-ybar
     enlarge x limits={abs=1.9cm},
     ymin=0,

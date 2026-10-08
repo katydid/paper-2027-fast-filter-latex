@@ -1105,11 +1105,11 @@ All benchmarks were run on a 2024 MacBook Pro M4 with 48 GB of memory.
 \subsection{Memoization Benchmarks}
 
 We start by benchmarking how memoization increases efficiency over time using the \JSON and Proto implementations of the \Parser.
-Two regular hedge grammars (\lstinline{simple} and \lstinline{complex}) were chosen to filter a list of conferences:
+Two regular hedge grammars (\lstinline{compSci} and \lstinline{dateAndCont}) were chosen to filter a list of conferences:
 \begin{lstlisting}
-def simple: Grammar 2 (Pred String) :=
+def compSci: Grammar 2 (Pred String) :=
   mk (field ("Category", 1)) #v[emptystr, eq ("Computer Science", 0)]
-def complex: Grammar 7 (Pred String) :=
+def dateAndCont: Grammar 7 (Pred String) :=
   mk (interleave (eq ("Due", 1)) (interleave (eq ("Loc", 5)) starAny)) #v[emptystr,
     or (field ("Year", 2)) (and (field ("Year", 3)) (field ("Month", 4))),
     eq ("2026", 0), eq ("2025", 0), symbol (Pred.ge "10", 0),
@@ -1117,7 +1117,7 @@ def complex: Grammar 7 (Pred String) :=
 def eq (v: α × Fin n) := symbol (Pred.eq v.1, v.2)
 def field (v: α × Fin n) := contains (symbol (Pred.eq v.1, v.2))
 \end{lstlisting}
-The \lstinline{simple} grammar filters for conferences within the Category of Computer Science, while the \lstinline{complex} grammar filters for conferences that have submission deadlines in 2026 or after October 2025 and are also located on the continent of Europe.
+The \lstinline{compSci} grammar filters for conferences within the Category of Computer Science, while the \lstinline{dateAndCont} grammar filters for conferences that have submission deadlines in 2026 or after October 2025 and are also located on the continent of Europe.
 For each grammar, we randomly populated data structures and serialized them as Protocol Buffers and \JSON.
 
 Note even though these benchmarks were run in 2026, we also ran benchmarks back in 2016 and achieved similar sub-microsecond results for similar grammars on older hardware.
@@ -1128,7 +1128,7 @@ The \supplementarymaterial includes a more extensive benchmark suite, recorded r
 \begin{center}
 \includegraphics{graphics/bargraph/bargraph.pdf}
 \caption{Memoization Benchmarks}
-\Description[Bar graph of memoization benchmarks]{Bar graph showing benchmarks of the complex grammar and simple grammar in the JSON and Proto formats, where each is measured in nanoseconds per validation, for no memoization, a hundred memoization iterations, a thousand memoization iterations, ten thousand memoization iterations, and pre-compiled. The complex grammar with JSON parsing is measured as: NoMemo 18547, Memo100 1856, Memo1000 1100, Memo10000 1064, Comp 979. The complex grammar with Proto parsing is measured as: NoMemo 16644, Memo100 1091, Memo1000 508, Memo10000 342, Comp 261. The simple grammar with Proto parsing is measured as: NoMemo 4391, Memo100 449, Memo1000 239, Memo10000 221, Comp 154.}
+\Description[Bar graph of memoization benchmarks]{Bar graph showing benchmarks of the dateAndCont grammar and compSci grammar in the JSON and Proto formats, where each is measured in nanoseconds per validation, for no memoization, a hundred memoization iterations, a thousand memoization iterations, ten thousand memoization iterations, and pre-compiled. The dateAndCont grammar with JSON parsing is measured as: NoMemo 18547, Memo100 1856, Memo1000 1100, Memo10000 1064, Comp 979. The dateAndCont grammar with Proto parsing is measured as: NoMemo 16644, Memo100 1091, Memo1000 508, Memo10000 342, Comp 261. The compSci grammar with Proto parsing is measured as: NoMemo 4391, Memo100 449, Memo1000 239, Memo10000 221, Comp 154.}
 \label{figure_benchmarks}
 \end{center}
 \end{figure}
@@ -1138,7 +1138,7 @@ We ran each grammar for multiple iterations.
 We recorded the mean running time while memoizing for the number of iterations specified after Memo, where Comp is compiled, and \emph{NoMemo} has no memoization table.
 We observe that the longer the same grammar is memoized, the faster the algorithm becomes.
 Once the functions are fully memoized over all possible cases, the benchmarks indicate zero heap allocations.
-Notice that the \JSON benchmarks are slower than the Proto benchmarks for the same \lstinline{complex} grammar.
+Notice that the \JSON benchmarks are slower than the Proto benchmarks for the same \lstinline{dateAndCont} grammar.
 This shift occurs because Protocol Buffers offer superior parsing speeds; our profiling confirms that parsing has become the primary CPU bottleneck.
 
 \subsection{\JSONSchema Benchmarks}
