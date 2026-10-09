@@ -3,13 +3,13 @@
 %% Class: llncs.cls, bibliography style: splncs04.bst. Both are part of
 %% TeX Live (package "llncs") and are available on Overleaf; they can also be
 %% downloaded from Springer's "LaTeX2e Proceedings Templates" page.
-\documentclass[runningheads,orivec,colorlinks=true]{llncs}
+\documentclass[runningheads]{llncs}
 
 %% ESOP 2027 reviewing is double-blind.
 %% Keep \anonymoustrue for the submission; switch to \anonymousfalse for the
 %% camera-ready version.
 \newif\ifanonymous
-\anonymousfalse
+\anonymoustrue
 
 %% Recommended by Springer's LNCS template: T1 fonts are used for the final PDFs.
 \usepackage[T1]{fontenc}
@@ -148,7 +148,7 @@ basicstyle=\lstbasicstyle,
   JSON~Schema\xspace%
 }
 \newcommand{\supplementarymaterial}{%
-  \hyperref[supplementary_material]{supplementary material}\xspace%
+  supplementary material\xspace%
 }
 \newcommand{\GitHub}{%
   GitHub\xspace%
@@ -1395,17 +1395,6 @@ There are ample opportunities for future work in terms of correctness.
 It is still open to prove the correctness of the conversion algorithms from JSON~Schema~\cite{holstege2019application} and \RelaxNG to regular hedge grammars, ensuring fully verified validators of schema languages.
 We also plan to prove the correctness of optimizations used in the Go implementation, including the pull-based parser and our fused algorithm.
 Together, these avenues move toward fully verified, high-throughput validators for semi-structured data formats that pervade modern data systems.
-
-\section*{Supplementary Material}
-\label{supplementary_material}
-Full proofs in Lean, Go implementation, and benchmarks are available:
-\begin{itemize}
-\item Lean Verification: \url{https://doi.org/10.5281/zenodo.21109287};
-\item JSON Schema benchmarks: \url{https://doi.org/10.5281/zenodo.21109315};
-\item Go JSON Schema implementation: \url{https://doi.org/10.5281/zenodo.21109322};
-\item Memoization benchmarks runner: \url{https://doi.org/10.5281/zenodo.21109312}; and
-\item Memoization benchmark suite \url{https://doi.org/10.5281/zenodo.21109306}.
-\end{itemize}
 
 %%
 %% Bibliography
