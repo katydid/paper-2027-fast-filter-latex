@@ -925,25 +925,23 @@ def Regex.compile [DecidableEq σ] [Hashable σ] [Monad m]
       _ ← MemoizeKatydid.leaveM ⟨r, bools⟩
 \end{lstlisting}
 \lstinline{Regex.derivatives} calculates a list of all dissimilar derivatives of a regular expression.
-We have not formally verified that this list is finite, but it has been proven for regular expressions by Brzozowski~\cite{brzozowski1964derivatives}, formally verified by Zhuchko et al.~\cite{symbolicfinite}, and proven for the interleave operator~\cite{shuffle}.
+We know that regular expression derivatives (under normalization) is proven to be finite by Brzozowski~\cite{brzozowski1964derivatives}, formally verified by Zhuchko et al.~\cite{symbolicfinite}, and proven for the interleave operator~\cite{shuffle}.
 In the case of \leave, we also have to calculate the extra input parameter for all boolean combinations; see \lstinline{Vector.boolCombos}.
 Lean's notation for Monads (\lstinline{do}, \lstinline{←}) updates the memoization tables and includes support for imperative \lstinline{for} loops.
 The fact that the memoization table, as computed by \lstinline{Regex.compile}, has a bounded size is verified by Lean's termination checker.
 We extend this compilation to the whole grammar by calling \RegexCompile for each of the finite list of production rules to complete the fully precomputed memoization table.
-% \Delta = Regex.derivatives
-% enter_keys = |\Delta|
-% maxs = max symcount \Delta
-% leaves_keys <= n * 2^maxs
-% total <= Num_prods * (max enter_keys + max leaves_keys)
 As a result, the combined number of entries in the \enter and \leave memoization tables is at most
-$\sum_{r \in R}{|\Delta_r| + 2^{\mathrm{maxs}(\Delta_r)}}$, 
-where $R$ is \lstinline{G.prods} $\cup$ \lstinline|{G.start}|, $\Delta_r$ is the list \lstinline{Regex.derivatives r}, and $\mathrm{maxs}(\Delta_r)$ denotes the maximum number of symbols over $r' \in \Delta_r$.
+$$
+\sum_{r\ \in\ {G.prods \cup \{G.start\}}}{\| \Delta_r \| + \| \Delta_r \| \cdot 2^{\max_{r' \in \Delta_r} |r'|}}
+$$
+where $\Delta_r$ the set of normalized \lstinline{Regex.derivatives r}, and $\|\Delta_r\|$ the cardinality of the set.
 
 \section{Go Implementation}
 \label{section_go}
 
 The Katydid algorithm was originally implemented in Go, back in 2016, to filter through petabytes of serialized Protocol Buffers in a proprietary distributed database.
-We have linked the Go implementation and the verified Lean implementation using a test suite that provides over 85\% coverage of the Go validation algorithms.
+We provide a direct connection between the Go implementation and the formalized Lean implementation, using a test harness to validate the two against each other.
+This test harness provides over 85\% statement coverage of the memoized and compiled Go validation algorithms.
 The Go implementation includes optimizations for faster validation beyond the verified memoization technique.
 The optimization that is considered a major contribution is the fusion of the derivative and parsing algorithms.
 Other simple optimizations beyond the scope of this paper include smart constructors that simplify regular expressions and compute nullability and hashes for comparisons.
