@@ -138,6 +138,7 @@ basicstyle=\lstbasicstyle,
 \newcommand{\Parser}{\link{Parser}{class Parser}}
 \newcommand{\fusedDerive}{\link{Grammar.Fused.derive}{def Grammar.Fused.derive}}
 \newcommand{\RegexCompile}{\link{Regex.compile}{def Regex.compile}}
+\newcommand{\TheoremPredsEvalIsMap}{\refcode{theorem preds_eval_is_map}}
 \newcommand{\Lean}{%
   Lean\xspace%
 }
@@ -612,17 +613,17 @@ This grammar validates the \XML snippet \lstinline{<doc>}\allowbreak\lstinline{<
 The \GrammarKatydidDerive function is defined using \RegexKatydidDerive, which is defined using the two memoizable functions \enter and \leave:
 \begin{lstlisting}[label=def Regex.Katydid.derive]
 def Regex.Katydid.derive (Φ: σ → Bool) (r: Regex σ): Regex σ :=
-  enter r |> Vector.map Φ |> leave r
+  enter r |> Preds.eval Φ |> leave r
 \end{lstlisting}
-This pipeline extracts the symbols of the regular expression (\enter), evaluates the predicate at each symbol (\lstinline{Vector.map Φ}), and then reintegrates the results and takes the derivative (\leave).
+This pipeline extracts the symbols of the regular expression and compiles them into an efficient to evaluate structure (\enter), evaluates the predicate over each symbol (\lstinline{Preds.eval Φ}), and then reintegrates the results and takes the derivative (\leave).
 The \enter function is memoized over the \Regex parameter, whereas \leave is memoized over the product of the \Regex and the evaluated symbols, \lstinline{Vector Bool |r|}.
 We name the functions \enter and \leave to reflect that they correspond to entering and leaving a \Node, which we will discuss in the next subsection.
 Note that both of these functions are alphabet-independent.
 
-The \enter function returns a \lstinline{Vector} of the symbols contained in the regular expression:
+The \enter function returns symbols contained in the regular expression compiled into a structure for easy evaluation of the predicates \lstinline{Preds}:
 \begin{lstlisting}[label=def enter]
-def enter (r: Regex σ): Vector σ |r| := (extract r).2
-#guard enter (or (symbol 'a') (star (symbol 'b'))) = #v['a','b']
+def enter (r: Regex σ): Preds σ Bool |r| := Preds.mk (extract r).2
+#guard enter (or (symbol 'a') (star (symbol 'b'))) = Preds.mk #v['a','b']
 \end{lstlisting}
 
 The \lstinline{|r|} function determines the number of symbols in a regular expression:
@@ -638,13 +639,10 @@ def extract (r: Regex σ): Regex (Fin |r|) × Vector σ |r|
   = ((or (symbol 0) (star (symbol 1))), #v['a', 'b'])
 \end{lstlisting}
 
-The next step is to evaluate all the symbols by applying \lstinline{Vector.map Φ}.
-If care is not taken, this could trigger a heap allocation in Go, which is costly in the context of this algorithm.
-There are several ways to avoid this heap allocation.
-In Go, one can pre-allocate a reusable buffer.
-In Lean, we define an alternative to the memoized \enter function, \lstinline{IfExpr.enter}, which returns a nested if expression over the symbols and all possible boolean \lstinline{Vector} combinations.
-The definitions and proofs are available in the \supplementarymaterial.
-The drawback of \lstinline{IfExpr.enter} is an exponential blow-up in the space required for memoization.
+\lstinline{Preds} can be a simple \lstinline{Vector} or a compiled if expression, as long as \lstinline{Preds.eval} returns the predicate mapped over the symbols:
+\begin{lstlisting}[label=theorem preds_eval_is_map]
+theorem preds_eval_is_map: Preds.eval Φ (Preds.mk xs) = Vector.map Φ xs
+\end{lstlisting}
 
 The \leave function zips the evaluated results with the original input symbols and replaces these back into the \Regex to create a \lstinline{Regex (σ × Bool)}.
 Finally, \leave applies the derivative using \RegexPointDerive:
@@ -671,7 +669,7 @@ More importantly, this allows us to extract all symbols, apply a function to the
 theorem extract_replace_is_map (r: Regex α) (f: α → β):
   Regex.map r f = replace (extract r).1 (Vector.map f (extract r).2)
 \end{lstlisting}
-Unfolding \enter and \leave yields exactly this behaviour:
+Unfolding \enter and \leave and applying \TheoremPredsEvalIsMap yields exactly this behaviour:
 \begin{lstlisting}
 theorem derive_unfolds_to_map (Φ: σ → α → Bool) (r: Regex σ) (a: α):
   Regex.Katydid.derive (flip Φ a) r = Regex.Point.derive
@@ -702,11 +700,11 @@ While the aim is to implement and verify a memoized variant, we first present it
 \begin{lstlisting}[label=def Grammar.Katydid.derive]
 def Grammar.Katydid.derive (G: Grammar n φ) (Φ: φ → α → Bool)
   (r: Regex (φ × Ref n)) (t: Node α): Regex (φ × Ref n) :=
-  let nodePred := fun ((labelPred, ref): (φ × Ref n)) =>
+  let tPred := fun ((labelPred, ref): (φ × Ref n)) =>
     let ⟨label, children⟩ := t
     let childr := if Φ labelPred label then G.lookup ref else emptyset
     null (List.foldl (Grammar.Katydid.derive G Φ) childr children)
-  Regex.Katydid.derive nodePred r -- enter r |> Vector.map nodePred |> leave r
+  Regex.Katydid.derive tPred r -- enter r |> Preds.eval tPred |> leave r
 \end{lstlisting}
 If \lstinline{labelPred} matches the \lstinline{label}, we compute the derivative of the referenced regular expression and fold it over the children of the \Node.
 Notice that this folding is the same as the folding done when validating a string; see \RegexValidate.
@@ -745,7 +743,7 @@ def Grammar.Memoize.filter [DecidableEq φ] [Hashable φ] [Monad m]
 We only memoize the \enter and \leave functions using the \lstinline{MemoizeKatydid} class:
 \begin{lstlisting}[label=MemoizeKatydid]
 class MemoizeKatydid (m: Type → Type u) σ where
-  enterM: (r: Regex σ) → m { res: Vector σ |r| // res = enter r }
+  enterM: (r: Regex σ) → m { res: Preds σ Bool |r| // res = enter r }
   leaveM: (param: Σ (r: Regex σ), (Vector Bool |r|))
              → m { res: Regex σ // res = Regex.leave param.1 param.2 }
 \end{lstlisting}
@@ -1009,36 +1007,43 @@ Unfortunately, this parser and the unoptimized \XML parser make many heap alloca
 We create an algorithm that fuses~\cite{fusion} the derivative and parsing algorithms to avoid creating an intermediate \Hedge data structure, which avoids unnecessary allocations and copying.
 This fused algorithm requires a \lstinline{FusedKatydid} class that extends both the \MemoizeKatydid and \Parser classes:
 \begin{lstlisting}
-class FusedKatydid (m: Type → Type u) (σ: Type) (α: Type)
-  [DecidableEq σ] [Hashable σ] extends
-  Monad m, MonadExcept String m, Parser m α, MemoizeKatydids m σ
+class FusedKatydid (m: Type → Type u) (α: Type) (G: Grammar n φ)
+  [DecidableEq φ] [Hashable φ] extends Monad m, MonadExcept String m,
+  Parser m α, MemoizeKatydids m (φ × Ref n) (lookupif G) Regex.null
 \end{lstlisting}
 We created an alternative to the \MemoizeKatydid class called \lstinline{MemoizeKatydids} that handles Vectors of regular expressions instead of single regular expressions.
 This was necessary since the fused algorithm uses the \Parser, which is an online parser and therefore performs no backtracking, requiring the order of \Hedge traversal to be refactored:
 \begin{lstlisting}[label=def Grammar.Fused.derive]
-partial def Grammar.Fused.derive
-  [DecidableEq φ] [Hashable φ] [FusedKatydid m (φ × Ref n) α]
-  (G: ...) (Φ: φ → m α → m Bool) (rs: Vector (Regex (φ × Ref n)) l)
+partial def Grammar.Fused.derive [DecidableEq φ] [Hashable φ]
+  (G: Grammar n φ) (Φ: φ → m α → m Bool) [mem: FusedKatydid m α G]
+  (rs: Vector (Regex (φ × Ref n)) l)
   : m (Vector (Regex (φ × Ref n)) l) := do
   let mut drs := rs
   if Vector.all rs Regex.unescapable then Parser.skip; return drs
   let mut h := ← Parser.next
   while h == Hint.value do
-    let enterSymbols    ← MemoizeKatydids.entersM ⟨l, drs⟩
-    let childrs ← enterSymbols.val.mapM (fun ⟨pred, ref⟩ =>
-      return if ← Φ pred Parser.token then G.lookup ref else emptyset)
-    let childbs ← Vector.map Regex.null <$> Fused.derive G Φ childrs
-    drs :=              ← MemoizeKatydids.leavesM ⟨l, drs, childbs⟩
+    let ⟨enterPreds, _⟩ ← mem.entersM ⟨l, drs⟩
+    let childrs ← enterPreds.evalM (fun pred => Φ pred.1 Parser.token)
+    let dchildrs ← Fused.derive G Φ childrs
+    let childbs ← mem.nullsM ⟨|drs|, dchildrs⟩
+    drs := ← mem.leavesM ⟨l, drs, childbs⟩
     h := ← Parser.next
   if h == Hint.enter then Fused.derive G Φ rs else return drs
 \end{lstlisting}
-We start each call to \fusedDerive with a check to determine whether we can skip parsing the children since the Vector \lstinline{rs} could be empty or could only contain \lstinline{unescapable} \lstinline{emptyset} or \lstinline{starAny} expressions.
+We start each call to \fusedDerive with a check to determine whether we can skip parsing the children since the Vector \lstinline{rs} could be empty or could only contain unescapable \lstinline{emptyset} or \lstinline{starAny} expressions.
 We then check if the \Hint is a \lstinline{value} or \lstinline{enter}, in which case we can either loop through all the values or recurse until a \lstinline{leave} \Hint is received.
 Handling this new traversal order requires the memoized functions (\lstinline{enterM} and \lstinline{leaveM}) to be adjusted to operate on a Vector of \Regex rather than on a single \Regex.
 The newly adjusted functions \lstinline{entersM} and \lstinline{leavesM} require the length of the Vector to also be memoized; hence, the addition of \lstinline{l} in their dependent pair parameters, which is constructed using \lstinline{⟨⟩}.
 We use Lean's notation for Monads (\lstinline{do}, \lstinline{←}, \lstinline{;}, \lstinline{<$>}) to check for errors, handle the mutation of the parser state and memoization table, implement an imperative loop (\lstinline{while}), do control flow via an early \lstinline{return}, and handle mutable variables (\lstinline{mut}, \lstinline{:=}).
 Notice that the predicate evaluation function \lstinline{Φ} is responsible for calling the \lstinline{token} method so that it is only done if it is truly necessary.
 We define \fusedDerive using \lstinline{partial} since we have not proven that it terminates.
+
+Each operation now results in a creating a vector, which would result in a heap allocation if they were not memoized, so we needed to add \lstinline{nullsM} to memoize the nullability of a Vector or expressions. 
+We also need to adjust \lstinline{entersM} to not return a Vector of booleans, but rather a Vector of child expressions that need to be passed down to the children, which is the result of this lookup function after evaluating the predicate:
+\begin{lstlisting}
+def lookupif (G: Grammar n φ) (σ: φ × Ref n) (evalb: Bool) :=
+  if evalb then G.lookup σ.2 else Regex.emptyset
+\end{lstlisting}
 
 There are other optimizations not included here.
 Evaluating the predicates can be expensive, but we optimize many string equalities with various hash map strategies.
