@@ -28,6 +28,11 @@
 %% and overlong (overfull) lines.
 %% (stretch/shrink slightly above the default 20 to avoid a few loose lines
 %% next to long, unbreakable code names.)
+%% Overleaf's TeX Live 2025 has microtype 3.2a, which predates a LaTeX kernel
+%% change and warns "Command \showhyphens has changed". The warning is harmless
+%% (fixed in microtype 3.2b); filter it. Safe to remove once Overleaf updates.
+\usepackage{silence}
+\WarningFilter{latex}{Command \showhyphens}
 \usepackage[stretch=30,shrink=30]{microtype}
 
 \usepackage{stmaryrd}  % \llbracket and \rrbracket
@@ -291,23 +296,7 @@ We end up with the fastest library in the filtering use case when considering me
 Filtering and validating semi-structured data such as \XML, \JSON, and Protocol Buffers~\cite{protobuf} is a recurring task in distributed systems.
 We present our Katydid\footnote{A Katydid is a leaf insect that camouflages (requires filtering) itself in trees (data structures).} filtering algorithm, designed to achieve high performance via a novel memoization technique and a fused algorithm.
 
-Our approach is based on Brzozowski derivatives~\cite{brzozowski1964derivatives}, a classical technique for recognizing regular languages.
-We adapt this derivative algorithm to operate on regular hedge grammars, which generalize regular expressions to \emph{hedges}, or, informally, to tree-shaped data. 
-These grammars form the foundation of schema languages such as \RelaxNG~\cite{hosoya2010foundations} and \JSONSchema~\cite{jsonschemafoundations}.
-They enable expressive constraints over ordered and unordered element sequences, nesting, repetition, and recursion.
-
-We build on derivatives because they offer exactly the properties a high-throughput, verifiable filter needs.
-The derivative of a regular expression is itself a regular expression (\emph{residuality}), making intermediate states first-class. Memoization is therefore inherent, directly transforming cache hits into state transitions without requiring an explicit automaton.
-Regular expressions have finitely many derivatives up to similarity~\cite{brzozowski1964derivatives,symbolicfinite} and justify a \emph{bounded} memoization table that underlies the lazy \DFA construction popularized by Owens et al.~\cite{reexamined}.
-Derivatives also handle boolean operators directly, which allows the modeling of \JSONSchema's \lstinline[language=json]|"allOf"|, \lstinline[language=json]|"anyOf"|, \lstinline[language=json]|"oneOf"|, and \lstinline[language=json]|"not"| without leaving the framework.
-Finally, a derivative-based algorithm is easier to verify than a bespoke validator: its structure is a small recursive function over the schema, which we exploit to give a machine-checked correctness proof.
-
-Because our algorithm operates on regular hedge grammars rather than any single schema language, it applies uniformly across schema languages and serialization formats—\RelaxNG, \JSONSchema, and Protocol Buffers.
-Our main contribution beyond prior derivative validators is that we build a high-performance \emph{filtering} library, not merely a validator: filtering through large volumes of mostly non-matching records is a use case for which existing \JSONSchema validators are not designed, and it is where fusing derivation with parsing pays off.
-Derivative-based recognition is, moreover, competitive in practice: Moseley et al.~\cite{nonbacktracking} built a derivative-based, non-backtracking engine that ships as a regular expression backend in .NET~7, demonstrating that derivatives can be fast on real-world workloads, at least in the string case.
-We extend this evidence from flat strings to tree-shaped, semi-structured data.
-
-Outside our Katydid algorithm, there are two other derivative-based algorithms for schema validation: \RelaxNG~\cite{relaxng2001simple} and JSONmembers — a term we adopt for the procedure introduced by Holstege~\cite{holstege2019application}.
+Prior to our Katydid algorithm, there are two other derivative-based algorithms for schema validation: \RelaxNG~\cite{relaxng2001simple} and JSONmembers — a name we adopt for the procedure introduced by Holstege~\cite{holstege2019application}.
 % holstege2019application> However, the current implementation performance numbers are not particularly compelling: the need to match types against an infinitude of specific values makes it difficult to find effective caching strategies, undermining the point of using derivatives as an implementation technique in the first place. 
 JSONmembers flattens the \JSON object into a sequence of members (key-value pairs) and takes the derivative given one member at a time.
 Holstege~\cite{holstege2019application} explicitly notes that the performance is not compelling, and it is difficult to find a memoization solution because the derivative is taken on an infinite input alphabet.
@@ -321,14 +310,30 @@ To address the challenge of this high variability, they only memoize element nod
 Also, the memoization technique is unbounded in the number of entries to be memoized.
 The table grows with inputs that have new element names or deeper recursion.
 
-We restructure the derivative function to have memoization that is alphabet-independent.
+Our approach is based on Brzozowski derivatives~\cite{brzozowski1964derivatives}, a classical technique for recognizing regular languages.
+We adapt this derivative algorithm to operate on regular hedge grammars, which generalize regular expressions to \emph{hedges}, or, informally, to tree-shaped data. 
+These grammars form the foundation of schema languages such as \RelaxNG~\cite{hosoya2010foundations} and \JSONSchema~\cite{jsonschemafoundations}.
+They enable expressive constraints over ordered and unordered element sequences, nesting, repetition, and recursion.
+
+We build on derivatives because they offer exactly the properties that a high-throughput, verifiable filter needs.
+The derivative of a regular expression is itself a regular expression (\emph{residuality}), making intermediate states first-class. Memoization is therefore inherent, directly transforming cache hits into state transitions without requiring an explicit automaton.
+Regular expressions have finitely many derivatives up to similarity~\cite{brzozowski1964derivatives,symbolicfinite} and justify a \emph{bounded} memoization table that underlies the lazy \DFA construction popularized by Owens et al.~\cite{reexamined}.
+Derivatives also handle boolean operators directly, which allows the modeling of \JSONSchema's \lstinline[language=json]|"allOf"|, \lstinline[language=json]|"anyOf"|, \lstinline[language=json]|"oneOf"|, and \lstinline[language=json]|"not"| without leaving the framework.
+Finally, a derivative-based algorithm is easier to verify than a bespoke validator: its structure is a small recursive function over the schema, which we exploit to give a machine-checked correctness proof.
+
+Because our algorithm operates on regular hedge grammars rather than any single schema language, it applies uniformly across schema languages and serialization formats—\RelaxNG, \JSONSchema, and Protocol Buffers.
+Our main contribution beyond prior derivative validators is that we build a high-performance \emph{filtering} library, not merely a validator: filtering through large volumes of mostly non-matching records is a use case for which existing \JSONSchema validators are not designed, and it is where fusing derivation with parsing pays off.
+Derivative-based recognition is, moreover, competitive in practice: Moseley et al.~\cite{nonbacktracking} built a derivative-based, non-backtracking engine that ships as a regular expression backend in .NET~7, demonstrating that derivatives can be fast on real-world workloads, at least in the string case.
+We extend this evidence from flat strings to tree-shaped, semi-structured data.
+
+We restructure the derivative function to have a memoization that is alphabet-independent.
 This refactors the derivative function into a composition of three stages—\enter, evaluate predicates, and \leave—of which the first and last are memoized and alphabet-independent.
 The big improvement our algorithm makes over \RelaxNG is that it can optionally create a fully memoized table before seeing any input, and the number of entries in the table is bounded, see \Cref{subsection_compile}.
 Our main contributions are:
 (1) The factorization of the derivative function for regular hedge grammars that enables alphabet-independent memoization and bounds the size of the memoization table for performant filtering;
 (2) The first formal verification of derivative algorithms for regular hedge grammars, proving in Lean~\cite{lean4} that our implementation of the JSONmembers algorithm and Katydid's memoization technique faithfully match the semantics of a regular hedge grammar;
 (3) A fused~\cite{fusion} derivative and parsing algorithm that removes the overhead of creating intermediate parsing data structures;
-(4) Abstraction of serialization formats behind a pull-based parser interface in Go~\cite{golang} that allows for regular hedge grammar validation of Protocol Buffers, \JSON, \XML, and reflected Go structures; and
+(4) An abstract interface for serialization formats backed by a pull-based parser in Go~\cite{golang} that allows for regular hedge grammar validation of Protocol Buffers, \JSON, \XML, and reflected Go structures; and
 (5) A significant extension of the \JSONSchema benchmark suite developed by Viotti and Mior~\cite{blaze}, which we use to benchmark our Go implementation of Katydid.
 % fusion> We have accomplished our goal of removing the intermediate data structures by transforming the numerous recursive traversals into a single one. This process is called fusion
 
@@ -372,34 +377,19 @@ The author object must contain a username and may contain an email address.
 For example: \lstinline[language=json]|{"content": "Dragons", "author": {"username": "Khaleesi"}}|.
 
 Brzozowski's derivative algorithm for regular expressions consumes one input symbol and returns a residual regular expression.
-The \emph{JSONmembers} algorithm of Holstege~\cite{holstege2019application} is a derivative-based validation algorithm for \JSONSchema that adapts this idea from strings to \JSON objects.
 By flattening the \JSON object into a list of key-value pairs (members),
 the input symbols are now key-value pairs, and the derivative of a schema with respect to an input symbol is a residual schema.
 For this example, we will use the flattened input: \lstinline[language=json]|[{"content": "Dragons"}, {"author": {"username": "Khaleesi"}}]|.
-We first take the derivative of the schema with respect to the first object, \lstinline[language=json]|{"content": "Dragons"}|. 
-The only field left in the residual schema is \lstinline[language=json]|"author"|:
-\begin{lstlisting}[language=json]
-{ "type": "object", "additionalProperties": false, 
-  "properties": { "author": { ... } } ... }
-\end{lstlisting}
-We next take the derivative of this residual schema with respect to the remaining key-value pair \lstinline[language=json]|{"author":{"username": "Khaleesi"}}|. 
-The result is an empty schema, \lstinline[language=json]
-|{"type": "object", "additionalProperties": false}|.
-There are no more key-value pairs to process in the input, and the empty object is valid against the residual schema, so the input is accepted.
 
 Memoization of the derivative can improve performance if later calls reuse memoization keys that have already been stored. 
-For JSONmembers, the memoization key is a pair of the schema and a member (key-value pair). 
-Values such as titles, usernames, timestamps, identifiers, and text fields vary from one input object to the next. 
-Therefore, memoization keys do not get reused, and memoization is not effective. 
-For the first derivative in our example schema, the input objects \lstinline[language=json]|{"content": "Dragons"}| and \lstinline[language=json]|{"content": "Eggs"}| result in the same residual schema but have different memoization keys.
-The Katydid algorithm makes memoization effective by factoring the derivative into three stages: \enter, predicate evaluation, and \leave. 
-The \enter function is well suited to memoization because its only argument is the schema. 
+The Katydid algorithm makes memoization effective by factoring the derivative into three stages: \enter, predicate evaluation, and \leave.
 For the first derivative in our example, \enter extracts two predicate/schema pairs from the schema:
 \begin{itemize}
   \item the \lstinline[language=json]|"content"| field predicate and
   \lstinline[language=json]|{"type": "string"}| schema; and
   \item the \lstinline[language=json]|"author"| predicate and the \lstinline[language=json]|{"username":..., "email":...}| schema.
-  \end{itemize}
+\end{itemize}
+The \enter function is well suited for memoization because its only argument is the schema. 
 After extracting these predicates, the input object is evaluated against them, and the algorithm is recursively applied to the schemas to produce a boolean Vector. 
 For our example \lstinline[language=json]|{"content": "Dragons"}|, the predicate/schema pairs evaluate to: \lstinline{[true, false]}. 
 The first boolean is \lstinline{true} because the field name is \lstinline[language=json]|"content"| and the value \lstinline[language=json]|"Dragons"| is of string type. 
@@ -535,77 +525,7 @@ theorem regex_derive_is_point_derive (Φ: σ → α → Bool) (r: Regex σ) a:
 \end{lstlisting}
 The proof follows from induction on \lstinline{r}.
 
-With the foundations of regular expressions in place, we now return to regular hedge grammars.
-
-\subsection{Regular Hedge Grammars}
-\label{subsection_regularhedgegrammars}
-
-\emph{Regular hedge grammars} constitute the theoretical framework most applicable to \XML~\cite{hosoya2010foundations} and other serialization formats.
-Any \XML, \JSON, or Protocol Buffers data can be viewed as a \Hedge, and schema languages such as \RelaxNG, \DTD~\cite{dtd}, XMLSchema~\cite{xmlschema}, and JSON~Schema~\cite{jsonschemafoundations} can all be translated to \emph{regular hedge grammars}~\cite{murata2005taxonomy}, barring the \JSONSchema \uniqueItems and \dynamicRef operators, which are not regular~\cite{modernjsonschema,holstege2019application}.
-
-A \emph{hedge} is an ordered list of unranked trees~\cite{tata} used to model semi-structured data formats. In Lean, we define a \Hedge inductively as follows:
-\begin{lstlisting}[label=Hedge]
-inductive Hedge.Node (α: Type) where
-  | node (label: α) (children: List (Hedge.Node α))
-abbrev Hedge α := List (Hedge.Node α)
-\end{lstlisting}
-
-We borrow our definition of \emph{regular hedge grammars} from \cite{murata2005taxonomy}, which in turn extends the definition of regular tree grammars from \cite{tata}.
-\begin{definition}
-\label{definition_grammar}
-A \emph{regular hedge grammar} is a tuple $(N, T, Start, Prods)$ where:
-\begin{itemize}
-    \item $N$ is a finite set of non-terminals;
-    \item $T$ is a finite set of terminals;
-    \item $Start$ is a regular expression over $T \times N$;
-    \item $Prods$ is a set of production rules of the form $X \rightarrow r$, where $X \in N$ and $r$ are regular expressions over $T \times N$.
-\end{itemize}
-\end{definition}
-
-A \emph{symbolic regular hedge grammar} is a generalization of a regular hedge grammar that is paired with a decidable predicate (\lstinline{Φ: φ → α → Bool}), where $T$ is a finite set of symbolic predicates (\lstinline{φ}) over a possibly infinite alphabet (\lstinline{α}).
-We represent symbolic regular hedge grammars in Lean as follows:
-\begin{lstlisting}[label=Grammar]
-structure Grammar (n: Nat) (φ: Type) where
-  start: Regex (φ × Ref n)
-  prods: Vector (Regex (φ × Ref n)) n
-\end{lstlisting}
-In Lean, a \lstinline{Vector} has an underlying presentation of a list, but it includes a length as a parameter in the type.
-In the rest of this section, we justify the representation.
-
-Non-terminals are represented as a reference \Reference, which is the abbreviation for the set of natural numbers smaller than \lstinline{n}:
-\begin{lstlisting}[label=Ref]
-abbrev Ref (n: Nat) := Fin n
-def lookup (G: Grammar n φ) (ref: Ref n): Regex (φ × Ref n) :=
-  Vector.get G.prods ref
-\end{lstlisting}
-The start and production rules are represented as a \Rule, which is the product of the predicate \lstinline{φ} and the reference.
-The indices of the \lstinline{Vector} of production rules are used for the non-terminals, which allows us to write a \lstinline{lookup} function that always returns a unique rule.
-Our definition does not allow multiple rules per non-terminal, but this can easily be accommodated using the \lstinline{Regex.or} operator.
-
-These grammars also have useful theoretical properties.
-They are closed under union, intersection, and complement. 
-Their decidable properties include satisfiability and checking whether one grammar is a subset of another, which is used for type checking~\cite{hosoya2003xduce}.
-Each recursion from a lookup only occurs after an evaluation of a predicate \lstinline{φ}.
-This disallows arbitrary \CFGs with undecidable properties~\cite{hosoya2003xduce}.
-
-The following is an example of a simple inductive predicate type, \lstinline{Pred}, together with its corresponding decidable evaluation function \lstinline{Pred.evalb}:
-\begin{lstlisting}[label=AnyEqPred]
-inductive Pred (α: Type) where | any | eq (t: α)
-def Pred.evalb {α: Type} [DecidableEq α] (p: Pred α) (x: α): Bool :=
-  match p with | Pred.eq y => x = y | Pred.any => true
-\end{lstlisting}
-In practice, the predicate type supports complex nested functions, including Unicode normalization, case folding, and \JSONSchema \format validations (such as email, IPv4, and dates).
-
-
-The following example illustrates a regular hedge grammar:
-\begin{lstlisting}[label=def example_grammar_doc]
-def example_grammar_doc: Grammar 3 (Pred String) :=
-  Grammar.mk (start := Regex.symbol (Pred.eq "doc", 0))
-    (prods := #v[Regex.oneOrMore (Regex.symbol (Pred.eq "p", 1)),
-      Regex.symbol (Pred.any, 2), Regex.emptystr])
-\end{lstlisting}
-Note, the \lstinline{Vector} of production rules is constructed with the macro \lstinline{#v[]}.
-This grammar validates the \XML snippet \lstinline{<doc>}\allowbreak\lstinline{<p>}\allowbreak\lstinline{<pcdata/>}\allowbreak\lstinline{</p>}\allowbreak\lstinline{<p>}\allowbreak\lstinline{<br/>}\allowbreak\lstinline{</p>}\allowbreak\lstinline{</doc>}.
+With the foundations of regular expressions in place, we now define the Katydid algorithm for regular expressions.
 
 \subsection{Katydid Algorithm for Regular Expressions}
 \label{section_enter_and_leave}
@@ -678,10 +598,80 @@ theorem derive_unfolds_to_map (Φ: σ → α → Bool) (r: Regex σ) (a: α):
 In this case, the mapped function \lstinline{f} is \lstinline{fun x => (x, Φ x a)}.
 With the \RegexKatydidDerive algorithm defined, let us move on to its role in regular hedge grammars.
 
+\subsection{Regular Hedge Grammars}
+\label{subsection_regularhedgegrammars}
+
+\emph{Regular hedge grammars} constitute the theoretical framework most applicable to \XML~\cite{hosoya2010foundations} and other serialization formats.
+Any \XML, \JSON, or Protocol Buffers data can be viewed as a \Hedge, and schema languages such as \RelaxNG, \DTD~\cite{dtd}, XMLSchema~\cite{xmlschema}, and JSON~Schema~\cite{jsonschemafoundations} can all be translated to \emph{regular hedge grammars}~\cite{murata2005taxonomy}, barring the \JSONSchema \uniqueItems and \dynamicRef operators, which are not regular~\cite{modernjsonschema,holstege2019application}.
+
+A \emph{hedge} is an ordered list of unranked trees~\cite{tata} used to model semi-structured data formats. In Lean, we define a \Hedge inductively as follows:
+\begin{lstlisting}[label=Hedge]
+inductive Hedge.Node (α: Type) where
+  | node (label: α) (children: List (Hedge.Node α))
+abbrev Hedge α := List (Hedge.Node α)
+\end{lstlisting}
+
+We borrow our definition of \emph{regular hedge grammars} from \cite{murata2005taxonomy}, which in turn extends the definition of regular tree grammars from \cite{tata}.
+\begin{definition}
+\label{definition_grammar}
+A \emph{regular hedge grammar} is a tuple $(N, T, Start, Prods)$ where:
+\begin{itemize}
+    \item $N$ is a finite set of non-terminals;
+    \item $T$ is a finite set of terminals;
+    \item $Start$ is a regular expression over $T \times N$;
+    \item $Prods$ is a set of production rules of the form $X \rightarrow r$, where $X \in N$ and $r$ are regular expressions over $T \times N$.
+\end{itemize}
+\end{definition}
+
+A \emph{symbolic regular hedge grammar} is a generalization of a regular hedge grammar that is paired with a decidable predicate (\lstinline{Φ: φ → α → Bool}), where $T$ is a finite set of symbolic predicates (\lstinline{φ}) over a possibly infinite alphabet (\lstinline{α}).
+We represent symbolic regular hedge grammars in Lean as follows:
+\begin{lstlisting}[label=Grammar]
+structure Grammar (n: Nat) (φ: Type) where
+  start: Regex (φ × Ref n)
+  prods: Vector (Regex (φ × Ref n)) n
+\end{lstlisting}
+In Lean, a \lstinline{Vector} has an underlying presentation of a list, but it includes a length as a parameter in the type.
+In the rest of this section, we justify the representation.
+
+Non-terminals are represented as a reference \Reference, which is the abbreviation for the set of natural numbers smaller than \lstinline{n}:
+\begin{lstlisting}[label=Ref]
+abbrev Ref (n: Nat) := Fin n
+def lookup (G: Grammar n φ) (ref: Ref n): Regex (φ × Ref n) :=
+  Vector.get G.prods ref
+\end{lstlisting}
+The start and production rules are represented as a \Rule, which is the product of the predicate \lstinline{φ} and the reference.
+The indices of the \lstinline{Vector} of production rules are used for the non-terminals, which allows us to write a \lstinline{lookup} function that always returns a unique rule.
+Our definition does not allow multiple rules per non-terminal, but this can easily be accommodated using the \lstinline{Regex.or} operator.
+
+These grammars also have useful theoretical properties.
+They are closed under union, intersection, and complement. 
+Their decidable properties include satisfiability and checking whether one grammar is a subset of another, which is used for type checking~\cite{hosoya2003xduce}.
+Each recursion from a lookup only occurs after an evaluation of a predicate \lstinline{φ}.
+This disallows arbitrary \CFGs with undecidable properties~\cite{hosoya2003xduce}.
+
+The following is an example of a simple inductive predicate type, \lstinline{Pred}, together with its corresponding decidable evaluation function \lstinline{Pred.evalb}:
+\begin{lstlisting}[label=AnyEqPred]
+inductive Pred (α: Type) where | any | eq (t: α)
+def Pred.evalb {α: Type} [DecidableEq α] (p: Pred α) (x: α): Bool :=
+  match p with | Pred.eq y => x = y | Pred.any => true
+\end{lstlisting}
+In practice, the predicate type supports complex nested functions, including Unicode normalization, case folding, and \JSONSchema \format validations (such as email, IPv4, and dates).
+
+
+The following example illustrates a regular hedge grammar:
+\begin{lstlisting}[label=def example_grammar_doc]
+def example_grammar_doc: Grammar 3 (Pred String) :=
+  Grammar.mk (start := Regex.symbol (Pred.eq "doc", 0))
+    (prods := #v[Regex.oneOrMore (Regex.symbol (Pred.eq "p", 1)),
+      Regex.symbol (Pred.any, 2), Regex.emptystr])
+\end{lstlisting}
+Note, the \lstinline{Vector} of production rules is constructed with the macro \lstinline{#v[]}.
+This grammar validates the \XML snippet \lstinline{<doc>}\allowbreak\lstinline{<p>}\allowbreak\lstinline{<pcdata/>}\allowbreak\lstinline{</p>}\allowbreak\lstinline{<p>}\allowbreak\lstinline{<br/>}\allowbreak\lstinline{</p>}\allowbreak\lstinline{</doc>}.
+
 \subsection{Derivative of a Regular Hedge Grammar}
 
-Holstege~\cite{holstege2019application} applied a derivative algorithm to JSON~Schema; we refer to this as the JSONmembers algorithm.
-They treat the derivative of a regular hedge grammar similarly to the derivative of a regular expression, but with special handling for the \lstinline{symbol} case:
+To understand the Katydid algorithm, it instructive to first look at the JSONmember~\cite{holstege2019application} algorithm.
+It treats the derivative of a regular hedge grammar similarly to the derivative of a regular expression, but with special handling for the \lstinline{symbol} case:
 \begin{lstlisting}[label=def Grammar.JSONmembers.derive]
 def Grammar.JSONmembers.derive (G: Grammar n φ) (Φ: φ → α → Bool)
   (r: Regex (φ × Ref n)) (t: Node α): Regex (φ × Ref n) := match r with
@@ -724,14 +714,14 @@ def validate (G: Grammar n φ) (Φ: φ → α → Bool)
  
 To demonstrate how memoization improves the performance of derivative-based filtering over regular hedge grammars, we make the following definitions.
 A function is \emph{memoizable} if its input parameters can be hashed and have decidable equality. 
-We express this as a Lean \lstinline{class} using a Monad \lstinline{m} for stateful caching:
+We express this as a Lean \lstinline{class} using a Monad \lstinline{m}~\cite{monadswadler} for stateful caching:
 \begin{lstlisting}[label=Memoize]
 class Memoize [DecidableEq α] [Hashable α] {β: α → Type}
   (f: (a: α) → β a) (m: Type → Type u)
   where call: (a: α) → m { b: β a // b = f a }
 \end{lstlisting}
 The return type is expressed as a \lstinline{Subtype}, \lstinline|{ b: β a // b = f a }|, which has a value \lstinline{b} and a property that the value is equal to the output value of the original non-memoized function \lstinline{f}.
-Other formalizations~\cite{formalmem} additionally have an invariant that input and output values have to be stored, but the \lstinline{Memoize} class allows various caching strategies, including limited space strategies.
+Other formalizations~\cite{formalmem} additionally have an invariant that input and output values have to be stored, but the \lstinline{Memoize} class allows various caching strategies, for example to not memoize every key in order to save space.
 
 We define memoized versions of the derivative, validate, and filter functions for both regular expressions and regular hedge grammars in the \supplementarymaterial.
 Here is a filter type signature as an example:
@@ -817,12 +807,12 @@ def Rule.denote (G: Grammar n φ) (Φ: φ → α → Bool)
       ∧ (denote G Φ r2 (List.get (List.interleaves h) i).2)
   termination_by (h, r)
 \end{lstlisting}
-We base this denotation on the denotation of regular expressions~\cite{elliott2021symbolic} and prove it to be equivalent to any alterations we made in the \supplementarymaterial, except for the \lstinline{symbol} and \lstinline{interleave} operators, which we had to define ourselves.
+We base this denotation on the denotation of regular expressions~\cite{elliott2021symbolic} and in the \supplementarymaterial we prove that it is equivalent to any alterations we made, except for the \lstinline{symbol} and \lstinline{interleave} operators, which we had to define ourselves.
 The \lstinline{emptyset} specifies a set that contains nothing, while the \lstinline{emptystr} is a singleton set containing the empty list.
 The \lstinline{symbol} construct describes only languages consisting of a single \Node, where the node’s label satisfies the predicate \lstinline{pred} and its children belong to the referenced language.
 The \lstinline{or} expression denotes the union of two languages, whereas the \lstinline{concat} expression contains a \Hedge only if it can be decomposed into a prefix and a suffix, such that the prefix belongs to the first language and the suffix belongs to the second.
 The \lstinline{star} expression includes the empty list and any combination of a prefix from the underlying expression \lstinline{r1} followed by any number of its repetitions.
-The \lstinline{interleave} of two languages only matches if the two languages match one of the possible interleaves of the \Hedge:
+The \lstinline{interleave}~\cite{relaxng2001simple} of two languages only matches if the two languages match one of the possible interleaves of the \Hedge:
 \begin{lstlisting}
 def interleaves (xs: List α) (acc: List (List α × List α) := [([], [])])
   : List (List α × List α) := match xs with
@@ -831,7 +821,6 @@ def interleaves (xs: List α) (acc: List (List α × List α) := [([], [])])
               ++ (interleaves xs acc).map (fun res => (res.1, x::res.2))
 #guard (interleaves [1,2,3,4]).contains ([1,3],[2,4])
 \end{lstlisting}
-We use this definition to avoid termination issues and prove it equivalent to an alternative definition~\cite{relaxng2001simple}, in the \supplementarymaterial, to regain confidence.
 
 Verifying the correctness of this denotation is simplified by observing that the \RuleDenote function coincides with the denotation of a \Regex in all cases except \lstinline{symbol}:
 \begin{lstlisting}[label=def Regex.denote]
@@ -1034,7 +1023,7 @@ We start each call to \fusedDerive with a check to determine whether we can skip
 We then check if the \Hint is a \lstinline{value} or \lstinline{enter}, in which case we can either loop through all the values or recurse until a \lstinline{leave} \Hint is received.
 Handling this new traversal order requires the memoized functions (\lstinline{enterM} and \lstinline{leaveM}) to be adjusted to operate on a Vector of \Regex rather than on a single \Regex.
 The newly adjusted functions \lstinline{entersM} and \lstinline{leavesM} require the length of the Vector to also be memoized; hence, the addition of \lstinline{l} in their dependent pair parameters, which is constructed using \lstinline{⟨⟩}.
-We use Lean's notation for Monads (\lstinline{do}, \lstinline{←}, \lstinline{;}, \lstinline{<$>}) to check for errors, handle the mutation of the parser state and memoization table, implement an imperative loop (\lstinline{while}), do control flow via an early \lstinline{return}, and handle mutable variables (\lstinline{mut}, \lstinline{:=}).
+We use a monad to check for errors, handle the mutation of the parser state and memoization table, implement an imperative loop (\lstinline{while}), do control flow via an early \lstinline{return}, and handle mutable variables (\lstinline{mut}, \lstinline{:=}).
 Notice that the predicate evaluation function \lstinline{Φ} is responsible for calling the \lstinline{token} method so that it is only done if it is truly necessary.
 We define \fusedDerive using \lstinline{partial} since we have not proven that it terminates.
 
@@ -1056,7 +1045,6 @@ The resulting Vector \lstinline{childbs} is then decompressed to match the origi
 \subsection{Supporting \JSONSchema}
 
 Holstege~\cite{holstege2019application} explains how \JSONSchema can be converted to \emph{tagged-type regular expressions}.
-They support additional operators, including \lstinline{ifthenelse}.
 They show that translation is possible, except for non-regular operators such as \uniqueItems and \dynamicRef.
 Unlike \uniqueItems, \dynamicRef is still an unpopular feature.
 After analyzing 31,000 schemas, Viotti and Mior~\cite{blaze} found only 10 uses of \dynamicRef on \GitHub.
@@ -1354,7 +1342,7 @@ More specifically, Hosoya and Murata~\cite{hosoya2002validation} presented a val
 From a complexity perspective, this approach by Hosoya and Murata~\cite{hosoya2002validation} offers a linear-time membership for deterministic compiled automata, polynomial-time uniform membership in the automaton-as-input setting, and good compatibility with event-driven \XML parsing. 
 Its main trade-off against derivatives is that it shifts work toward compilation, determinization, and automaton manipulation, whereas derivatives keep the runtime representation closer to the source schema and can exploit laziness and memoization on the actually visited part of the state space.
 
-\VPA~\cite{alur2004visibly} were also considered, as they have been used successfully for complex \XML processing~\cite{mozafari2012high} as well as for fast filtering~\cite{kumar2007visibly}.
+\VPA~\cite{alur2004visibly} were also considered for the basis of the Katydid algorithm, as they have been used successfully for complex \XML processing~\cite{mozafari2012high} as well as for fast filtering~\cite{kumar2007visibly}.
 These automata include a stack and a call and return function, which we could apply to regular hedge grammars.
 We can construct a \VPA lazily by memoizing derivatives.
 These memoization tables would also be larger and result in fewer hits because of the large input alphabet and variance in the labels of the text nodes, similar to \RelaxNG, but the state space would be bounded.
