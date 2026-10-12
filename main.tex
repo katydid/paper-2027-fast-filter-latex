@@ -757,7 +757,7 @@ theorem memoize_mem_filter [DecidableEq φ] [Hashable φ] (state: ...)
        (Grammar.Memoize.filter G Φ xs))).val)
     ↔ (x ∈ xs ∧ Grammar.denote G Φ x)
 \end{lstlisting}
-We instantiate \MemoizeKatydid with a \lstinline{State} monad and two hashtables, but the instance is not important since the proof follows by generalizing these and using the soundness that was propagated to \GrammarMemoizeFilter.
+We instantiate \MemoizeKatydid with a \lstinline{State} monad and two hashtables, but the instance is not important since the proof follows by generalizing these and using the soundness that was propagated to the Subtype of \GrammarMemoizeFilter.
 
 It remains to show that the semantics of a regular hedge grammar coincide with the implementation of the Katydid algorithm:
 \begin{lstlisting}[label=theorem validate_commutes]
@@ -1044,8 +1044,7 @@ The resulting Vector \lstinline{childbs} is then decompressed to match the origi
 
 \subsection{Supporting \JSONSchema}
 
-Holstege~\cite{holstege2019application} explains how \JSONSchema can be converted to \emph{tagged-type regular expressions}.
-They show that translation is possible, except for non-regular operators such as \uniqueItems and \dynamicRef.
+We implement a translation algorithm from \JSONSchema to regular hedge grammars, which supports all operators except \uniqueItems and \dynamicRef~\cite{holstege2019application}.
 Unlike \uniqueItems, \dynamicRef is still an unpopular feature.
 After analyzing 31,000 schemas, Viotti and Mior~\cite{blaze} found only 10 uses of \dynamicRef on \GitHub.
 
@@ -1306,7 +1305,7 @@ This implies that some validation preprocessing happens during parse time.
 % https://github.com/sourcemeta/core/blob/main/src/core/json/include/sourcemeta/core/json_object.h#L42C12-L42C46
 
 We found our original inspiration for using derivatives to filter semi-structured data from \RelaxNG~\cite{relaxng2001simple}, which converts their regular hedge grammar to a \BCFG on the fly while taking the derivative.
-A \BCFG is a \CFG where every production rule is enclosed by matching terminals.
+A \BCFG is a \CFG where every production rule is balanced by enclosing matching terminals.
 These terminals function like \XML opening and closing tags, ensuring that each rule is explicitly delimited.
 This avoids the left-recursion issues that arise when applying derivatives to \CFGs~\cite{might2011parsing} and enables the use of a simple derivative algorithm based on regular expressions with reference lookups.
 \RelaxNG also includes additional operators, such as \emph{interleave}, to model semi-structured \XML content, in particular, the unordered nature of attributes.
